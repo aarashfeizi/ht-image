@@ -681,13 +681,10 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_n
     if split_path == '':
         split_path = dataset_path
 
-    if split_type == 'original':
-        image_path, image_labels = _read_org_split(split_path, mode)
-    elif split_type == 'new':
-        image_path, image_labels = _read_new_split(os.path.join(split_path, split_file_name), mode, dataset_name)
-        if mode != 'train':
-            image_path_bg, image_labels_bg = _read_new_split(os.path.join(split_path, split_file_name),
-                                                             background_datasets[mode], dataset_name)
+    image_path, image_labels = _read_new_split(os.path.join(split_path, split_file_name), mode, dataset_name)
+    if mode != 'train':
+        image_path_bg, image_labels_bg = _read_new_split(os.path.join(split_path, split_file_name),
+                                                         background_datasets[mode], dataset_name)
 
     if portion > 0:
         image_path = image_path[image_labels < portion]

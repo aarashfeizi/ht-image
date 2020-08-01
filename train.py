@@ -144,7 +144,7 @@ def main():
         loss_fn = torch.nn.BCEWithLogitsLoss(reduction='mean')
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
-        loss_fn = TripletLoss(margin=args.margin)
+        loss_fn = TripletLoss(margin=args.margin, args=args)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
 

@@ -18,6 +18,8 @@ class HotelTrain_Metric(Dataset):
         self.no_negative = args.no_negative
         self.mask = args.mask
 
+
+
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
                                                                                   split_file_name=args.splits_file_name,
@@ -44,21 +46,24 @@ class HotelTrain_Metric(Dataset):
         pos = Image.open(random.choice(self.datas[anch_class]))
 
         # get neg image from different class
-        neg_idx = random.randint(0, self.num_classes - 1)
-        neg_class = self.labels[neg_idx]
-
-        while anch_class == neg_class:
+        negs = []
+        for i in range(self.no_negative):
             neg_idx = random.randint(0, self.num_classes - 1)
             neg_class = self.labels[neg_idx]
 
-            # class1 = self.labels[idx1]
+            while anch_class == neg_class:
+                neg_idx = random.randint(0, self.num_classes - 1)
+                neg_class = self.labels[neg_idx]
 
-            # image1 = Image.open(random.choice(self.datas[self.class1]))
-        neg = Image.open(random.choice(self.datas[neg_class]))
+                # class1 = self.labels[idx1]
+
+                # image1 = Image.open(random.choice(self.datas[self.class1]))
+            neg = Image.open(random.choice(self.datas[neg_class]))
+            neg = neg.convert('RGB')
+            negs.append(neg)
 
         anch = anch.convert('RGB')
         pos = pos.convert('RGB')
-        neg = neg.convert('RGB')
         save = False
         if self.transform:
             if self.save_pictures and random.random() < 0.0001:
@@ -66,15 +71,18 @@ class HotelTrain_Metric(Dataset):
                 img1_random = random.randint(0, 1000)
                 img2_random = random.randint(0, 1000)
                 anch.save(f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_before.png')
-                neg.save(f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_before.png')
+                negs[0].save(f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_before.png')
 
             anch = self.transform(anch)
             pos = self.transform(pos)
-            neg = self.transform(neg)
+            for i, neg in enumerate(negs):
+                negs[i] = self.transform(neg)
+
+            neg = torch.stack(negs)
 
             if save:
                 save_image(anch, f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_after.png')
-                save_image(neg, f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_after.png')
+                save_image(negs[0], f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_after.png')
 
         return anch, pos, neg
 

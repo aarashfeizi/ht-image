@@ -2,10 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class TripletLoss(nn.Module):
-    def __init__(self, margin):
+    def __init__(self, args, margin):
         super(TripletLoss, self).__init__()
         self.margin = margin
+        self.no_negative = args.no_negative
+        self.loss = 0
 
     def forward(self, anch, pos, neg):
         pos_dist = torch.dist(anch, pos)
@@ -15,4 +18,11 @@ class TripletLoss(nn.Module):
 
         loss = F.relu(dist)
 
-        return loss
+        self.loss += loss
+
+        return True
+
+    def get_loss(self):
+        ret = self.loss
+        self.loss = 0
+        return ret

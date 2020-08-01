@@ -25,6 +25,8 @@ class ModelMethods:
         self.model = model
         self.model_name = self._parse_args(args)
 
+        self.no_negative = args.no_negative
+
         self.tensorboard_path = os.path.join(args.tb_path, self.model_name + id_str)
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
@@ -188,6 +190,7 @@ class ModelMethods:
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
 
                     # print('input: ', img1.size())
+                    neg = neg.squeeze(dim=1)
 
                     one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
                     zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
@@ -212,20 +215,28 @@ class ModelMethods:
 
                     net.train()
                     opt.zero_grad()
-
                     output_pos, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                    output_neg, anch_feat, neg_feat = net.forward(anch, neg, feats=True)
-
                     metric.update_acc(output_pos.squeeze(), one_labels.squeeze())
-                    metric.update_acc(output_neg.squeeze(), zero_labels.squeeze())
-
                     bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
-                    bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
-                    loss = loss_fn(anch_feat, pos_feat, neg_feat)
-                    # print('loss: ', loss.item())
-                    train_loss += loss.item()
-                    train_loss_bces += (bce_loss_value_neg.item() + bce_loss_value_pos.item()) / 2
+                    train_loss_bces += (bce_loss_value_pos.item())
+                    neg_bce_losses = 0
+                    print(neg.size())
+                    for iter in range(self.no_negative):
+                        output_neg, anch_feat, neg_feat = net.forward(anch, neg[iter::self.no_negative, :, :, :],
+                                                                      feats=True)
 
+                        metric.update_acc(output_neg.squeeze(), zero_labels.squeeze())
+
+                        loss_fn(anch_feat, pos_feat, neg_feat)
+                        bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
+
+                        neg_bce_losses += (bce_loss_value_neg.item())
+                    # print('loss: ', loss.item())
+
+                    train_loss_bces += neg_bce_losses / self.no_negative
+
+                    loss = loss_fn.get_loss()
+                    train_loss += loss.item()
                     # print(loss.grad)
                     # import pdb
                     # pdb.set_trace()
@@ -255,32 +266,26 @@ class ModelMethods:
                     val_acc_unknwn, val_acc_knwn = -1, -1
 
                     if args.eval_mode == 'fewshot':
-                        if not self.new_split_type:
-                            val_rgt, val_err, val_acc = self.test_fewshot(args, net, val_loaders_fewshot[0], bce_loss,
-                                                                          val=True,
-                                                                          epoch=epoch)
-                            self.test_metric(args, net, val_loaders[0], loss_fn, val=True,
-                                             epoch=epoch)
-                        else:
-                            val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
-                                                                                         val_loaders_fewshot[0],
-                                                                                         bce_loss, val=True,
-                                                                                         epoch=epoch, comment='known')
-                            self.test_metric(args, net, val_loaders[0],
-                                             loss_fn, val=True,
-                                             epoch=epoch, comment='known')
 
-                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
-                                                                                               val_loaders_fewshot[1],
-                                                                                               bce_loss,
-                                                                                               val=True,
-                                                                                               epoch=epoch,
-                                                                                               comment='unknown')
-                            self.test_metric(args, net,
-                                             val_loaders[1], loss_fn,
-                                             val=True,
-                                             epoch=epoch,
-                                             comment='unknown')
+                        val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
+                                                                                     val_loaders_fewshot[0],
+                                                                                     bce_loss, val=True,
+                                                                                     epoch=epoch, comment='known')
+                        self.test_metric(args, net, val_loaders[0],
+                                         loss_fn, val=True,
+                                         epoch=epoch, comment='known')
+
+                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
+                                                                                           val_loaders_fewshot[1],
+                                                                                           bce_loss,
+                                                                                           val=True,
+                                                                                           epoch=epoch,
+                                                                                           comment='unknown')
+                        self.test_metric(args, net,
+                                         val_loaders[1], loss_fn,
+                                         val=True,
+                                         epoch=epoch,
+                                         comment='unknown')
 
                     elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                         val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -288,47 +293,36 @@ class ModelMethods:
                     else:
                         raise Exception('Unsupporeted eval mode')
 
-                    if self.new_split_type:
-                        self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
-                        self.logger.info('*' * 30)
-                        if val_acc_knwn > max_val_acc_knwn:
-                            self.logger.info(
-                                'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
-                            self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
-                            max_val_acc_knwn = val_acc_knwn
-
-                        if val_acc_unknwn > max_val_acc_unknwn:
-                            self.logger.info(
-                                'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
-                            self.logger.info(
-                                'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
-                            max_val_acc_unknwn = val_acc_unknwn
-
-                        val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
-                                val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
-
-                        self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
-                        self.writer.flush()
-
-                        val_rgt = (val_rgt_knwn + val_rgt_unknwn)
-                        val_err = (val_err_knwn + val_err_unknwn)
-
-                    if val_acc > max_val_acc:
-                        val_counter = 0
+                    self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
+                    self.logger.info('*' * 30)
+                    if val_acc_knwn > max_val_acc_knwn:
                         self.logger.info(
-                            'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
-                        best_model = self.save_model(args, net, epoch, val_acc)
-                        max_val_acc = val_acc
+                            'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
+                        self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
+                        max_val_acc_knwn = val_acc_knwn
 
-                    else:
-                        val_counter += 1
-                        self.logger.info('Not saving, best val [%f], current was [%f]' % (max_val_acc, val_acc))
+                    if val_acc_unknwn > max_val_acc_unknwn:
+                        self.logger.info(
+                            'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
+                        self.logger.info(
+                            'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
+                        max_val_acc_unknwn = val_acc_unknwn
 
-                        if val_counter >= val_tol:  # early stopping
-                            self.logger.info(
-                                '*** Early Stopping, validation acc did not exceed [%f] in %d val accuracies ***' % (
-                                    max_val_acc, val_tol))
-                            break
+                    val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
+                            val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
+
+                    self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                    self.writer.flush()
+
+                    val_rgt = (val_rgt_knwn + val_rgt_unknwn)
+                    val_err = (val_err_knwn + val_err_unknwn)
+
+                if val_acc > max_val_acc:
+                    val_counter = 0
+                    self.logger.info(
+                        'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
+                    best_model = self.save_model(args, net, epoch, val_acc)
+                    max_val_acc = val_acc
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
@@ -434,18 +428,15 @@ class ModelMethods:
                     val_acc_unknwn, val_acc_knwn = -1, -1
 
                     if args.eval_mode == 'fewshot':
-                        if not self.new_split_type:
-                            val_rgt, val_err, val_acc = self.test_fewshot(args, net, val_loaders[0], loss_fn, val=True,
-                                                                          epoch=epoch)
-                        else:
-                            val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net, val_loaders[0],
-                                                                                         loss_fn, val=True,
-                                                                                         epoch=epoch, comment='known')
-                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
-                                                                                               val_loaders[1], loss_fn,
-                                                                                               val=True,
-                                                                                               epoch=epoch,
-                                                                                               comment='unknown')
+
+                        val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net, val_loaders[0],
+                                                                                     loss_fn, val=True,
+                                                                                     epoch=epoch, comment='known')
+                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
+                                                                                           val_loaders[1], loss_fn,
+                                                                                           val=True,
+                                                                                           epoch=epoch,
+                                                                                           comment='unknown')
 
                     elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                         val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -453,47 +444,37 @@ class ModelMethods:
                     else:
                         raise Exception('Unsupporeted eval mode')
 
-                    if self.new_split_type:
-                        self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
-                        self.logger.info('*' * 30)
-                        if val_acc_knwn > max_val_acc_knwn:
-                            self.logger.info(
-                                'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
-                            self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
-                            max_val_acc_knwn = val_acc_knwn
 
-                        if val_acc_unknwn > max_val_acc_unknwn:
-                            self.logger.info(
-                                'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
-                            self.logger.info(
-                                'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
-                            max_val_acc_unknwn = val_acc_unknwn
-
-                        val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
-                                val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
-
-                        self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
-                        self.writer.flush()
-
-                        val_rgt = (val_rgt_knwn + val_rgt_unknwn)
-                        val_err = (val_err_knwn + val_err_unknwn)
-
-                    if val_acc > max_val_acc:
-                        val_counter = 0
+                    self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
+                    self.logger.info('*' * 30)
+                    if val_acc_knwn > max_val_acc_knwn:
                         self.logger.info(
-                            'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
-                        best_model = self.save_model(args, net, epoch, val_acc)
-                        max_val_acc = val_acc
+                            'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
+                        self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
+                        max_val_acc_knwn = val_acc_knwn
 
-                    else:
-                        val_counter += 1
-                        self.logger.info('Not saving, best val [%f], current was [%f]' % (max_val_acc, val_acc))
+                    if val_acc_unknwn > max_val_acc_unknwn:
+                        self.logger.info(
+                            'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
+                        self.logger.info(
+                            'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
+                        max_val_acc_unknwn = val_acc_unknwn
 
-                        if val_counter >= val_tol:  # early stopping
-                            self.logger.info(
-                                '*** Early Stopping, validation acc did not exceed [%f] in %d val accuracies ***' % (
-                                    max_val_acc, val_tol))
-                            break
+                    val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
+                            val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
+
+                    self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                    self.writer.flush()
+
+                    val_rgt = (val_rgt_knwn + val_rgt_unknwn)
+                    val_err = (val_err_knwn + val_err_unknwn)
+
+                if val_acc > max_val_acc:
+                    val_counter = 0
+                    self.logger.info(
+                        'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
+                    best_model = self.save_model(args, net, epoch, val_acc)
+                    max_val_acc = val_acc
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
