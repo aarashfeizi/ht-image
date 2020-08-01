@@ -127,3 +127,19 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# custom
+.idea/
+
+*.csv
+k_at_n_results/
+dummy_splits_50k/
+log/
+savedmodels/
+splits_50k/
+tensorboard/
+local_cc_job.sh
+cc_job.sh/
+hotels_trainval/
+logs/
+
