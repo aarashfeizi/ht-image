@@ -190,7 +190,6 @@ class ModelMethods:
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
 
                     # print('input: ', img1.size())
-                    neg = neg.squeeze(dim=1)
 
                     one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
                     zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
@@ -222,7 +221,7 @@ class ModelMethods:
                     neg_bce_losses = 0
                     print(neg.size())
                     for iter in range(self.no_negative):
-                        output_neg, anch_feat, neg_feat = net.forward(anch, neg[iter::self.no_negative, :, :, :],
+                        output_neg, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
                                                                       feats=True)
 
                         metric.update_acc(output_neg.squeeze(), zero_labels.squeeze())
@@ -247,7 +246,7 @@ class ModelMethods:
                     # self.getBack(loss.grad_fn)
 
                     opt.step()
-                    t.set_postfix(triplet_loss=f'{train_loss / batch_id:.4f}',
+                    t.set_postfix(triplet_loss=f'{train_loss / (batch_id * self.no_negative) :.4f}',
                                   bce_loss=f'{train_loss_bces / batch_id:.4f}',
                                   train_acc=f'{metric.get_acc():.4f}')
 
@@ -255,7 +254,7 @@ class ModelMethods:
 
                     t.update()
 
-                self.writer.add_scalar('Train/Triplet_Loss', train_loss / len(train_loader), epoch)
+                self.writer.add_scalar('Train/Triplet_Loss', train_loss / len(train_loader) * self.no_negative, epoch)
                 self.writer.add_scalar('Train/BCE_Loss', train_loss_bces / len(train_loader), epoch)
                 self.writer.add_scalar('Train/Acc', metric.get_acc(), epoch)
                 self.writer.flush()
@@ -558,23 +557,28 @@ class ModelMethods:
         test_label = np.zeros(shape=args.way, dtype=np.float32)
         test_label[0] = 1
         test_label = torch.from_numpy(test_label).reshape((args.way, 1))
-
+        test_loss = 0
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
-
-            neg = neg.squeeze(dim=1)
 
             if args.cuda:
                 anch, pos, neg = anch.cuda(), pos.cuda(), neg.cuda()
             anch, pos, neg = Variable(anch), Variable(pos), Variable(neg)
 
+            ###
             output_, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-            output, anch_feat, neg_feat = net.forward(anch, neg, feats=True)
+            for iter in range(self.no_negative):
+                output, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                                                              feats=True)
 
-            test_loss = loss_fn(anch_feat, pos_feat, neg_feat)
+                loss_fn(anch_feat, pos_feat, neg_feat)
+
+
+            loss = loss_fn.get_loss() #todo
+            test_loss += loss.item()
 
         self.logger.info('$' * 70)
 
-        self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss, epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
 
