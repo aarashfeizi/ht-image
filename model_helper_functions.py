@@ -226,7 +226,7 @@ class ModelMethods:
 
                         metric.update_acc(output_neg.squeeze(), zero_labels.squeeze())
 
-                        loss_fn(anch_feat, pos_feat, neg_feat)
+                        #temp# loss_fn(anch_feat, pos_feat, neg_feat)
                         bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
 
                         neg_bce_losses += (bce_loss_value_neg.item())
@@ -234,18 +234,19 @@ class ModelMethods:
 
                     train_loss_bces += neg_bce_losses / self.no_negative
 
-                    loss = loss_fn.get_loss()
+                    loss = loss_fn(anch_feat, pos_feat, neg_feat)
+                    #temp# loss = loss_fn.get_loss()
                     train_loss += loss.item()
                     # print(loss.grad)
                     # import pdb
                     # pdb.set_trace()
 
                     loss.backward()  # training with triplet loss
+                    opt.step()
                     # plt = self.plot_grad_flow(net.named_parameters())
                     # pdb.set_trace()
                     # self.getBack(loss.grad_fn)
 
-                    opt.step()
                     t.set_postfix(triplet_loss=f'{train_loss / (batch_id * self.no_negative) :.4f}',
                                   bce_loss=f'{train_loss_bces / batch_id:.4f}',
                                   train_acc=f'{metric.get_acc():.4f}')
@@ -570,10 +571,11 @@ class ModelMethods:
                 output, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
-                loss_fn(anch_feat, pos_feat, neg_feat)
+                #temp# loss_fn(anch_feat, pos_feat, neg_feat)
 
 
-            loss = loss_fn.get_loss() #todo
+            #temp# loss = loss_fn.get_loss() #todo
+            loss = loss_fn(anch_feat, pos_feat, neg_feat)
             test_loss += loss.item()
 
         self.logger.info('$' * 70)

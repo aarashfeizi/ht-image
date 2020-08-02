@@ -9,6 +9,7 @@ import utils
 from hotel_dataloader import *
 from models.top_model import *
 from losses import TripletLoss
+import torch
 import os
 
 ###
@@ -144,7 +145,8 @@ def main():
         loss_fn = torch.nn.BCEWithLogitsLoss(reduction='mean')
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
-        loss_fn = TripletLoss(margin=args.margin, args=args)
+        # loss_fn = TripletLoss(margin=args.margin, args=args)
+        loss_fn = torch.nn.TripletMarginLoss(margin=args.margin, p=2)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
 
