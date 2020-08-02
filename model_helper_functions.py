@@ -560,6 +560,9 @@ class ModelMethods:
         test_label = torch.from_numpy(test_label).reshape((args.way, 1))
 
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
+
+            neg = neg.squeeze(dim=1)
+
             if args.cuda:
                 anch, pos, neg = anch.cuda(), pos.cuda(), neg.cuda()
             anch, pos, neg = Variable(anch), Variable(pos), Variable(neg)
