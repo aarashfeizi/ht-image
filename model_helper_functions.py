@@ -214,19 +214,29 @@ class ModelMethods:
 
                     net.train()
                     opt.zero_grad()
-                    output_pos, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                    output_pos, anch_feat, pos_feat, pos_dist = net.forward(anch, pos, feats=True, dist=True)
                     metric.update_acc(output_pos.squeeze(), one_labels.squeeze())
                     bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     train_loss_bces += (bce_loss_value_pos.item())
                     neg_bce_losses = 0
-                    print(neg.size())
                     for iter in range(self.no_negative):
-                        output_neg, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
-                                                                      feats=True)
+                        output_neg, anch_feat, neg_feat, neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                                                                      feats=True, dist=True)
+
+                        self.logger.info(f'pos_dist = {(pos_dist ** 2).sum(dim=1)}')
+                        self.logger.info(f'neg_dist = {(neg_dist ** 2).sum(dim=1)}')
+                        self.logger.info(f'pos - neg = {(pos_dist ** 2).sum(dim=1) - (neg_dist ** 2).sum(dim=1)}')
+                        self.logger.info(f'pos_dist_total = {sum((pos_dist ** 2).sum(dim=1))}')
+                        self.logger.info(f'neg_dist_total = {sum((neg_dist ** 2).sum(dim=1))}')
 
                         metric.update_acc(output_neg.squeeze(), zero_labels.squeeze())
 
                         #temp# loss_fn(anch_feat, pos_feat, neg_feat)
+                        if iter == 0:
+                            loss = loss_fn(anch_feat, pos_feat, neg_feat)
+                        else:
+                            loss += loss_fn(anch_feat, pos_feat, neg_feat)
+
                         bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
 
                         neg_bce_losses += (bce_loss_value_neg.item())
@@ -234,8 +244,7 @@ class ModelMethods:
 
                     train_loss_bces += neg_bce_losses / self.no_negative
 
-                    loss = loss_fn(anch_feat, pos_feat, neg_feat)
-                    #temp# loss = loss_fn.get_loss()
+
                     train_loss += loss.item()
                     # print(loss.grad)
                     # import pdb
@@ -571,11 +580,12 @@ class ModelMethods:
                 output, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
-                #temp# loss_fn(anch_feat, pos_feat, neg_feat)
+                if iter == 0:
+                    loss = loss_fn(anch_feat, pos_feat, neg_feat)
+                else:
+                    loss += loss_fn(anch_feat, pos_feat, neg_feat)
 
 
-            #temp# loss = loss_fn.get_loss() #todo
-            loss = loss_fn(anch_feat, pos_feat, neg_feat)
             test_loss += loss.item()
 
         self.logger.info('$' * 70)

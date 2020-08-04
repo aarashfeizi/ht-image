@@ -33,7 +33,7 @@ class LiSiamese(nn.Module):
             x = self.layer1(x)
         return x
 
-    def forward(self, x1, x2, single=False, feats=False):
+    def forward(self, x1, x2, single=False, feats=False, dist=False):
         out1 = self.forward_one(x1)
         if single:
             return out1
@@ -43,6 +43,12 @@ class LiSiamese(nn.Module):
         out = self.out(dis)
         #  return self.sigmoid(out)
         if feats:
-            return out, out1, out2
+            if dist:
+                return out, out1, out2, dis
+            else:
+                return out, out1, out2
         else:
-            return out
+            if dist:
+                return out, dis
+            else:
+                return out

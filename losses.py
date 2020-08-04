@@ -18,11 +18,4 @@ class TripletLoss(nn.Module):
 
         loss = F.relu(dist)
 
-        self.loss += loss
-
-        return True
-
-    def get_loss(self):
-        ret = self.loss
-        self.loss = 0
-        return ret
+        return loss
