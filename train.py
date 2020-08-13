@@ -11,6 +11,7 @@ from models.top_model import *
 from losses import TripletLoss
 import os
 
+
 ###
 # todo for next week
 
@@ -77,6 +78,9 @@ def main():
             val_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode='val_unseen',
                                                        save_pictures=False)
 
+            train_classify = Hotel_DB(args, transform=data_transforms_train, mode='train')
+            val_classify = Hotel_DB(args, transform=data_transforms_train, mode='val')
+
         else:
             train_set = HotelTrain_FewShot(args, transform=data_transforms_train, mode='train', save_pictures=False)
             print('*' * 10)
@@ -95,7 +99,7 @@ def main():
 
         if args.cbir:
             db_set = Hotel_DB(args, transform=data_transforms_val, mode='val')
-            db_set_train = Hotel_DB(args, transform=data_transforms_val, mode='train')
+            db_set_train = Hotel_DB(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     else:
         logger.error(f'Dataset not suppored:  {args.dataset_name}')
@@ -132,6 +136,12 @@ def main():
     if args.metric_learning:
         val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
                                                    pin_memory)
+
+        # train_loader_classify = DataLoader(train_classify, batch_size=args.batch_size, shuffle=False,
+        #                                    num_workers=workers,
+        #                                    pin_memory=pin_memory)
+        # val_loader_classify = DataLoader(val_classify, batch_size=args.batch_size, shuffle=False, num_workers=workers,
+        #                                  pin_memory=pin_memory)
 
     if args.cbir:
         db_loader = DataLoader(db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,

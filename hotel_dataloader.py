@@ -4,9 +4,9 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.utils import save_image
 
 from utils import get_shuffled_data, loadDataToMem
-from torchvision.utils import save_image
 
 
 class HotelTrain_Metric(Dataset):
@@ -17,8 +17,6 @@ class HotelTrain_Metric(Dataset):
         self.save_pictures = save_pictures
         self.no_negative = args.no_negative
         self.mask = args.mask
-
-
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -114,12 +112,12 @@ class HotelTrain_FewShot(Dataset):
 
     def __getitem__(self, index):
         # image1 = random.choice(self.dataset.imgs)
-        label = None
+        label = None  # label is the distance between the two image. 0: same, 1: different
         img1 = None
         img2 = None
         # get image from same class
         if index % (self.no_negative + 1) == 0:
-            label = 1.0
+            label = 0.0
             idx1 = random.randint(0, self.num_classes - 1)
             self.class1 = self.labels[idx1]
             class2 = self.class1
@@ -127,7 +125,7 @@ class HotelTrain_FewShot(Dataset):
             image2 = Image.open(random.choice(self.datas[class2]))
         # get image from different class
         else:
-            label = 0.0
+            label = 1.0
             # idx1 = random.randint(0, self.num_classes - 1)
             idx2 = random.randint(0, self.num_classes - 1)
             class2 = self.labels[idx2]
@@ -253,24 +251,22 @@ class Hotel_DB(Dataset):
         self.transform = transform
 
         total = True
-
-        if 'seen' in mode:  # mode == *_seen or *_unseen
-            mode_tmp = mode
-            total = False
-        else:
+        if mode == 'val' or mode == 'test':  # mode == *_seen or *_unseen or train
             mode_tmp = mode + '_seen'
             total = True
+        else:
+            mode_tmp = mode
+            total = False
 
-        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
+        self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
                                                                                     args.dataset_name,
                                                                                     mode=mode_tmp,
                                                                                     split_file_name=args.splits_file_name,
                                                                                     portion=args.portion,
                                                                                     split_path=args.splits_path,
-                                                                                    dataset_folder=args.dataset_folder)
-
-        # if total:
-        self.all_shuffled_data = get_shuffled_data(self.datas_bg,
+                                                                                    dataset_folder=args.dataset_folder,
+                                                                                    return_bg=(mode != 'train'))
+        self.all_shuffled_data = get_shuffled_data(self.all_data,
                                                    seed=args.seed,
                                                    one_hot=False,
                                                    both_seen_unseen=True,

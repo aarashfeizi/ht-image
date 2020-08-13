@@ -14,6 +14,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
+import metrics
+
 try:
     from torch.hub import load_state_dict_from_url
 except ImportError:
@@ -67,143 +69,6 @@ class TransformLoader:
         transform_funcs = [self.parse_transform(x) for x in transform_list]
         transform = transforms.Compose(transform_funcs)
         return transform, transform_list
-
-
-class Metric:
-
-    def __init__(self):
-        self.rights = 0
-        self.wrongs = 0
-
-    def update_acc(self, output, label):
-        pred = (output >= 0)
-        # print(output.size())
-        # print(label.size())
-        # print('output: ', output)
-        # print(label)
-        # import pdb
-
-        # pdb.set_trace()
-        # print('pox.txt', sum(label.type(torch.int64) == pred.type(torch.int64)).cpu().numpy())
-        batch_rights = sum(label.type(torch.int64) == pred.type(torch.int64)).cpu().numpy()
-
-        # print(f'batch_rights: {batch_rights}')
-
-        self.rights += batch_rights
-        self.wrongs += (label.shape[0] - batch_rights)
-
-    def get_acc(self):
-        # print('rights: ', self.rights)
-        # print('wrongs: ', self.wrongs)
-        return (self.rights / (self.rights + self.wrongs)) * 100
-
-    def get_right_wrong(self):
-        return {'right': self.rights, 'wrong': self.wrongs}
-
-    def reset_acc(self):
-        self.rights = 0
-        self.wrongs = 0
-
-
-class Percision_At_K():
-
-    def __init__(self, classes=np.array([])):
-        self.k1 = 0
-        self.k5 = 0
-        self.k10 = 0
-        self.k100 = 0
-
-        self.r1 = 0
-        self.r5 = 0
-        self.r10 = 0
-        self.r100 = 0
-
-        self.n = 0
-
-        self.classes = classes
-        self.class_tot = len(self.classes)
-        self.lbl2idx = {c: i for i, c in enumerate(self.classes)}
-        self.per_class_k1 = np.zeros(shape=self.class_tot)  # col1: kns
-        self.per_class_k5 = np.zeros(shape=self.class_tot)  # col1: kns
-        self.per_class_k10 = np.zeros(shape=self.class_tot)  # col1: kns
-        self.per_class_k100 = np.zeros(shape=self.class_tot)  # col1: kns
-
-        self.per_class_n = np.zeros(shape=self.class_tot)
-
-    def update(self, lbl, ret_lbls):
-        # all_lbl = sum(ret_lbls == lbl)
-        if lbl == ret_lbls[0]:
-            self.k1 += 1
-            self.per_class_k1[self.lbl2idx[lbl]] += 1
-
-        if lbl in ret_lbls[:5]:
-            self.k5 += 1
-            self.per_class_k5[self.lbl2idx[lbl]] += 1
-
-        if lbl in ret_lbls[:10]:
-            self.k10 += 1
-            self.per_class_k10[self.lbl2idx[lbl]] += 1
-
-        if lbl in ret_lbls[:100]:
-            self.k100 += 1
-            self.per_class_k100[self.lbl2idx[lbl]] += 1
-
-        # self.r5 += (sum(ret_lbls[:5] == lbl) / all_lbl)
-        # self.r10 += (sum(ret_lbls[:10] == lbl) / all_lbl)
-        # self.r100 += (sum(ret_lbls[:100] == lbl) / all_lbl)
-
-        self.n += 1
-        self.per_class_n[self.lbl2idx[lbl]] += 1
-
-    def __str__(self):
-        k1, k5, k10, k100 = self.get_tot_metrics()
-
-        return f'k@1 = {k1}\n' \
-               f'k@5 = {k5}\n' \
-               f'k@10 = {k10}\n' \
-               f'k@100 = {k100}\n'
-        # f'recall@1 = {r1}\n' \
-        # f'recall@5 = {r5}\n' \
-        # f'recall@10 = {r10}\n' \
-        # f'recall@100 = {r100}\n'
-
-    def get_tot_metrics(self):
-
-        return (self.k1 / max(self.n, 1)), \
-               (self.k5 / max(self.n, 1)), \
-               (self.k10 / max(self.n, 1)), \
-               (self.k100 / max(self.n, 1))
-
-    def get_per_class_metrics(self):
-
-        assert sum(self.per_class_n) == self.n
-        assert sum(self.per_class_k1) == self.k1
-        assert sum(self.per_class_k5) == self.k5
-        assert sum(self.per_class_k10) == self.k10
-        assert sum(self.per_class_k100) == self.k100
-
-        if self.n == 0:
-            denom = [1 for _ in range(len(self.per_class_n))]
-        else:
-            denom = self.per_class_n
-
-        k1s, k5s, k10s, k100s = (self.per_class_k1 / denom), \
-                                (self.per_class_k5 / denom), \
-                                (self.per_class_k10 / denom), \
-                                (self.per_class_k100 / denom)
-
-        d = {'label': self.classes,
-             'n': self.per_class_n,
-             'k@1': k1s,
-             'k@5': k5s,
-             'k@10': k10s,
-             'k@100': k100s}
-
-        df = pd.DataFrame(data=d)
-
-        return df
-
-        # self.r1, self.r5, self.r10, self.r100
 
 
 # '../../dataset/omniglot/python/images_background'
@@ -387,9 +252,9 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
 
     sim_mat = cosine_similarity(img_feats)
 
-    metric_total = Percision_At_K(classes=np.array(all_lbls))
-    metric_seen = Percision_At_K(classes=np.array(seen_lbls))
-    metric_unseen = Percision_At_K(classes=np.array(unseen_lbls))
+    metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
+    metric_seen = metrics.Accuracy_At_K(classes=np.array(seen_lbls))
+    metric_unseen = metrics.Accuracy_At_K(classes=np.array(unseen_lbls))
 
     for idx, (row, lbl, seen) in enumerate(zip(sim_mat, img_lbls, seen_list)):
         ret_scores = np.delete(row, idx)
@@ -483,9 +348,9 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
         assert np.array_equal(sampled_labels, chosen_img_lbls)
 
         sim_mat = cosine_similarity(chosen_img_feats)
-        metric_total = Percision_At_K(classes=all_lbls)
-        metric_seen = Percision_At_K(classes=seen_lbls)
-        metric_unseen = Percision_At_K(classes=unseen_lbls)
+        metric_total = metrics.Accuracy_At_K(classes=all_lbls)
+        metric_seen = metrics.Accuracy_At_K(classes=seen_lbls)
+        metric_unseen = metrics.Accuracy_At_K(classes=unseen_lbls)
 
         for idx, (row, lbl, seen) in enumerate(zip(sim_mat, chosen_img_lbls, chosen_seen_list)):
             ret_scores = np.delete(row, idx)
@@ -664,9 +529,11 @@ def _read_new_split(dataset_path, mode,
 
 
 def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_newsplits0_1',
-                  portion=0, return_paths=False, split_path=None, dataset_folder=''):
+                  portion=0, return_bg=True, split_path=None, dataset_folder=''):
     print(split_file_name, '!!!!!!!!')
     dataset_path = os.path.join(dataPath, dataset_folder)
+
+    return_bg = return_bg and (mode != 'train')
 
     background_datasets = {'val_seen': 'val_unseen',
                            'val_unseen': 'val_seen',
@@ -682,7 +549,7 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_n
         split_path = dataset_path
 
     image_path, image_labels = _read_new_split(os.path.join(split_path, split_file_name), mode, dataset_name)
-    if mode != 'train':
+    if return_bg:
         image_path_bg, image_labels_bg = _read_new_split(os.path.join(split_path, split_file_name),
                                                          background_datasets[mode], dataset_name)
 
@@ -690,16 +557,18 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_n
         image_path = image_path[image_labels < portion]
         image_labels = image_labels[image_labels < portion]
 
-        if mode != 'train':
+        if return_bg:
             image_path_bg = image_path_bg[image_labels_bg < portion]
             image_labels_bg = image_labels_bg[image_labels_bg < portion]
 
     print(f'{mode} number of imgs:', len(image_labels))
     print(f'{mode} number of labels:', len(np.unique(image_labels)))
 
-    if mode != 'train':
+    if return_bg and mode != 'train':
         print(f'{mode} number of bg imgs:', len(image_labels_bg))
         print(f'{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
+    else:
+        print(f'Just {mode}, background not required.')
 
     num_instances = len(image_labels)
 
@@ -708,14 +577,14 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_n
     for idx, path in zip(image_labels, image_path):
         if idx not in datas.keys():
             datas[idx] = []
-            if mode != 'train':
+            if return_bg:
                 datas_bg[idx] = []
 
         datas[idx].append(os.path.join(dataset_path, path))
-        if mode != 'train':
+        if return_bg:
             datas_bg[idx].append((os.path.join(dataset_path, path), True))
 
-    if mode != 'train':
+    if return_bg:
         for idx, path in zip(image_labels_bg, image_path_bg):
             if idx not in datas_bg.keys():
                 datas_bg[idx] = []
@@ -726,9 +595,12 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_n
     labels = np.unique(image_labels)
     print(f'Number of labels in {mode}: ', len(labels))
 
-    if mode != 'train':
+    if return_bg:
         all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
         print(f'Number of all labels (bg + fg) in {mode} and {background_datasets[mode]}: ', len(all_labels))
+
+    if not return_bg:
+        datas_bg = datas
 
     print(f'finish loading {mode} dataset to memory')
     return datas, num_classes, num_instances, labels, datas_bg
@@ -796,6 +668,7 @@ def add_mask(img, mask):
     img.paste(mask, pos, mask)
 
     return img
+
 
 def read_masks(path):
     # create mask csv

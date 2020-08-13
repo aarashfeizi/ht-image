@@ -142,4 +142,4 @@ local_cc_job.sh
 cc_job.sh/
 hotels_trainval/
 logs/
-
+tb_por50/

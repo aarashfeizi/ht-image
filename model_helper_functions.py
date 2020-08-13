@@ -4,6 +4,7 @@ import pickle
 import time
 from collections import deque
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.lines import Line2D
@@ -11,8 +12,8 @@ from sklearn.metrics import confusion_matrix
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
+import metrics
 import utils
 
 
@@ -108,7 +109,7 @@ class ModelMethods:
         epochs = 1
 
         total_batch_id = 0
-        metric = utils.Metric()
+        metric = metrics.Metric_Accuracy()
 
         for epoch in range(epochs):
 
@@ -169,7 +170,7 @@ class ModelMethods:
         # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
         epochs = args.epochs
 
-        metric = utils.Metric()
+        metric_ACC = metrics.Metric_Accuracy()
 
         max_val_acc = 0
         max_val_acc_knwn = 0
@@ -184,7 +185,8 @@ class ModelMethods:
 
             train_loss = 0
             train_loss_bces = 0
-            metric.reset_acc()
+
+            metric_ACC.reset_acc()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
@@ -214,32 +216,39 @@ class ModelMethods:
 
                     net.train()
                     opt.zero_grad()
-                    output_pos, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                    metric.update_acc(output_pos.squeeze(), one_labels.squeeze())
-                    bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
-                    train_loss_bces += (bce_loss_value_pos.item())
-                    neg_bce_losses = 0
-                    print(neg.size())
+
+                    norm_pos_dist = net.forward(anch, pos, feats=False)
+                    metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze()) # zero dist means similar
+                    # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
+                    # train_loss_bces += (bce_loss_value_pos.item())
+                    # neg_bce_losses = 0
                     for iter in range(self.no_negative):
-                        output_neg, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
-                                                                      feats=True)
+                        norm_neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=False)
+                        #
+                        # self.logger.info(f'pos_dist = {(norm_pos_dist ** 2).sum(dim=1)}')
+                        # self.logger.info(f'neg_dist = {(norm_neg_dist ** 2).sum(dim=1)}')
+                        # self.logger.info(f'pos - neg = {(norm_pos_dist ** 2).sum(dim=1) - (norm_neg_dist ** 2).sum(dim=1)}')
+                        # self.logger.info(f'pos_dist_total = {sum((norm_pos_dist ** 2).sum(dim=1))}')
+                        # self.logger.info(f'neg_dist_total = {sum((norm_neg_dist ** 2).sum(dim=1))}')
 
-                        metric.update_acc(output_neg.squeeze(), zero_labels.squeeze())
+                        metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze()) # 1 dist means different
 
-                        loss_fn(anch_feat, pos_feat, neg_feat)
-                        bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
+                        if iter == 0:
+                            loss = loss_fn(norm_pos_dist, norm_neg_dist)
+                        else:
+                            loss += loss_fn(norm_pos_dist, norm_neg_dist)
 
-                        neg_bce_losses += (bce_loss_value_neg.item())
+                        # bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
+
+
+                        # neg_bce_losses += (bce_loss_value_neg.item())
                     # print('loss: ', loss.item())
 
-                    train_loss_bces += neg_bce_losses / self.no_negative
 
-                    loss = loss_fn.get_loss()
+                    # train_loss_bces += neg_bce_losses / self.no_negative
+
+
                     train_loss += loss.item()
-                    # print(loss.grad)
-                    # import pdb
-                    # pdb.set_trace()
-
                     loss.backward()  # training with triplet loss
                     # plt = self.plot_grad_flow(net.named_parameters())
                     # pdb.set_trace()
@@ -247,16 +256,24 @@ class ModelMethods:
 
                     opt.step()
                     t.set_postfix(triplet_loss=f'{train_loss / (batch_id * self.no_negative) :.4f}',
-                                  bce_loss=f'{train_loss_bces / batch_id:.4f}',
-                                  train_acc=f'{metric.get_acc():.4f}')
+                                  # bce_loss=f'{train_loss_bces / batch_id:.4f}',
+                                  train_acc=f'{metric_ACC.get_acc():.4f}'
+                                  )
 
                     train_losses.append(train_loss)
 
                     t.update()
 
+                #
+                # svm = SVC()
+                # knn = KNeighborsClassifier(n_neighbors=1)
+                #
+                # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
+                # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
+
                 self.writer.add_scalar('Train/Triplet_Loss', train_loss / len(train_loader) * self.no_negative, epoch)
-                self.writer.add_scalar('Train/BCE_Loss', train_loss_bces / len(train_loader), epoch)
-                self.writer.add_scalar('Train/Acc', metric.get_acc(), epoch)
+                # self.writer.add_scalar('Train/BCE_Loss', train_loss_bces / len(train_loader), epoch)
+                self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                 self.writer.flush()
 
                 if val_loaders is not None and epoch % args.test_freq == 0:
@@ -360,7 +377,7 @@ class ModelMethods:
         # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
         epochs = args.epochs
 
-        metric = utils.Metric()
+        metric = metrics.Metric_Accuracy()
 
         max_val_acc = 0
         max_val_acc_knwn = 0
@@ -442,7 +459,6 @@ class ModelMethods:
                                                                      epoch=epoch)
                     else:
                         raise Exception('Unsupporeted eval mode')
-
 
                     self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
                     self.logger.info('*' * 30)
@@ -558,6 +574,7 @@ class ModelMethods:
         test_label[0] = 1
         test_label = torch.from_numpy(test_label).reshape((args.way, 1))
         test_loss = 0
+        loss = 0
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
             if args.cuda:
@@ -565,15 +582,17 @@ class ModelMethods:
             anch, pos, neg = Variable(anch), Variable(pos), Variable(neg)
 
             ###
-            output_, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            norm_pos_dist = net.forward(anch, pos, feats=False)
             for iter in range(self.no_negative):
-                output, anch_feat, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
-                                                              feats=True)
+                norm_neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                                                          feats=False)
 
-                loss_fn(anch_feat, pos_feat, neg_feat)
+                if iter == 0:
+                    loss = loss_fn(norm_pos_dist, norm_neg_dist)
+                else:
+                    loss += loss_fn(norm_pos_dist, norm_neg_dist)
 
 
-            loss = loss_fn.get_loss() #todo
             test_loss += loss.item()
 
         self.logger.info('$' * 70)
@@ -596,8 +615,8 @@ class ModelMethods:
 
         tests_right, tests_error = 0, 0
 
-        test_label = np.zeros(shape=args.way, dtype=np.float32)
-        test_label[0] = 1
+        test_label = np.ones(shape=args.way, dtype=np.float32)
+        test_label[0] = 0
         test_label = torch.from_numpy(test_label).reshape((args.way, 1))
 
         if args.cuda:
@@ -753,3 +772,45 @@ class ModelMethods:
                     Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
 
         return plt
+
+    # extra, for having an extra linear classifier
+    def linear_classifier(self, emb, classifier, metric, trained=False):
+
+        if not trained:
+            classifier.fit(emb[0], emb[1])
+
+        preds = classifier.predict(emb[0])
+        metric.update_acc(preds, emb[1])
+        return classifier, metric
+
+    # extra, for having an extra linear classifier
+    def get_embeddings(self, args, net, data_loader, batch_size=None):
+
+        net.eval()
+        if batch_size is None:
+            batch_size = args.batch_size
+
+        if args.feat_extractor == 'resnet50':
+            embs = np.zeros((len(data_loader.dataset), 2048))
+        elif args.feat_extractor == 'resnet18':
+            embs = np.zeros((len(data_loader.dataset), 512))
+
+        labels = np.zeros((len(data_loader.dataset)))
+        seen = np.zeros((len(data_loader.dataset)))
+
+        for idx, (img, lbl, seen, _) in enumerate(data_loader):
+
+            if args.cuda:
+                img = img.cuda()
+            img = Variable(img)
+
+            output = net.forward(img, None, single=True)
+            output = output.data.cpu().numpy()
+
+            end = min((idx + 1) * batch_size, len(embs))
+
+            embs[idx * batch_size:end, :] = output
+            labels[idx * batch_size:end] = lbl
+            seen[idx * batch_size:end] = seen.to(int)
+
+        return embs, labels, seen

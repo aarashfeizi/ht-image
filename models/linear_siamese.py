@@ -25,12 +25,18 @@ class LiSiamese(nn.Module):
             self.layer1 = nn.Sequential(*layers)
 
             # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
-        self.out = nn.Sequential(nn.Linear(self.input_shape, 1))  # no sigmoid!!!!
+        # self.out = nn.Sequential(nn.Linear(self.input_shape, 1))  # no sigmoid for bce_with_crossentorpy loss!!!!
+
+        # return -1 if (a, n) and 1 if (a, p). Should learn a "distance function"
+        # self.out = nn.Sequential(nn.Linear(self.input_shape, 1), nn.Tanh())
 
     def forward_one(self, x):
         x = x.view(x.size()[0], -1)
         if self.extra_layer > 0:
             x = self.layer1(x)
+
+        x = x / torch.norm(x)  # normalize to unit hypersphere
+
         return x
 
     def forward(self, x1, x2, single=False, feats=False):
@@ -39,10 +45,14 @@ class LiSiamese(nn.Module):
             return out1
 
         out2 = self.forward_one(x2)
-        dis = torch.abs(out1 - out2)
-        out = self.out(dis)
+
+        # dis = torch.abs(out1 - out2)
+        dis = torch.norm(out1, out2) / 2  # output between 0 and 1. 0 meaning similar and 1 meaning different
+
         #  return self.sigmoid(out)
         if feats:
-            return out, out1, out2
+
+            return dis, out1, out2
         else:
-            return out
+            return dis
+
