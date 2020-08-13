@@ -9,18 +9,14 @@ import utils
 from hotel_dataloader import *
 from models.top_model import *
 from losses import TripletLoss
+import torch
 import os
 
 
 ###
 # todo for next week
 
-# fuckin overleaf
 # Average per class for metrics (k@n) ???
-# k@n for training
-# random crop in train
-# visualize images before and after transformation to see what information is lost
-# do NOT transform scale for validation
 
 
 def _logger():
@@ -155,6 +151,7 @@ def main():
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = TripletLoss(margin=args.margin, args=args)
+        # loss_fn = torch.nn.TripletMarginLoss(margin=args.margin, p=2)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
 

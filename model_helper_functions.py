@@ -218,7 +218,7 @@ class ModelMethods:
                     opt.zero_grad()
 
                     norm_pos_dist = net.forward(anch, pos, feats=False)
-                    metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze()) # zero dist means similar
+                    metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
                     # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     # train_loss_bces += (bce_loss_value_pos.item())
                     # neg_bce_losses = 0
@@ -231,7 +231,7 @@ class ModelMethods:
                         # self.logger.info(f'pos_dist_total = {sum((norm_pos_dist ** 2).sum(dim=1))}')
                         # self.logger.info(f'neg_dist_total = {sum((norm_neg_dist ** 2).sum(dim=1))}')
 
-                        metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze()) # 1 dist means different
+                        metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         if iter == 0:
                             loss = loss_fn(norm_pos_dist, norm_neg_dist)
@@ -240,21 +240,18 @@ class ModelMethods:
 
                         # bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
 
-
                         # neg_bce_losses += (bce_loss_value_neg.item())
                     # print('loss: ', loss.item())
 
-
                     # train_loss_bces += neg_bce_losses / self.no_negative
-
 
                     train_loss += loss.item()
                     loss.backward()  # training with triplet loss
+                    opt.step()
                     # plt = self.plot_grad_flow(net.named_parameters())
                     # pdb.set_trace()
                     # self.getBack(loss.grad_fn)
 
-                    opt.step()
                     t.set_postfix(triplet_loss=f'{train_loss / (batch_id * self.no_negative) :.4f}',
                                   # bce_loss=f'{train_loss_bces / batch_id:.4f}',
                                   train_acc=f'{metric_ACC.get_acc():.4f}'
@@ -585,13 +582,12 @@ class ModelMethods:
             norm_pos_dist = net.forward(anch, pos, feats=False)
             for iter in range(self.no_negative):
                 norm_neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
-                                                          feats=False)
+                                            feats=False)
 
                 if iter == 0:
                     loss = loss_fn(norm_pos_dist, norm_neg_dist)
                 else:
                     loss += loss_fn(norm_pos_dist, norm_neg_dist)
-
 
             test_loss += loss.item()
 

@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -22,7 +21,6 @@ class TripletLoss(nn.Module):
 
         loss = F.relu(dist)
 
-
         return loss
 
 ###
@@ -32,4 +30,3 @@ class TripletLoss(nn.Module):
 # 3. Representations from ResNet rather than projection network
 # 4. Augs?? AutoAug... ??
 ###
-

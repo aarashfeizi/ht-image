@@ -20,13 +20,12 @@ class TopModel(nn.Module):
                     self.input_layer.weight[:, :3] = conv1weight
                     # self.input_layer.weight[:, 3] = self.ft_net.conv1.weight[:, 0]
 
-
         # print('FEATURE NET')
         # print(self.ft_net)
         # print('SIAMESE NET')
         # print(self.sm_net)
 
-    def forward(self, x1, x2, single=False, feats=False):
+    def forward(self, x1, x2, single=False, feats=False, dist=False):
         # print('model input:', x1[-1].size())
 
         x1_f, x1_l = self.ft_net(x1, is_feat=True)
@@ -37,20 +36,32 @@ class TopModel(nn.Module):
 
         if not single:
             x2_f, x2_l = self.ft_net(x2, is_feat=True)
+            ret = self.sm_net(x1_f[-1], x2_f[-1], feats=feats, dist=dist)
             if feats:
-                output, out1, out2 = self.sm_net(x1_f[-1], x2_f[-1], feats=feats)
+                if dist:
+                    output, out1, out2, distance = ret
+                    return output, out1, out2, distance
+                else:
+                    output, out1, out2 = ret
+                    return output, out1, out2
             else:
-                output = self.sm_net(x1_f[-1], x2_f[-1], feats=False)
+                if dist:
+                    output, distance = ret
+                    return output, distance
+                else:
+                    output = ret
+                    return output
         else:
             output = self.sm_net(x1_f[-1], None, single)  # single is true
+            return output
 
         # print('features:', x2_f[-1].size())
         # print('output:', output.size())
 
-        if feats:
-            return output, out1, out2
-        else:
-            return output
+        # if feats:
+        #     return output, out1, out2
+        # else:
+        #     return output
 
 
 def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False):

@@ -39,7 +39,7 @@ class LiSiamese(nn.Module):
 
         return x
 
-    def forward(self, x1, x2, single=False, feats=False):
+    def forward(self, x1, x2, single=False, feats=False, dist=False):
         out1 = self.forward_one(x1)
         if single:
             return out1
@@ -55,4 +55,3 @@ class LiSiamese(nn.Module):
             return dis, out1, out2
         else:
             return dis
-
