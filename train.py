@@ -74,8 +74,6 @@ def main():
             val_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode='val_unseen',
                                                        save_pictures=False)
 
-            train_classify = Hotel_DB(args, transform=data_transforms_train, mode='train')
-            val_classify = Hotel_DB(args, transform=data_transforms_train, mode='val')
 
         else:
             train_set = HotelTrain_FewShot(args, transform=data_transforms_train, mode='train', save_pictures=False)
