@@ -21,6 +21,8 @@ class TripletLoss(nn.Module):
 
         loss = F.relu(dist)
 
+        loss = loss.mean()
+
         return loss
 
 ###

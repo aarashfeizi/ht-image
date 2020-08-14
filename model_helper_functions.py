@@ -567,9 +567,6 @@ class ModelMethods:
 
         tests_right, tests_error = 0, 0
 
-        test_label = np.zeros(shape=args.way, dtype=np.float32)
-        test_label[0] = 1
-        test_label = torch.from_numpy(test_label).reshape((args.way, 1))
         test_loss = 0
         loss = 0
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
@@ -613,8 +610,8 @@ class ModelMethods:
 
         test_label = np.ones(shape=args.way, dtype=np.float32)
         test_label[0] = 0
-        test_label = torch.from_numpy(test_label).reshape((args.way, 1))
-
+        test_label = torch.from_numpy(test_label)
+        test_loss = 0
         if args.cuda:
             test_label = Variable(test_label.cuda())
         else:
@@ -625,9 +622,9 @@ class ModelMethods:
                 test1, test2 = test1.cuda(), test2.cuda()
             test1, test2 = Variable(test1), Variable(test2)
             output = net.forward(test1, test2)
-            test_loss = loss_fn(output, test_label)
+            test_loss += loss_fn(output, test_label)
             output = output.data.cpu().numpy()
-            pred = np.argmax(output)
+            pred = np.argmin(output)
             if pred == 0:
                 tests_right += 1
             else:
