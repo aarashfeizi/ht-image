@@ -129,7 +129,7 @@ def main():
 
     if args.metric_learning:
         val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
-                                                   pin_memory)
+                                                   pin_memory, batch_size=args.batch_size)
 
         # train_loader_classify = DataLoader(train_classify, batch_size=args.batch_size, shuffle=False,
         #                                    num_workers=workers,

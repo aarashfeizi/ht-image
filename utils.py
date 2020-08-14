@@ -195,18 +195,19 @@ def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], star
     return workers, pin_memory
 
 
-def get_val_loaders(args, val_set, val_set_known, val_set_unknown, workers, pin_memory):
+def get_val_loaders(args, val_set, val_set_known, val_set_unknown, workers, pin_memory, batch_size=None):
     val_loaders = []
+    if batch_size is None:
+        batch_size = args.way
     if (val_set is not None) or (val_set_known is not None):
 
         val_loaders.append(
-            DataLoader(val_set_known, batch_size=args.way, shuffle=False, num_workers=workers,
+            DataLoader(val_set_known, batch_size=batch_size, shuffle=False, num_workers=workers,
                        pin_memory=pin_memory))
         val_loaders.append(
-            DataLoader(val_set_unknown, batch_size=args.way, shuffle=False, num_workers=workers,
+            DataLoader(val_set_unknown, batch_size=batch_size, shuffle=False, num_workers=workers,
                        pin_memory=pin_memory))
     else:
-        val_loaders = None
         raise Exception('No validation data is set!')
 
     return val_loaders
