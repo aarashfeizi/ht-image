@@ -79,14 +79,14 @@ def main():
             train_set = HotelTrain_FewShot(args, transform=data_transforms_train, mode='train', save_pictures=False)
             print('*' * 10)
 
-        val_set_known_fewshot = HotelTest(args, transform=data_transforms_val, mode='val_seen', save_pictures=False)
+        val_set_known_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode='val_seen', save_pictures=False)
         print('*' * 10)
-        val_set_unknown_fewshot = HotelTest(args, transform=data_transforms_val, mode='val_unseen', save_pictures=False)
+        val_set_unknown_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode='val_unseen', save_pictures=False)
 
         if args.test:
-            test_set_known = HotelTest(args, transform=data_transforms_val, mode='test_seen')
+            test_set_known = HotelTest_FewShot(args, transform=data_transforms_val, mode='test_seen')
             print('*' * 10)
-            test_set_unknown = HotelTest(args, transform=data_transforms_val, mode='test_unseen')
+            test_set_unknown = HotelTest_FewShot(args, transform=data_transforms_val, mode='test_unseen')
             print('*' * 10)
 
             # todo test not supported for metric learning

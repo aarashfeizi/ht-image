@@ -183,11 +183,11 @@ class HotelTrain_FewShot(Dataset):
         return imgs, lbls
 
 
-class HotelTest(Dataset):
+class HotelTest_FewShot(Dataset):
 
     def __init__(self, args, transform=None, mode='test_seen', save_pictures=False):
         np.random.seed(args.seed)
-        super(HotelTest, self).__init__()
+        super(HotelTest_FewShot, self).__init__()
         self.transform = transform
         self.save_pictures = save_pictures
         self.times = args.times

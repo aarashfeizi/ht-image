@@ -622,7 +622,7 @@ class ModelMethods:
                 test1, test2 = test1.cuda(), test2.cuda()
             test1, test2 = Variable(test1), Variable(test2)
             output = net.forward(test1, test2)
-            test_loss += loss_fn(output, test_label)
+            test_loss += loss_fn(output, test_label).item()
             output = output.data.cpu().numpy()
             pred = np.argmin(output)
             if pred == 0:
