@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 
 
 class TripletLoss(nn.Module):
@@ -17,7 +18,7 @@ class TripletLoss(nn.Module):
         # pos_dist = torch.dist(anch, pos)
         # neg_dist = torch.dist(anch, neg)
 
-        dist = F.sigmoid(pos_dist) - F.sigmoid(neg_dist) + self.margin
+        dist = torch.sigmoid(pos_dist) - torch.sigmoid(neg_dist) + self.margin
 
         loss = F.relu(dist)
 

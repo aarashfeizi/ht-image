@@ -219,7 +219,7 @@ class ModelMethods:
 
                     norm_pos_dist = net.forward(anch, pos, feats=False)
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
-                    # print(f'norm_pos_dist: {norm_pos_dist}')
+                    print(f'norm_pos_dist: {norm_pos_dist}')
                     # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     # train_loss_bces += (bce_loss_value_pos.item())
                     # neg_bce_losses = 0
@@ -231,7 +231,7 @@ class ModelMethods:
                         # self.logger.info(f'pos - neg = {(norm_pos_dist ** 2).sum(dim=1) - (norm_neg_dist ** 2).sum(dim=1)}')
                         # self.logger.info(f'pos_dist_total = {sum((norm_pos_dist ** 2).sum(dim=1))}')
                         # self.logger.info(f'neg_dist_total = {sum((norm_neg_dist ** 2).sum(dim=1))}')
-                        # print(f'norm_neg_dist {iter}: {norm_neg_dist}')
+                        print(f'norm_neg_dist {iter}: {norm_neg_dist}')
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         if iter == 0:
@@ -611,7 +611,7 @@ class ModelMethods:
 
         test_label = np.ones(shape=args.way, dtype=np.float32)
         test_label[0] = 0
-        test_label = torch.from_numpy(test_label)
+        test_label = torch.from_numpy(test_label).reshape((-1, 1))
         test_loss = 0
         if args.cuda:
             test_label = Variable(test_label.cuda())
