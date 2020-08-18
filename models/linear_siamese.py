@@ -25,7 +25,7 @@ class LiSiamese(nn.Module):
             self.layer1 = nn.Sequential(*layers)
 
             # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
-        # self.out = nn.Sequential(nn.Linear(self.input_shape, 1))  # no sigmoid for bce_with_crossentorpy loss!!!!
+        self.out = nn.Sequential(nn.Linear(2 * self.input_shape, 1))  # no sigmoid for bce_with_crossentorpy loss!!!!
 
         # return -1 if (a, n) and 1 if (a, p). Should learn a "distance function"
         # self.out = nn.Sequential(nn.Linear(self.input_shape, 1), nn.Tanh())
@@ -46,12 +46,16 @@ class LiSiamese(nn.Module):
 
         out2 = self.forward_one(x2)
 
+        out_cat = torch.cat((out1, out2), 0)
+
         # dis = torch.abs(out1 - out2)
-        dis = torch.sigmoid(torch.nn.PairwiseDistance()(out1, out2))  # output between 0 and 1. 0 meaning similar and 1 meaning different
-        print('max distance was: ', dis.max())
+
+        dis = self.out(out_cat)  # output between -inf and inf. Passed through sigmoid in loss function
+
+        # dis = torch.nn.PairwiseDistance()(out1, out2) / 2  # output between 0 and 1. 0 meaning similar and 1 meaning different
+
         #  return self.sigmoid(out)
         if feats:
-
             return dis, out1, out2
         else:
             return dis

@@ -198,11 +198,11 @@ def main():
                                                                      val_loaders_fewshot)
         logger.info('Calculating K@Ns for Validation')
 
-        model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-                                      eval_sampled=False,
-                                      eval_per_class=True, newly_trained=True,
-                                      batch_size=args.db_batch,
-                                      mode='train_sampled')
+        # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+        #                               eval_sampled=False,
+        #                               eval_per_class=True, newly_trained=True,
+        #                               batch_size=args.db_batch,
+        #                               mode='train_sampled')
 
         model_methods_top.make_emb_db(args, tm_net, db_loader,
                                       eval_sampled=args.sampled_results,
@@ -217,11 +217,11 @@ def main():
         logger.info(f"Not training, loading {best_model_top} model...")
         tm_net = model_methods_top.load_model(args, tm_net, best_model_top)
         logger.info('Calculating K@Ns for Validation')
-        model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-                                      eval_sampled=False,
-                                      eval_per_class=True, newly_trained=True,
-                                      batch_size=args.db_batch,
-                                      mode='train_sampled')
+        # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+        #                               eval_sampled=False,
+        #                               eval_per_class=True, newly_trained=True,
+        #                               batch_size=args.db_batch,
+        #                               mode='train_sampled')
         model_methods_top.make_emb_db(args, tm_net, db_loader,
                                       eval_sampled=args.sampled_results,
                                       eval_per_class=args.per_class_results, newly_trained=False,
