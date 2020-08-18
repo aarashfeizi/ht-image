@@ -46,7 +46,8 @@ class LiSiamese(nn.Module):
 
         out2 = self.forward_one(x2)
 
-        out_cat = torch.cat((out1, out2), 0)
+
+        out_cat = torch.cat((out1, out2), 1)
 
         # dis = torch.abs(out1 - out2)
 
