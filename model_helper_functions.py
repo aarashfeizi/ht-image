@@ -146,7 +146,20 @@ class ModelMethods:
 
         return net
 
-    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot):
+    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
+                             ir_loader):
+        """
+
+        :param net:
+        :param loss_fn:
+        :param bce_loss:
+        :param args:
+        :param train_loader:
+        :param val_loaders:
+        :param val_loaders_fewshot:
+        :param ir_loader: [train_dl, val_dl]
+        :return:
+        """
         net.train()
         val_tol = args.early_stopping
 
@@ -178,8 +191,6 @@ class ModelMethods:
         best_model = ''
 
         drew_graph = False
-
-        val_counter = 0
 
         for epoch in range(epochs):
 
@@ -281,13 +292,16 @@ class ModelMethods:
 
                     if args.eval_mode == 'fewshot':
 
-                        val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
-                                                                                     val_loaders_fewshot[0],
-                                                                                     bce_loss, val=True,
-                                                                                     epoch=epoch, comment='known')
-                        self.test_metric(args, net, val_loaders[0],
+                        # val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
+                        #                                                              val_loaders_fewshot[0],
+                        #                                                              bce_loss, val=True,
+                        #                                                              epoch=epoch, comment='known')
+                        kavg_train, kavg_val = self.test_metric(args, net, val_loaders[0], ir_loader,
                                          loss_fn, val=True,
                                          epoch=epoch, comment='known')
+
+                        self.logger.info(f'train kavg: {str(kavg_train)}')
+                        self.logger.info(f'val kavg: {str(kavg_val)}')
 
                         val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
                                                                                            val_loaders_fewshot[1],
@@ -295,11 +309,9 @@ class ModelMethods:
                                                                                            val=True,
                                                                                            epoch=epoch,
                                                                                            comment='unknown')
-                        self.test_metric(args, net,
-                                         val_loaders[1], loss_fn,
-                                         val=True,
-                                         epoch=epoch,
-                                         comment='unknown')
+                        self.test_metric(args, net, val_loaders[1], None,
+                                         loss_fn, val=True,
+                                         epoch=epoch, comment='unknown')
 
                     elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                         val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -556,7 +568,7 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc
 
-    def test_metric(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
+    def test_metric(self, args, net, data_loader, ir_dls, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
 
         if val:
@@ -594,6 +606,30 @@ class ModelMethods:
         self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
+
+        if ir_dls is not None:
+            train_ir_dl = ir_dls[0]
+            val_ir_dl = ir_dls[1]
+            train_feats, train_classes, train_seen = self.get_embeddings(args, net, train_ir_dl)
+            val_feats, val_classes, val_seen = self.get_embeddings(args, net, val_ir_dl)
+
+            train_kavg = utils.calculate_k_at_n(args, train_feats, train_classes, train_seen, logger=self.logger,
+                                                limit=args.limit_samples,
+                                                run_number=1,
+                                                save_path='',
+                                                sampled=True,
+                                                per_class=False,
+                                                mode='train')
+
+            val_kavg = utils.calculate_k_at_n(args, val_feats, val_classes, val_seen, logger=self.logger,
+                                              limit=args.limit_samples,
+                                              run_number=1,
+                                              save_path='',
+                                              sampled=True,
+                                              per_class=False,
+                                              mode='val')
+
+            return train_kavg, val_kavg
 
         return
 

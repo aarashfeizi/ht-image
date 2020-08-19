@@ -244,10 +244,10 @@ class HotelTest_FewShot(Dataset):
         return img1, img2
 
 
-class Hotel_DB(Dataset):
+class Hotel_Metric(Dataset):
     def __init__(self, args, transform=None, mode='test'):
         np.random.seed(args.seed)
-        super(Hotel_DB, self).__init__()
+        super(Hotel_Metric, self).__init__()
         self.transform = transform
 
         total = True

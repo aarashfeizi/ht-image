@@ -92,8 +92,8 @@ def main():
             # todo test not supported for metric learning
 
         if args.cbir:
-            db_set = Hotel_DB(args, transform=data_transforms_val, mode='val')
-            db_set_train = Hotel_DB(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
+            db_set = Hotel_Metric(args, transform=data_transforms_val, mode='val')
+            db_set_train = Hotel_Metric(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     else:
         logger.error(f'Dataset not suppored:  {args.dataset_name}')
@@ -174,7 +174,7 @@ def main():
         if args.metric_learning:
             tm_net, best_model_top = model_methods_top.train_metriclearning(tm_net, loss_fn, loss_fn_bce, args,
                                                                             train_loader, val_loaders_metric,
-                                                                            val_loaders_fewshot)
+                                                                            val_loaders_fewshot, [db_loader_train, db_loader])
         else:
             tm_net, best_model_top = model_methods_top.train_fewshot(tm_net, loss_fn, args, train_loader,
                                                                      val_loaders_fewshot)
