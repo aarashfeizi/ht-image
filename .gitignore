@@ -148,3 +148,6 @@ tb_*
 plts/
 *.out
 .DS_Store
+
+hists
+
