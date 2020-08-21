@@ -145,3 +145,6 @@ logs/
 tb_por50/
 
 tb_*
+plts/
+*.out
+.DS_Store
