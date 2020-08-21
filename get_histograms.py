@@ -36,7 +36,7 @@ def plot_histograms(all_pos, all_neg, save_path, margin):
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
-    for i in range(60):
+    for i in range(len(all_pos)):
         epoch = i + 1
         max_val = max(all_pos[epoch - 1].max(), all_neg[epoch - 1].max())
         min_val = min(all_pos[epoch - 1].min(), all_neg[epoch - 1].min())
