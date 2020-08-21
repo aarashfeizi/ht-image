@@ -218,6 +218,7 @@ class ModelMethods:
                     opt.zero_grad()
 
                     norm_pos_dist = net.forward(anch, pos, feats=False)
+                    print(f'norm pos: {norm_pos_dist}')
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
                     # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     # train_loss_bces += (bce_loss_value_pos.item())
@@ -230,7 +231,7 @@ class ModelMethods:
                         # self.logger.info(f'pos - neg = {(norm_pos_dist ** 2).sum(dim=1) - (norm_neg_dist ** 2).sum(dim=1)}')
                         # self.logger.info(f'pos_dist_total = {sum((norm_pos_dist ** 2).sum(dim=1))}')
                         # self.logger.info(f'neg_dist_total = {sum((norm_neg_dist ** 2).sum(dim=1))}')
-
+                        print(f'norm neg iter {iter}: {norm_neg_dist}')
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         if iter == 0:
