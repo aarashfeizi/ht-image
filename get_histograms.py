@@ -26,13 +26,13 @@ def get_pos_and_negs(out_path):
                 pos = []
                 neg = []
             if 'Save path:' in line:
-                save_path = line.split('Save path: ')[1]
+                save_path = line.split('Save path: ')[1].strip()
 
     return all_pos, all_neg, save_path, margin
 
 
 def plot_histograms(all_pos, all_neg, save_path, margin):
-    save_path = os.path.join(save_path, 'histograms')
+    save_path = os.path.join(save_path, 'histograms/')
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
