@@ -67,4 +67,4 @@ args = parser.parse_args()
 
 all_pos, all_neg, save_path, margin = get_pos_and_negs(args.save_path)
 
-plot_histograms(all_pos, all_neg, 'plts', margin)
+plot_histograms(all_pos, all_neg, save_path, margin)
