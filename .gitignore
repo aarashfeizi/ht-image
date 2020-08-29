@@ -149,5 +149,9 @@ plts/
 *.out
 .DS_Store
 
-hists
+hists/
+
+new_hists/
+
+org_loader/
 

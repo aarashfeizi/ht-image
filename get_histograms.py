@@ -42,7 +42,7 @@ def plot_histograms(all_pos, all_neg, save_path, margin):
         min_val = min(all_pos[epoch - 1].min(), all_neg[epoch - 1].min())
         mean_diff = all_neg[epoch - 1].mean() - all_pos[epoch - 1].mean()
         mode_diff = mode(all_neg[epoch - 1], axis=None).mode[0] - mode(all_pos[epoch - 1], axis=None).mode[0]
-        ret = plt.hist([all_pos[epoch - 1], all_neg[epoch - 1]], bins=1000, range=[min_val - 0.1, max_val + 0.1], alpha=0.3,
+        ret = plt.hist([all_pos[epoch - 1], all_neg[epoch - 1]], bins=30, range=[min_val - 0.1, max_val + 0.1], alpha=0.3,
                  label=['pos', 'neg'])
         plt.legend(loc='upper right')
 
