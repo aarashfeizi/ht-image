@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -6,9 +7,9 @@ import torch
 class TripletLoss(nn.Module):
     def __init__(self, args, margin):
         super(TripletLoss, self).__init__()
-
-        if margin > 1:
-            raise Exception("Distances are normalized. Margine should be less than 1.0")
+        #
+        # if margin > 1:
+        #     raise Exception("Distances are normalized. Margine should be less than 1.0")
 
         self.margin = margin
         self.no_negative = args.no_negative
