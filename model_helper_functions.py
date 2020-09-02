@@ -244,6 +244,8 @@ class ModelMethods:
 
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
+                        class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
+
                         print('neg loss', class_loss)
 
                         if iter == 0:
