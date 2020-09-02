@@ -303,7 +303,7 @@ class ModelMethods:
                                                                                      bce_loss, val=True,
                                                                                      epoch=epoch, comment='known')
                         self.test_metric(args, net, val_loaders[0],
-                                         loss_fn, val=True,
+                                         loss_fn, bce_loss, val=True,
                                          epoch=epoch, comment='known')
 
                         val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
@@ -312,11 +312,9 @@ class ModelMethods:
                                                                                            val=True,
                                                                                            epoch=epoch,
                                                                                            comment='unknown')
-                        self.test_metric(args, net,
-                                         val_loaders[1], loss_fn,
-                                         val=True,
-                                         epoch=epoch,
-                                         comment='unknown')
+                        self.test_metric(args, net, val_loaders[1],
+                                         loss_fn, bce_loss, val=True,
+                                         epoch=epoch, comment='unknown')
 
                     elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                         val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -573,7 +571,7 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc
 
-    def test_metric(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
+    def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment=''):
         net.eval()
 
         if val:
@@ -586,29 +584,50 @@ class ModelMethods:
         tests_right, tests_error = 0, 0
 
         test_loss = 0
+        test_bce_loss = 0
+        test_triplet_loss = 0
         loss = 0
+
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+
             if args.cuda:
-                anch, pos, neg = anch.cuda(), pos.cuda(), neg.cuda()
-            anch, pos, neg = Variable(anch), Variable(pos), Variable(neg)
+                anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
+            anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
+                one_labels), Variable(zero_labels)
 
             ###
-            norm_pos_dist = net.forward(anch, pos, feats=False)
+            norm_pos_dist, anch, pos = net.forward(anch, pos, feats=True)
+            class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
+
             for iter in range(self.no_negative):
-                norm_neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
-                                            feats=False)
+                norm_neg_dist, _, neg = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                                                    feats=True)
+
+                class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
 
                 if iter == 0:
-                    loss = loss_fn(norm_pos_dist, norm_neg_dist)
+                    ext_loss = loss_fn(anch, pos, neg)
                 else:
-                    loss += loss_fn(norm_pos_dist, norm_neg_dist)
+                    ext_loss += loss_fn(anch, pos, neg)
 
+            ext_loss /= self.no_negative
+            class_loss /= (self.no_negative + 1)
+
+            loss = ext_loss + class_loss
             test_loss += loss.item()
+            test_triplet_loss += ext_loss.item()
+            test_bce_loss += class_loss.item()
 
         self.logger.info('$' * 70)
 
-        self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
+        # self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/Loss', test_loss / len(data_loader), epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_triplet_loss / len(data_loader), epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/BCE_Loss', test_bce_loss / len(data_loader), epoch)
+
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
 
