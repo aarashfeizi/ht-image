@@ -217,14 +217,18 @@ class ModelMethods:
                     net.train()
                     opt.zero_grad()
 
-                    norm_pos_dist = net.forward(anch, pos, feats=False)
-                    metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
-                    print(f'norm pos: {norm_pos_dist.reshape((1, -1))}')
+
+                    norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                    print(f'norm pos: {norm_pos_dist}')
+                    class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
+                    print('pos loss', class_loss)
+                    # metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
+
                     # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     # train_loss_bces += (bce_loss_value_pos.item())
                     # neg_bce_losses = 0
                     for iter in range(self.no_negative):
-                        norm_neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=False)
+                        norm_neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
                         #
                         # self.logger.info(f'pos_dist = {(norm_pos_dist ** 2).sum(dim=1)}')
                         # self.logger.info(f'neg_dist = {(norm_neg_dist ** 2).sum(dim=1)}')
@@ -234,10 +238,13 @@ class ModelMethods:
                         print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
+                        class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
+                        print('neg loss', class_loss)
+
                         if iter == 0:
-                            loss = loss_fn(norm_pos_dist, norm_neg_dist)
+                            ext_loss = loss_fn(anch_feat, pos_feat, neg_feat)
                         else:
-                            loss += loss_fn(norm_pos_dist, norm_neg_dist)
+                            ext_loss += loss_fn(anch_feat, pos_feat, neg_feat)
 
                         # bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
 
@@ -245,6 +252,10 @@ class ModelMethods:
                     # print('loss: ', loss.item())
 
                     # train_loss_bces += neg_bce_losses / self.no_negative
+
+                    ext_loss /= self.no_negative
+
+                    loss = ext_loss + class_loss
 
                     train_loss += loss.item()
                     loss.backward()  # training with triplet loss

@@ -15,9 +15,10 @@ class TripletLoss(nn.Module):
         self.no_negative = args.no_negative
         self.loss = 0
 
-    def forward(self, pos_dist, neg_dist):
-        # pos_dist = torch.dist(anch, pos)
-        # neg_dist = torch.dist(anch, neg)
+    def forward(self, anch, pos, neg):
+
+        pos_dist = torch.dist(anch, pos)
+        neg_dist = torch.dist(anch, neg)
 
         dist = pos_dist - neg_dist + self.margin
 
