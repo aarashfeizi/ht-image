@@ -185,7 +185,8 @@ class ModelMethods:
         for epoch in range(epochs):
 
             train_loss = 0
-            train_loss_bces = 0
+            train_bce_loss = 0
+            train_triplet_loss = 0
 
             metric_ACC.reset_acc()
 
@@ -217,7 +218,6 @@ class ModelMethods:
 
                     net.train()
                     opt.zero_grad()
-
 
 
                     norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
@@ -257,18 +257,22 @@ class ModelMethods:
                     # train_loss_bces += neg_bce_losses / self.no_negative
 
                     ext_loss /= self.no_negative
+                    class_loss /= (self.no_negative + 1)
 
                     loss = ext_loss + class_loss
 
                     train_loss += loss.item()
+                    train_triplet_loss += ext_loss.item()
+                    train_bce_loss += class_loss.item()
                     loss.backward()  # training with triplet loss
                     opt.step()
                     # plt = self.plot_grad_flow(net.named_parameters())
                     # pdb.set_trace()
                     # self.getBack(loss.grad_fn)
 
-                    t.set_postfix(triplet_loss=f'{train_loss / (batch_id * self.no_negative) :.4f}',
-                                  # bce_loss=f'{train_loss_bces / batch_id:.4f}',
+                    t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                                  bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                                  triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
                                   train_acc=f'{metric_ACC.get_acc():.4f}'
                                   )
 
@@ -283,8 +287,10 @@ class ModelMethods:
                 # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
                 # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
 
-                self.writer.add_scalar('Train/Triplet_Loss', train_loss / len(train_loader) * self.no_negative, epoch)
-                # self.writer.add_scalar('Train/BCE_Loss', train_loss_bces / len(train_loader), epoch)
+                self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
+                self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
+                self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
+
                 self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                 self.writer.flush()
 
