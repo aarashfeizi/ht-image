@@ -601,19 +601,21 @@ class ModelMethods:
                 one_labels), Variable(zero_labels)
 
             ###
-            norm_pos_dist, anch, pos = net.forward(anch, pos, feats=True)
+            norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
             class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
 
             for iter in range(self.no_negative):
-                norm_neg_dist, _, neg = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                print(anch.shape)
+                print(neg[:, iter, :, :, :].squeeze(dim=1).shape)
+                norm_neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
                                                     feats=True)
 
                 class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
 
                 if iter == 0:
-                    ext_loss = loss_fn(anch, pos, neg)
+                    ext_loss = loss_fn(anch_feat, pos_feat, neg_feat)
                 else:
-                    ext_loss += loss_fn(anch, pos, neg)
+                    ext_loss += loss_fn(anch_feat, pos_feat, neg_feat)
 
             ext_loss /= self.no_negative
             class_loss /= (self.no_negative + 1)
