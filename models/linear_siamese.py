@@ -47,8 +47,8 @@ class LiSiamese(nn.Module):
         out2 = self.forward_one(x2)
 
         # dis = torch.abs(out1 - out2)
-        dis = torch.nn.PairwiseDistance()(out1, out2) / 2  # output between 0 and 1. 0 meaning similar and 1 meaning different
-
+        dis = torch.nn.PairwiseDistance()(out1, out2)  # output between 0 and 1. 0 meaning similar and 1 meaning different
+        print('max distance was: ', dis.max())
         #  return self.sigmoid(out)
         if feats:
 
