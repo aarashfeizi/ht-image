@@ -225,7 +225,6 @@ class ModelMethods:
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
                     print('pos loss', class_loss)
 
-
                     # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     # train_loss_bces += (bce_loss_value_pos.item())
                     # neg_bce_losses = 0
@@ -238,6 +237,7 @@ class ModelMethods:
                         # self.logger.info(f'pos_dist_total = {sum((norm_pos_dist ** 2).sum(dim=1))}')
                         # self.logger.info(f'neg_dist_total = {sum((norm_neg_dist ** 2).sum(dim=1))}')
                         print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
+
 
                         class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
 
