@@ -143,5 +143,12 @@ cc_job.sh/
 hotels_trainval/
 logs/
 tb_por50/
+*.out
+hists/
+new_hists/
+org_loader/
+plts/
 
 tb_*
+
+.DS_Store
