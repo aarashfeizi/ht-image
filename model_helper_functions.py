@@ -218,7 +218,6 @@ class ModelMethods:
                     net.train()
                     opt.zero_grad()
 
-
                     norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
                     print(f'norm pos: {norm_pos_dist}')
                     class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())

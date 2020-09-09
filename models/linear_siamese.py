@@ -50,7 +50,6 @@ class LiSiamese(nn.Module):
         out_cat = torch.cat((out1, out2), 1)
 
         # dis = torch.abs(out1 - out2)
-
         dis = self.out(out_cat)  # output between -inf and inf. Passed through sigmoid in loss function
 
         # dis = torch.nn.PairwiseDistance()(out1, out2) / 2  # output between 0 and 1. 0 meaning similar and 1 meaning different
