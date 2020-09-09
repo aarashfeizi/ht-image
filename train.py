@@ -1,16 +1,17 @@
+import json
 import logging
+import os
 import sys
+from argparse import Namespace
 
 from torch.utils.data import DataLoader
-from torchvision import transforms
 
 import model_helper_functions
 import utils
+from cub_dataloader import *
 from hotel_dataloader import *
-from models.top_model import *
 from losses import TripletLoss
-import torch
-import os
+from models.top_model import *
 
 
 ###
@@ -29,23 +30,25 @@ def main():
 
     args = utils.get_args()
 
+    with open(f'./dataset_info_{args.env}.json', 'r') as d:
+        dataset_info = json.load(d)
+
+    args_dict = vars(args)
+    args_dict.update(dataset_info[args.dataset_name])
+    args = Namespace(**args_dict)
+
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    image_size = -1
+    # args.dataset_folder = dataset_info[args.dataset_name][]
 
-    if args.image_size > 0:
-        image_size = args.image_size
-    elif args.dataset_name == 'hotels':
-        image_size = 300
-
-    data_transforms_train, transform_list_train = utils.TransformLoader(image_size,
+    data_transforms_train, transform_list_train = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=True)
 
     logger.info(f'train transforms: {transform_list_train}')
 
-    data_transforms_val, transform_list_val = utils.TransformLoader(image_size,
+    data_transforms_val, transform_list_val = utils.TransformLoader(args.image_size,
                                                                     rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=False)
     logger.info(f'val transforms: {transform_list_val}')
@@ -60,43 +63,58 @@ def main():
     val_set_known_fewshot = None
     val_set_unknown_fewshot = None
 
-    # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
+    train_metric_dataset = None
+    train_few_shot_dataset = None
+    test_few_shot_dataset = None
+    db_dataset = None
 
     if args.dataset_name == 'hotels':
-
-        print('*' * 10)
-        if args.metric_learning:
-            train_set = HotelTrain_Metric(args, transform=data_transforms_train, mode='train', save_pictures=False)
-            print('*' * 10)
-            val_set_known_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode='val_seen',
-                                                     save_pictures=False)
-            print('*' * 10)
-            val_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode='val_unseen',
-                                                       save_pictures=False)
-
-
-        else:
-            train_set = HotelTrain_FewShot(args, transform=data_transforms_train, mode='train', save_pictures=False)
-            print('*' * 10)
-
-        val_set_known_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode='val_seen', save_pictures=False)
-        print('*' * 10)
-        val_set_unknown_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode='val_unseen', save_pictures=False)
-
-        if args.test:
-            test_set_known = HotelTest_FewShot(args, transform=data_transforms_val, mode='test_seen')
-            print('*' * 10)
-            test_set_unknown = HotelTest_FewShot(args, transform=data_transforms_val, mode='test_unseen')
-            print('*' * 10)
-
-            # todo test not supported for metric learning
-
-        if args.cbir:
-            db_set = Hotel_DB(args, transform=data_transforms_val, mode='val')
-            db_set_train = Hotel_DB(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
-
+        train_metric_dataset = HotelTrain_Metric
+        train_few_shot_dataset = HotelTrain_FewShot
+        test_few_shot_dataset = HotelTest_FewShot
+        db_dataset = Hotel_DB
+    elif args.dataset_name == 'cub':
+        train_metric_dataset = CUBTrain_Metric
+        train_few_shot_dataset = CUBTrain_FewShot
+        test_few_shot_dataset = CUBTest_FewShot
+        db_dataset = CUB_DB
     else:
         logger.error(f'Dataset not suppored:  {args.dataset_name}')
+
+    # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
+
+    print('*' * 10)
+    if args.metric_learning:
+        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
+        print('*' * 10)
+        val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
+                                                    save_pictures=False)
+        print('*' * 10)
+        val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
+                                                      save_pictures=False)
+
+
+    else:
+        train_set = train_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
+        print('*' * 10)
+
+    val_set_known_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_seen',
+                                                  save_pictures=False)
+    print('*' * 10)
+    val_set_unknown_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_unseen',
+                                                    save_pictures=False)
+
+    if args.test:
+        test_set_known = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_seen')
+        print('*' * 10)
+        test_set_unknown = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_unseen')
+        print('*' * 10)
+
+        # todo test not supported for metric learning
+
+    if args.cbir:
+        db_set = db_dataset(args, transform=data_transforms_val, mode='val')
+        # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
 
@@ -141,8 +159,8 @@ def main():
         db_loader = DataLoader(db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                pin_memory=pin_memory)
 
-        db_loader_train = DataLoader(db_set_train, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                     pin_memory=pin_memory)
+        # db_loader_train = DataLoader(db_set_train, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+        #                              pin_memory=pin_memory)
 
     if args.loss == 'bce':
         loss_fn = torch.nn.BCEWithLogitsLoss(reduction='mean')

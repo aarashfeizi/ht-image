@@ -1,0 +1,18 @@
+{
+  "cub": {
+    "dataset_folder": "CUB/images",
+    "splits_file_path": "../../dataset/CUB/final_newsplits0_1",
+    "image_size": 228
+  },
+  "hotels": {
+    "splits_file_path": "../../dataset/hotels_trainval/dummy_splits_50k",
+    "dataset_folder": "hotels_trainval/",
+    "image_size": 228
+  },
+  "omniglot": {
+    "dataset_folder": "omniglot/",
+    "train_path": "./omniglot/python/images_background",
+    "test_path": "./omniglot/python/images_evaluation",
+    "image_size": 228
+  }
+}

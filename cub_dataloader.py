@@ -9,9 +9,9 @@ from torchvision.utils import save_image
 from utils import get_shuffled_data, loadDataToMem
 
 
-class HotelTrain_Metric(Dataset):
+class CUBTrain_Metric(Dataset):
     def __init__(self, args, transform=None, mode='f', save_pictures=False):
-        super(HotelTrain_Metric, self).__init__()
+        super(CUBTrain_Metric, self).__init__()
         np.random.seed(args.seed)
         self.transform = transform
         self.save_pictures = save_pictures
@@ -84,9 +84,9 @@ class HotelTrain_Metric(Dataset):
         return anch, pos, neg
 
 
-class HotelTrain_FewShot(Dataset):
+class CUBTrain_FewShot(Dataset):
     def __init__(self, args, transform=None, mode='train', save_pictures=False):
-        super(HotelTrain_FewShot, self).__init__()
+        super(CUBTrain_FewShot, self).__init__()
         np.random.seed(args.seed)
         self.transform = transform
         self.save_pictures = save_pictures
@@ -181,11 +181,11 @@ class HotelTrain_FewShot(Dataset):
         return imgs, lbls
 
 
-class HotelTest_FewShot(Dataset):
+class CUBTest_FewShot(Dataset):
 
     def __init__(self, args, transform=None, mode='test_seen', save_pictures=False):
         np.random.seed(args.seed)
-        super(HotelTest_FewShot, self).__init__()
+        super(CUBTest_FewShot, self).__init__()
         self.transform = transform
         self.save_pictures = save_pictures
         self.times = args.times
@@ -241,10 +241,10 @@ class HotelTest_FewShot(Dataset):
         return img1, img2
 
 
-class Hotel_DB(Dataset):
+class CUB_DB(Dataset):
     def __init__(self, args, transform=None, mode='test'):
         np.random.seed(args.seed)
-        super(Hotel_DB, self).__init__()
+        super(CUB_DB, self).__init__()
         self.transform = transform
 
         total = True

@@ -78,20 +78,14 @@ def get_args():
 
     parser.add_argument('-cuda', '--cuda', default=False, action='store_true')
     parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
+    parser.add_argument('-env', '--env', default='local', help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
 
     parser.add_argument('-dsn', '--dataset_name', default='omniglot', choices=['omniglot', 'cub', 'hotels'])
-    parser.add_argument('-dsp', '--dataset_path', default='CUB/')
-    parser.add_argument('-df', '--dataset_folder', default='hotels_trainval/')
+    parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
-    parser.add_argument('-sfn', '--splits_file_name', default='splits_50k')
-    parser.add_argument('-spp', '--splits_path', default='')
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
     parser.add_argument('-nor', '--number_of_runs', default=1, type=int, help="Number of times to sample for k@n")
-    parser.add_argument('-sdp', '--subdir_path', default='images/')
-    parser.add_argument('-trp', '--train_path', default='./omniglot/python/images_background')
-    parser.add_argument('-tsp', '--test_path', default='./omniglot/python/images_evaluation')
-    parser.add_argument('-is', '--image_size', default=0, type=int, help="Image Size")
-    parser.add_argument('-sp', '--save_path', default='models/', help="path to store model")
+    parser.add_argument('-sp', '--save_path', default='savedmodels/', help="path to store model")
     parser.add_argument('-lp', '--log_path', default='logs/', help="path to log")
     parser.add_argument('-tbp', '--tb_path', default='tensorboard/', help="path for tensorboard")
     parser.add_argument('-a', '--aug', default=False, action='store_true')
@@ -122,7 +116,7 @@ def get_args():
     parser.add_argument('-tf', '--test_freq', default=100, type=int, help="test model after each test_every iter.")
     # parser.add_argument('-ms', '--max_steps', default=50000, type=int, help="number of steps before stopping")
     parser.add_argument('-ep', '--epochs', default=1, type=int, help="number of epochs before stopping")
-    parser.add_argument('-es', '--early_stopping', default=10, type=int, help="number of tol for validation acc")
+    parser.add_argument('-es', '--early_stopping', default=20, type=int, help="number of tol for validation acc")
     parser.add_argument('-tst', '--test', default=False, action='store_true')
     parser.add_argument('-katn', '--katn', default=False, action='store_true')
     parser.add_argument('-cbir', '--cbir', default=False, action='store_true')
@@ -529,9 +523,9 @@ def _read_new_split(dataset_path, mode,
     return image_path, image_labels
 
 
-def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_newsplits0_1',
-                  portion=0, return_bg=True, split_path=None, dataset_folder=''):
-    print(split_file_name, '!!!!!!!!')
+def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
+                  portion=0, return_bg=True, dataset_folder=''):
+    print(split_file_path, '!!!!!!!!')
     dataset_path = os.path.join(dataPath, dataset_folder)
 
     return_bg = return_bg and (mode != 'train')
@@ -546,12 +540,9 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_name='final_n
     datas = {}
     datas_bg = {}  # in case of mode == val/test_seen/unseen
 
-    if split_path == '':
-        split_path = dataset_path
-
-    image_path, image_labels = _read_new_split(os.path.join(split_path, split_file_name), mode, dataset_name)
+    image_path, image_labels = _read_new_split(split_file_path, mode, dataset_name)
     if return_bg:
-        image_path_bg, image_labels_bg = _read_new_split(os.path.join(split_path, split_file_name),
+        image_path_bg, image_labels_bg = _read_new_split(split_file_path,
                                                          background_datasets[mode], dataset_name)
 
     if portion > 0:
