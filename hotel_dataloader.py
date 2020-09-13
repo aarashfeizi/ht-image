@@ -6,11 +6,12 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
 
-from utils import get_shuffled_data, loadDataToMem
+
+from utils import get_shuffled_data, loadDataToMem, get_overfit
 
 
 class HotelTrain_Metric(Dataset):
-    def __init__(self, args, transform=None, mode='f', save_pictures=False):
+    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False):
         super(HotelTrain_Metric, self).__init__()
         np.random.seed(args.seed)
         self.transform = transform
@@ -24,6 +25,14 @@ class HotelTrain_Metric(Dataset):
                                                                                   portion=args.portion,
                                                                                   dataset_folder=args.dataset_folder)
 
+        if overfit and args.overfit_num > 0:
+            self.overfit = True
+            self.overfit_samples = get_overfit(data=self.datas, labels=self.labels, anchors=args.overfit_num,
+                                               neg_per_pos=self.no_negative)
+            print(f'Overfitting to {args.overfit_num} triplet[s]: {self.overfit_samples}')
+        else:
+            self.overfit = False
+
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
         # self.masks =
 
@@ -35,33 +44,53 @@ class HotelTrain_Metric(Dataset):
 
     def __getitem__(self, index):
 
-        anch_idx = random.randint(0, self.num_classes - 1)
-        anch_class = self.labels[anch_idx]
-        anch = Image.open(random.choice(self.datas[anch_class]))
+        if self.overfit:
+            overfit_triplet = np.random.choice(self.overfit_samples, 1)[0]
+            anch = Image.open(overfit_triplet['anch'])
+            anch = anch.convert('RGB')
 
-        # get pos image from same class
-        pos = Image.open(random.choice(self.datas[anch_class]))
 
-        # get neg image from different class
-        negs = []
-        for i in range(self.no_negative):
-            neg_idx = random.randint(0, self.num_classes - 1)
-            neg_class = self.labels[neg_idx]
+            pos = Image.open(overfit_triplet['pos'])
 
-            while anch_class == neg_class:
+
+            negs = []
+            for neg_path in overfit_triplet['neg']:
+                neg = Image.open(neg_path)
+                neg = neg.convert('RGB')
+
+                negs.append(neg)
+
+
+        else:  # not overfitting
+            anch_idx = random.randint(0, self.num_classes - 1)
+            anch_class = self.labels[anch_idx]
+            anch = Image.open(random.choice(self.datas[anch_class]))
+
+            # get pos image from same class
+            pos = Image.open(random.choice(self.datas[anch_class]))
+
+            # get neg image from different class
+            negs = []
+            for i in range(self.no_negative):
                 neg_idx = random.randint(0, self.num_classes - 1)
                 neg_class = self.labels[neg_idx]
 
-                # class1 = self.labels[idx1]
+                while anch_class == neg_class:
+                    neg_idx = random.randint(0, self.num_classes - 1)
+                    neg_class = self.labels[neg_idx]
 
-                # image1 = Image.open(random.choice(self.datas[self.class1]))
-            neg = Image.open(random.choice(self.datas[neg_class]))
-            neg = neg.convert('RGB')
-            negs.append(neg)
+                    # class1 = self.labels[idx1]
 
-        anch = anch.convert('RGB')
-        pos = pos.convert('RGB')
+                    # image1 = Image.open(random.choice(self.datas[self.class1]))
+                neg = Image.open(random.choice(self.datas[neg_class]))
+                neg = neg.convert('RGB')
+                negs.append(neg)
+
+            anch = anch.convert('RGB')
+            pos = pos.convert('RGB')
+
         save = False
+
         if self.transform:
             if self.save_pictures and random.random() < 0.0001:
                 save = True

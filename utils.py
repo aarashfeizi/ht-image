@@ -78,8 +78,9 @@ def get_args():
 
     parser.add_argument('-cuda', '--cuda', default=False, action='store_true')
     parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
-    parser.add_argument('-env', '--env', default='local', help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
-
+    parser.add_argument('-env', '--env', default='local',
+                        help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
+    parser.add_argument('-on', '--overfit_num', default=0, type=int)
     parser.add_argument('-dsn', '--dataset_name', default='omniglot', choices=['omniglot', 'cub', 'hotels'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
@@ -667,3 +668,38 @@ def read_masks(path):
     # read mask csv and paths
     masks = pd.read_csv(path)
     return masks
+
+
+def get_overfit(data, labels, anchors=1, neg_per_pos=1):
+    anch_class = np.random.choice(labels, 1)
+    neg_class = anch_class
+    while neg_class == anch_class:
+        neg_class = np.random.choice(labels, 1)
+
+    triplets = []
+
+    for i in range(anchors):
+        anch_class = np.random.choice(labels, 1)[0]
+        neg_class = anch_class
+
+        while neg_class == anch_class:
+            neg_class = np.random.choice(labels, 1)[0]
+
+        anch_path = np.random.choice(data[anch_class], 1)[0]
+        pos_path = np.random.choice(data[anch_class], 1)[0]
+
+        while anch_path == pos_path:
+            pos_path = np.random.choice(data[anch_class], 1)[0]
+
+        negs = []
+        for j in range(neg_per_pos):
+            neg_path = np.random.choice(data[neg_class], 1)[0]
+
+            while neg_path in negs:
+                neg_path = np.random.choice(data[neg_class], 1)[0]
+
+            negs.append(neg_path)
+
+            triplets.append({'anch': anch_path, 'pos': pos_path, 'neg': negs})
+
+    return triplets

@@ -48,14 +48,15 @@ class ModelMethods:
         important_args = ['batch_size',
                           'lr_siamese',
                           'lr_resnet',
-                          'early_stopping',
+                          # 'early_stopping',
                           'feat_extractor',
                           'extra_layer',
-                          'normalize',
+                          # 'normalize',
                           'number_of_runs',
                           'no_negative',
                           'margin',
-                          'loss']
+                          'loss',
+                          'overfit_num']
 
         for arg in vars(args):
             if str(arg) in important_args:

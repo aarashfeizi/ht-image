@@ -85,13 +85,13 @@ def main():
 
     print('*' * 10)
     if args.metric_learning:
-        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
+        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False, overfit=True)
         print('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
-                                                    save_pictures=False)
+                                                    save_pictures=False, overfit=False)
         print('*' * 10)
         val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                      save_pictures=False)
+                                                      save_pictures=False, overfit=False)
 
 
     else:
