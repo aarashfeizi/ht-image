@@ -223,7 +223,7 @@ class ModelMethods:
                     print(f'norm pos: {norm_pos_dist}')
                     class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
-                    print('pos loss', class_loss)
+
 
                     # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
                     # train_loss_bces += (bce_loss_value_pos.item())
@@ -239,13 +239,10 @@ class ModelMethods:
                         print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
 
 
-                        class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
-
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
 
-                        print('neg loss', class_loss)
 
                         if iter == 0:
                             ext_loss = loss_fn(anch_feat, pos_feat, neg_feat)
