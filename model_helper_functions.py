@@ -45,7 +45,8 @@ class ModelMethods:
     def _parse_args(self, args):
         name = 'model-' + self.model
 
-        important_args = ['batch_size',
+        important_args = ['dataset_name',
+                          'batch_size',
                           'lr_siamese',
                           'lr_resnet',
                           # 'early_stopping',
