@@ -218,6 +218,7 @@ class CUBTest_FewShot(Dataset):
         self.way = args.way
         self.img1 = None
         self.c1 = None
+        self.mode = mode
 
         self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
                                                                                     args.dataset_name,
@@ -246,7 +247,10 @@ class CUBTest_FewShot(Dataset):
             c2 = list(self.datas_bg.keys())[random.randint(0, len(self.datas_bg.keys()) - 1)]
             while self.c1 == c2:
                 c2 = list(self.datas_bg.keys())[random.randint(0, len(self.datas_bg.keys()) - 1)]
-            img2 = Image.open(random.choice(self.datas_bg[c2])[0]).convert('RGB')
+            if self.mode == 'train':
+                img2 = Image.open(random.choice(self.datas_bg[c2])).convert('RGB')
+            else:
+                img2 = Image.open(random.choice(self.datas_bg[c2])[0]).convert('RGB')
 
         save = False
         if self.transform:
