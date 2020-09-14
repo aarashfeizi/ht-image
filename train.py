@@ -85,7 +85,8 @@ def main():
 
     print('*' * 10)
     if args.metric_learning:
-        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False, overfit=True)
+        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False,
+                                         overfit=True)
         print('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
                                                     save_pictures=False, overfit=False)
@@ -97,6 +98,8 @@ def main():
     else:
         train_set = train_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
         print('*' * 10)
+
+    train_set_fewshot = test_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
 
     val_set_known_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_seen',
                                                   save_pictures=False)
@@ -141,6 +144,9 @@ def main():
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=False, num_workers=workers,
                               pin_memory=pin_memory)
+
+    train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
+                                      pin_memory=pin_memory)
 
     val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
@@ -190,19 +196,23 @@ def main():
     if args.pretrained_model_name == '':
         logger.info('Training')
         if args.metric_learning:
-            tm_net, best_model_top = model_methods_top.train_metriclearning(tm_net, loss_fn, loss_fn_bce, args,
-                                                                            train_loader, val_loaders_metric,
-                                                                            val_loaders_fewshot)
+            tm_net, best_model_top = model_methods_top.train_metriclearning(net=tm_net, loss_fn=loss_fn,
+                                                                            bce_loss=loss_fn_bce, args=args,
+                                                                            train_loader=train_loader,
+                                                                            val_loaders=val_loaders_metric,
+                                                                            val_loaders_fewshot=val_loaders_fewshot,
+                                                                            train_loader_fewshot=train_loader_fewshot)
         else:
-            tm_net, best_model_top = model_methods_top.train_fewshot(tm_net, loss_fn, args, train_loader,
-                                                                     val_loaders_fewshot)
+            tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
+                                                                     train_loader=train_loader,
+                                                                     val_loaders=val_loaders_fewshot)
         logger.info('Calculating K@Ns for Validation')
 
-        model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-                                      eval_sampled=False,
-                                      eval_per_class=True, newly_trained=True,
-                                      batch_size=args.db_batch,
-                                      mode='train_sampled')
+        # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+        #                               eval_sampled=False,
+        #                               eval_per_class=True, newly_trained=True,
+        #                               batch_size=args.db_batch,
+        #                               mode='train_sampled')
 
         model_methods_top.make_emb_db(args, tm_net, db_loader,
                                       eval_sampled=args.sampled_results,
@@ -217,11 +227,11 @@ def main():
         logger.info(f"Not training, loading {best_model_top} model...")
         tm_net = model_methods_top.load_model(args, tm_net, best_model_top)
         logger.info('Calculating K@Ns for Validation')
-        model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-                                      eval_sampled=False,
-                                      eval_per_class=True, newly_trained=True,
-                                      batch_size=args.db_batch,
-                                      mode='train_sampled')
+        # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+        #                               eval_sampled=False,
+        #                               eval_per_class=True, newly_trained=True,
+        #                               batch_size=args.db_batch,
+        #                               mode='train_sampled')
         model_methods_top.make_emb_db(args, tm_net, db_loader,
                                       eval_sampled=args.sampled_results,
                                       eval_per_class=args.per_class_results, newly_trained=False,
