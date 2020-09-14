@@ -845,8 +845,8 @@ class ModelMethods:
                 img1, img2 = img1.cuda(), img2.cuda()
             img1, img2 = Variable(img1), Variable(img2)
             output = net.forward(img1, img2)
-            loss += loss_fn(output, label).item()
-            output = output.data.cpu().numpy()
+            loss += loss_fn(output.reshape((-1,)), label.reshape((-1,))).item()
+            output = output.reshape((-1,)).data.cpu().numpy()
             pred = np.argmin(output)
             if pred == 0:
                 right += 1
