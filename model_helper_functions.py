@@ -148,7 +148,8 @@ class ModelMethods:
 
         return net
 
-    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot):
+    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
+                             train_loader_fewshot):
         net.train()
         val_tol = args.early_stopping
 
@@ -167,9 +168,6 @@ class ModelMethods:
         time_start = time.time()
         queue = deque(maxlen=20)
 
-        # print('steps:', args.max_steps)
-
-        # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
         epochs = args.epochs
 
         metric_ACC = metrics.Metric_Accuracy()
@@ -177,6 +175,9 @@ class ModelMethods:
         max_val_acc = 0
         max_val_acc_knwn = 0
         max_val_acc_unknwn = 0
+        val_acc = 0
+        val_rgt = 0
+        val_err = 0
         best_model = ''
 
         drew_graph = False
@@ -225,19 +226,11 @@ class ModelMethods:
                     class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
-
-                    # bce_loss_value_pos = bce_loss(output_pos.squeeze(), one_labels.squeeze())
-                    # train_loss_bces += (bce_loss_value_pos.item())
-                    # neg_bce_losses = 0
                     for iter in range(self.no_negative):
                         norm_neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
-                        #
-                        # self.logger.info(f'pos_dist = {(norm_pos_dist ** 2).sum(dim=1)}')
-                        # self.logger.info(f'neg_dist = {(norm_neg_dist ** 2).sum(dim=1)}')
-                        # self.logger.info(f'pos - neg = {(norm_pos_dist ** 2).sum(dim=1) - (norm_neg_dist ** 2).sum(dim=1)}')
-                        # self.logger.info(f'pos_dist_total = {sum((norm_pos_dist ** 2).sum(dim=1))}')
-                        # self.logger.info(f'neg_dist_total = {sum((norm_neg_dist ** 2).sum(dim=1))}')
+
                         print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
+
 
 
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
@@ -267,9 +260,6 @@ class ModelMethods:
                     train_bce_loss += class_loss.item()
                     loss.backward()  # training with triplet loss
                     opt.step()
-                    # plt = self.plot_grad_flow(net.named_parameters())
-                    # pdb.set_trace()
-                    # self.getBack(loss.grad_fn)
 
                     t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
                                   bce_loss=f'{train_bce_loss / batch_id:.4f}',
@@ -288,11 +278,19 @@ class ModelMethods:
                 # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
                 # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
 
+                train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
+                    args, net, train_loader_fewshot, bce_loss)
+
+                self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
+                                 f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
+
                 self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
                 self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
                 self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
+                self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
 
                 self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
+                self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
                 self.writer.flush()
 
                 if val_loaders is not None and epoch % args.test_freq == 0:
@@ -649,31 +647,9 @@ class ModelMethods:
             prompt_text = comment + ' TEST FEW SHOT:\tcorrect:\t%d\terror:\t%d\ttest_acc:%f\ttest_loss:%f\t'
             prompt_text_tb = comment + '_Test'
 
-        tests_right, tests_error = 0, 0
 
-        test_label = np.ones(shape=args.way, dtype=np.float32)
-        test_label[0] = 0
-        test_label = torch.from_numpy(test_label).reshape((-1, 1))
-        test_loss = 0
-        if args.cuda:
-            test_label = Variable(test_label.cuda())
-        else:
-            test_label = Variable(test_label)
+        test_acc, test_loss, tests_right, tests_error = self.apply_fewshot_eval(args, net, data_loader, loss_fn)
 
-        for _, (test1, test2) in enumerate(data_loader, 1):
-            if args.cuda:
-                test1, test2 = test1.cuda(), test2.cuda()
-            test1, test2 = Variable(test1), Variable(test2)
-            output = net.forward(test1, test2)
-            test_loss += loss_fn(output, test_label).item()
-            output = output.data.cpu().numpy()
-            pred = np.argmin(output)
-            if pred == 0:
-                tests_right += 1
-            else:
-                tests_error += 1
-
-        test_acc = tests_right * 1.0 / (tests_right + tests_error)
         self.logger.info('$' * 70)
         self.logger.info(prompt_text % (tests_right, tests_error, test_acc, test_loss))
         self.logger.info('$' * 70)
@@ -850,3 +826,33 @@ class ModelMethods:
             seen[idx * batch_size:end] = seen.to(int)
 
         return embs, labels, seen
+
+    def apply_fewshot_eval(self, args, net, data_loader, loss_fn):
+
+        right, error = 0, 0
+
+        label = np.ones(shape=args.way, dtype=np.float32)
+        label[0] = 0
+        label = torch.from_numpy(label)
+        loss = 0
+        if args.cuda:
+            label = Variable(label.cuda())
+        else:
+            label = Variable(label)
+
+        for _, (img1, img2) in enumerate(data_loader, 1):
+            if args.cuda:
+                img1, img2 = img1.cuda(), img2.cuda()
+            img1, img2 = Variable(img1), Variable(img2)
+            output = net.forward(img1, img2)
+            loss += loss_fn(output, label).item()
+            output = output.data.cpu().numpy()
+            pred = np.argmin(output)
+            if pred == 0:
+                right += 1
+            else:
+                error += 1
+
+        acc = right * 1.0 / (right + error)
+
+        return acc, loss, right, error
