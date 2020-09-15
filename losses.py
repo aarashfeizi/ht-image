@@ -1,7 +1,5 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
 
 
 class TripletLoss(nn.Module):
@@ -19,16 +17,30 @@ class TripletLoss(nn.Module):
         # pos_dist = torch.dist(anch, pos)
         # neg_dist = torch.dist(anch, neg)
 
-        # dist = pos_dist - neg_dist + self.margin
+        dist = pos_dist - neg_dist + self.margin
 
-        neg_part = F.relu(self.margin - neg_dist)
-        pos_part = pos_dist
-
-        loss = neg_part + pos_part
+        loss = F.relu(dist)
 
         loss = loss.mean()
 
         return loss
+
+
+class MaxMarginLoss(nn.Module):
+    def __init__(self, args, margin):
+        super(MaxMarginLoss, self).__init__()
+        self.margin = margin
+        self.loss = 0
+
+
+    def forward(self, pos_dist, neg_dist):
+
+        neg_part = F.relu(self.margin - neg_dist)
+        pos_part = pos_dist
+
+        loss = neg_part.mean() + pos_part.mean()
+
+        return loss, [pos_part, neg_part]
 
 ###
 # TODO

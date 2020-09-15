@@ -42,6 +42,10 @@ class ModelMethods:
         self.logger.info("** Save path: " + self.save_path)
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
+        if args.loss == 'maxmargin':
+            self.plt_save_path = f'{self.save_path}/loss_plts/'
+            os.mkdir(self.plt_save_path)
+
     def _parse_args(self, args):
         name = 'model-' + self.model
 
@@ -188,6 +192,8 @@ class ModelMethods:
 
             train_loss = 0
             train_loss_bces = 0
+            pos_parts = []
+            neg_parts = []
 
             metric_ACC.reset_acc()
 
@@ -221,19 +227,27 @@ class ModelMethods:
                     opt.zero_grad()
 
                     norm_pos_dist = net.forward(anch, pos, feats=False)
-                    print(f'norm pos: {norm_pos_dist}')
+                    if args.verbose:
+                        print(f'norm pos: {norm_pos_dist}')
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
                     for iter in range(self.no_negative):
                         norm_neg_dist = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=False)
-
-                        print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
+                        if args.verbose:
+                            print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
+                        batch_loss, parts = self.get_loss_value(args, loss_fn, norm_pos_dist, norm_neg_dist)
+
                         if iter == 0:
-                            loss = loss_fn(norm_pos_dist, norm_neg_dist)
+                            loss = batch_loss
                         else:
-                            loss += loss_fn(norm_pos_dist, norm_neg_dist)
+                            loss += batch_loss
+
+                        if args.loss == 'maxmargin':
+                            if iter == 0:
+                                pos_parts.extend(parts[0].tolist())
+                            neg_parts.extend(parts[1].tolist())
 
                     train_loss += loss.item()
                     loss.backward()  # training with triplet loss
@@ -254,6 +268,12 @@ class ModelMethods:
                 #
                 # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
                 # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
+
+                if args.loss == 'maxmargin':
+                    plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3, label=['pos', 'neg'])
+                    plt.title(f'Losses Epoch {epoch}')
+                    plt.legend(loc='upper right')
+                    plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
 
                 train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                     args, net, train_loader_fewshot, bce_loss)
@@ -809,3 +829,15 @@ class ModelMethods:
         acc = right * 1.0 / (right + error)
 
         return acc, loss, right, error
+
+    def get_loss_value(self, args, loss_fn, norm_pos_dist, norm_neg_dist):
+        if args.loss == 'trpl':
+            loss = loss_fn(norm_pos_dist, norm_neg_dist)
+            parts = []
+        elif args.loss == 'maxmargin':
+            loss, parts = loss_fn(norm_pos_dist, norm_neg_dist)
+        else:
+            loss = None
+            parts = None
+
+        return loss, parts

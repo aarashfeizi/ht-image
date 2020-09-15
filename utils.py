@@ -121,13 +121,14 @@ def get_args():
     parser.add_argument('-tst', '--test', default=False, action='store_true')
     parser.add_argument('-katn', '--katn', default=False, action='store_true')
     parser.add_argument('-cbir', '--cbir', default=False, action='store_true')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true')
     parser.add_argument('-sr', '--sampled_results', default=True, action='store_true')
     parser.add_argument('-pcr', '--per_class_results', default=True, action='store_true')
     parser.add_argument('-ptb', '--project_tb', default=False, action='store_true')
 
     parser.add_argument('-mtlr', '--metric_learning', default=False, action='store_true')
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
-    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl'])
+    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin'])
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
 
