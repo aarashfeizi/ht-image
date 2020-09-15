@@ -288,7 +288,7 @@ class ModelMethods:
                 self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
                 self.writer.flush()
 
-                if val_loaders is not None and epoch % args.test_freq == 0:
+                if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
                     net.eval()
 
                     val_acc_unknwn, val_acc_knwn = -1, -1
@@ -450,7 +450,7 @@ class ModelMethods:
                 self.writer.add_scalar('Train/Acc', metric.get_acc(), epoch)
                 self.writer.flush()
 
-                if val_loaders is not None and epoch % args.test_freq == 0:
+                if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
                     net.eval()
 
                     val_acc_unknwn, val_acc_knwn = -1, -1
