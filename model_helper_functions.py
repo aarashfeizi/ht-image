@@ -42,6 +42,10 @@ class ModelMethods:
         self.logger.info("** Save path: " + self.save_path)
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
+        if args.loss == 'maxmargin':
+            self.plt_save_path = f'{self.save_path}/loss_plts/'
+            os.mkdir(self.plt_save_path)
+
     def _parse_args(self, args):
         name = 'model-' + self.model
 
@@ -189,6 +193,8 @@ class ModelMethods:
             train_loss = 0
             train_bce_loss = 0
             train_triplet_loss = 0
+            pos_parts = []
+            neg_parts = []
 
             metric_ACC.reset_acc()
 
@@ -222,26 +228,33 @@ class ModelMethods:
                     opt.zero_grad()
 
                     norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                    print(f'norm pos: {norm_pos_dist}')
+                    if args.verbose:
+                        print(f'norm pos: {norm_pos_dist}')
                     class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
                     metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
                     for iter in range(self.no_negative):
                         norm_neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
 
-                        print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
+                        if args.verbose:
+                            print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
 
 
 
                         metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
-
+                        ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
                         if iter == 0:
-                            ext_loss = loss_fn(anch_feat, pos_feat, neg_feat)
+                            ext_loss = ext_batch_loss
                         else:
-                            ext_loss += loss_fn(anch_feat, pos_feat, neg_feat)
+                            ext_loss += ext_batch_loss
+
+                        if args.loss == 'maxmargin':
+                            if iter == 0:
+                                pos_parts.extend(parts[0].tolist())
+                            neg_parts.extend(parts[1].tolist())
 
                         # bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
 
@@ -277,6 +290,12 @@ class ModelMethods:
                 #
                 # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
                 # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
+
+                if args.loss == 'maxmargin':
+                    plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3, label=['pos', 'neg'])
+                    plt.title(f'Losses Epoch {epoch}')
+                    plt.legend(loc='upper right')
+                    plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
 
                 train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                     args, net, train_loader_fewshot, bce_loss)
@@ -856,3 +875,15 @@ class ModelMethods:
         acc = right * 1.0 / (right + error)
 
         return acc, loss, right, error
+
+    def get_loss_value(self, args, loss_fn, anch, pos, neg):
+        if args.loss == 'trpl':
+            loss = loss_fn(anch, pos, neg)
+            parts = []
+        elif args.loss == 'maxmargin':
+            loss, parts = loss_fn(anch, pos, neg)
+        else:
+            loss = None
+            parts = None
+
+        return loss, parts

@@ -10,7 +10,7 @@ import model_helper_functions
 import utils
 from cub_dataloader import *
 from hotel_dataloader import *
-from losses import TripletLoss
+from losses import TripletLoss, MaxMarginLoss
 from models.top_model import *
 
 
@@ -173,6 +173,9 @@ def main():
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = TripletLoss(margin=args.margin, args=args)
+    elif args.loss == 'maxmargin':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = MaxMarginLoss(margin=args.margin, args=args)
         # loss_fn = torch.nn.TripletMarginLoss(margin=args.margin, p=2)
     else:
         raise Exception('Loss function not supported: ' + args.loss)

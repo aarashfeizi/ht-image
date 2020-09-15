@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -14,22 +13,40 @@ class TripletLoss(nn.Module):
         self.margin = margin
         self.no_negative = args.no_negative
         self.loss = 0
+        self.pd = torch.nn.PairwiseDistance(p=2)
 
     def forward(self, anch, pos, neg):
+        pos_dist = self.pd(anch, pos)
+        neg_dist = self.pd(anch, neg)
 
-        pos_dist = torch.dist(anch, pos)
-        neg_dist = torch.dist(anch, neg)
+        dist = pos_dist - neg_dist + self.margin
 
-        # dist = pos_dist - neg_dist + self.margin
-
-        neg_part = F.relu(self.margin - neg_dist)
-        pos_part = pos_dist
-
-        loss = neg_part + pos_part
+        loss = F.relu(dist)
 
         loss = loss.mean()
 
         return loss
+
+
+class MaxMarginLoss(nn.Module):
+    def __init__(self, args, margin):
+        super(MaxMarginLoss, self).__init__()
+        self.margin = margin
+        self.loss = 0
+        self.pd = torch.nn.PairwiseDistance(p=2)
+
+
+    def forward(self, anch, pos, neg):
+
+        pos_dist = self.pd(anch, pos)
+        neg_dist = self.pd(anch, neg)
+
+        neg_part = F.relu(self.margin - neg_dist)
+        pos_part = pos_dist
+
+        loss = neg_part.mean() + pos_part.mean()
+
+        return loss, [pos_part, neg_part]
 
 ###
 # TODO
