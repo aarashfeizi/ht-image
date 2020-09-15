@@ -19,9 +19,12 @@ class TripletLoss(nn.Module):
         # pos_dist = torch.dist(anch, pos)
         # neg_dist = torch.dist(anch, neg)
 
-        dist = pos_dist - neg_dist + self.margin
+        # dist = pos_dist - neg_dist + self.margin
 
-        loss = F.relu(dist)
+        neg_part = F.relu(self.margin - neg_dist)
+        pos_part = pos_dist
+
+        loss = neg_part + pos_part
 
         loss = loss.mean()
 
