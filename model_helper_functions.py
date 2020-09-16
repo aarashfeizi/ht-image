@@ -274,9 +274,15 @@ class ModelMethods:
                     plt.title(f'Losses Epoch {epoch}')
                     plt.legend(loc='upper right')
                     plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
+                    plt.close()
+
+                if args.loss == 'bce':
+                    loss_fn_bce = loss_fn
+                else:
+                    loss_fn_bce = bce_loss
 
                 train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
-                    args, net, train_loader_fewshot, bce_loss)
+                    args, net, train_loader_fewshot, loss_fn_bce)
 
                 self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
                                  f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
@@ -297,7 +303,7 @@ class ModelMethods:
 
                         val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
                                                                                      val_loaders_fewshot[0],
-                                                                                     bce_loss, val=True,
+                                                                                     loss_fn_bce, val=True,
                                                                                      epoch=epoch, comment='known')
                         self.test_metric(args, net, val_loaders[0],
                                          loss_fn, val=True,
@@ -305,7 +311,7 @@ class ModelMethods:
 
                         val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
                                                                                            val_loaders_fewshot[1],
-                                                                                           bce_loss,
+                                                                                           loss_fn_bce,
                                                                                            val=True,
                                                                                            epoch=epoch,
                                                                                            comment='unknown')

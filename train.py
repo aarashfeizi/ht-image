@@ -169,6 +169,7 @@ def main():
         #                              pin_memory=pin_memory)
 
     if args.loss == 'bce':
+        loss_fn_bce = None
         loss_fn = torch.nn.BCEWithLogitsLoss(reduction='mean')
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')

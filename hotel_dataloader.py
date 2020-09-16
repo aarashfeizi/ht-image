@@ -51,6 +51,7 @@ class HotelTrain_Metric(Dataset):
 
 
             pos = Image.open(overfit_triplet['pos'])
+            pos = pos.convert('RGB')
 
 
             negs = []
