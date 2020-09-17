@@ -62,7 +62,8 @@ class ModelMethods:
                           'no_negative',
                           'margin',
                           'loss',
-                          'overfit_num']
+                          'overfit_num',
+                          'bcecoefficient']
 
         for arg in vars(args):
             if str(arg) in important_args:
