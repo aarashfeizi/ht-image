@@ -42,15 +42,17 @@ def main():
 
     # args.dataset_folder = dataset_info[args.dataset_name][]
 
+    basic_aug = args.overfit_num == 0
+
     data_transforms_train, transform_list_train = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=True)
+        aug=args.aug, random_crop=True, basic_aug=basic_aug)
 
     logger.info(f'train transforms: {transform_list_train}')
 
     data_transforms_val, transform_list_val = utils.TransformLoader(args.image_size,
                                                                     rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=False)
+        aug=args.aug, random_crop=False, basic_aug=basic_aug)
     logger.info(f'val transforms: {transform_list_val}')
 
     if args.gpu_ids != '':
