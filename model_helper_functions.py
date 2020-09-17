@@ -27,6 +27,7 @@ class ModelMethods:
         self.model_name = self._parse_args(args)
 
         self.no_negative = args.no_negative
+        self.bce_weight = args.bcecoefficient
 
         self.tensorboard_path = os.path.join(args.tb_path, self.model_name + id_str)
         self.logger = logger
@@ -266,7 +267,7 @@ class ModelMethods:
                     ext_loss /= self.no_negative
                     class_loss /= (self.no_negative + 1)
 
-                    loss = ext_loss + class_loss
+                    loss = ext_loss + self.bce_weight * class_loss
 
                     train_loss += loss.item()
                     train_triplet_loss += ext_loss.item()
