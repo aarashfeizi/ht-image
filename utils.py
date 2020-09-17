@@ -50,19 +50,20 @@ class TransformLoader:
         else:
             return method()
 
-    def get_composed_transform(self, aug=False, random_crop=False):
+    def get_composed_transform(self, aug=False, random_crop=False, basic_aug=True):
         transform_list = []
-        if aug:
-            transform_list = ['RandomResizedCrop', 'ImageJitter', 'RandomHorizontalFlip']
-        elif not aug and self.rotate == 0:
-            transform_list = ['Resize']
-        elif not aug and self.rotate != 0:
-            transform_list = ['Resize', 'RandomRotation']
+        if basic_aug:
+            if aug:
+                transform_list = ['RandomResizedCrop', 'ImageJitter', 'RandomHorizontalFlip']
+            elif not aug and self.rotate == 0:
+                transform_list = ['Resize']
+            elif not aug and self.rotate != 0:
+                transform_list = ['Resize', 'RandomRotation']
 
-        if random_crop:
-            transform_list.extend(['RandomResizedCrop'])
-        else:
-            transform_list.extend(['CenterCrop'])
+            if random_crop:
+                transform_list.extend(['RandomResizedCrop'])
+            else:
+                transform_list.extend(['CenterCrop'])
 
         transform_list.extend(['ToTensor', 'Normalize'])
 
