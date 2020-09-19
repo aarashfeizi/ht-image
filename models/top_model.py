@@ -36,21 +36,13 @@ class TopModel(nn.Module):
 
         if not single:
             x2_f, x2_l = self.ft_net(x2, is_feat=True)
-            ret = self.sm_net(x1_f[-1], x2_f[-1], feats=feats, dist=dist)
+            ret = self.sm_net(x1_f[-1], x2_f[-1], feats=feats)
             if feats:
-                if dist:
-                    output, out1, out2, distance = ret
-                    return output, out1, out2, distance
-                else:
-                    output, out1, out2 = ret
-                    return output, out1, out2
+                pred, pdist, out1, out2 = ret
+                return pred, pdist, out1, out2
             else:
-                if dist:
-                    output, distance = ret
-                    return output, distance
-                else:
-                    output = ret
-                    return output
+                pred, pdist = ret
+                return pred, pdist
         else:
             output = self.sm_net(x1_f[-1], None, single)  # single is true
             return output

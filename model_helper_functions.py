@@ -48,7 +48,7 @@ class ModelMethods:
             os.mkdir(self.plt_save_path)
 
     def _parse_args(self, args):
-        name = 'model-' + self.model
+        name = 'model-distmlp-' + self.model
 
         important_args = ['dataset_name',
                           'batch_size',
@@ -229,24 +229,24 @@ class ModelMethods:
                     net.train()
                     opt.zero_grad()
 
-                    norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                    pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
                     if args.verbose:
-                        print(f'norm pos: {norm_pos_dist}')
-                    class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
-                    metric_ACC.update_acc(norm_pos_dist.squeeze(), zero_labels.squeeze())  # zero dist means similar
+                        print(f'norm pos: {pos_dist}')
+                    class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
+                    metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
                     for iter in range(self.no_negative):
-                        norm_neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
+                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
 
                         if args.verbose:
-                            print(f'norm neg {iter}: {norm_neg_dist.reshape((1, -1))}')
+                            print(f'norm neg {iter}: {neg_dist}')
 
 
 
-                        metric_ACC.update_acc(norm_neg_dist.squeeze(), one_labels.squeeze())  # 1 dist means different
+                        metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
 
-                        class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
-                        ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+                        class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+                        ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
                         if iter == 0:
                             ext_loss = ext_batch_loss
@@ -298,6 +298,9 @@ class ModelMethods:
                     plt.title(f'Losses Epoch {epoch}')
                     plt.legend(loc='upper right')
                     plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
+
+                if bce_loss is None:
+                    bce_loss = loss_fn
 
                 train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                     args, net, train_loader_fewshot, bce_loss)
@@ -865,10 +868,10 @@ class ModelMethods:
             if args.cuda:
                 img1, img2 = img1.cuda(), img2.cuda()
             img1, img2 = Variable(img1), Variable(img2)
-            output = net.forward(img1, img2)
-            loss += loss_fn(output.reshape((-1,)), label.reshape((-1,))).item()
-            output = output.reshape((-1,)).data.cpu().numpy()
-            pred = np.argmin(output)
+            pred_vector, dist = net.forward(img1, img2)
+            loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
+            pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
+            pred = np.argmin(pred_vector)
             if pred == 0:
                 right += 1
             else:
@@ -878,12 +881,12 @@ class ModelMethods:
 
         return acc, loss, right, error
 
-    def get_loss_value(self, args, loss_fn, anch, pos, neg):
+    def get_loss_value(self, args, loss_fn, pos_dist, neg_dist):
         if args.loss == 'trpl':
-            loss = loss_fn(anch, pos, neg)
+            loss = loss_fn(pos_dist, neg_dist)
             parts = []
         elif args.loss == 'maxmargin':
-            loss, parts = loss_fn(anch, pos, neg)
+            loss, parts = loss_fn(pos_dist, neg_dist)
         else:
             loss = None
             parts = None

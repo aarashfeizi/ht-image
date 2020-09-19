@@ -15,9 +15,9 @@ class TripletLoss(nn.Module):
         self.loss = 0
         self.pd = torch.nn.PairwiseDistance(p=2)
 
-    def forward(self, anch, pos, neg):
-        pos_dist = self.pd(anch, pos)
-        neg_dist = self.pd(anch, neg)
+    def forward(self, pos_dist, neg_dist):
+        # pos_dist = self.pd(anch, pos)
+        # neg_dist = self.pd(anch, neg)
 
         dist = pos_dist - neg_dist + self.margin
 
@@ -36,10 +36,10 @@ class MaxMarginLoss(nn.Module):
         self.pd = torch.nn.PairwiseDistance(p=2)
 
 
-    def forward(self, anch, pos, neg):
+    def forward(self, pos_dist, neg_dist):
 
-        pos_dist = self.pd(anch, pos)
-        neg_dist = self.pd(anch, neg)
+        # pos_dist = self.pd(anch, pos)
+        # neg_dist = self.pd(anch, neg)
 
         neg_part = F.relu(self.margin - neg_dist)
         pos_part = pos_dist
