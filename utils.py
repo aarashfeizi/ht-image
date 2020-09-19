@@ -60,10 +60,10 @@ class TransformLoader:
             elif not aug and self.rotate != 0:
                 transform_list = ['Resize', 'RandomRotation']
 
-            if random_crop:
-                transform_list.extend(['RandomResizedCrop'])
-            else:
-                transform_list.extend(['CenterCrop'])
+        if random_crop:
+            transform_list.extend(['RandomResizedCrop'])
+        else:
+            transform_list.extend(['CenterCrop'])
 
         transform_list.extend(['ToTensor', 'Normalize'])
 
