@@ -48,7 +48,7 @@ class ModelMethods:
             os.mkdir(self.plt_save_path)
 
     def _parse_args(self, args):
-        name = 'model-distmlp-' + self.model
+        name = 'model-betteraug-distmlp-' + self.model
 
         important_args = ['dataset_name',
                           'batch_size',
