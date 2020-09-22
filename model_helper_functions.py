@@ -233,7 +233,7 @@ class ModelMethods:
                     if args.verbose:
                         print(f'norm pos: {pos_dist}')
                     class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
-                    metric_ACC.update_acc(torch.sigmoid(pos_pred).squeeze(), zero_labels.squeeze())  # zero dist means similar
+                    metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
                     for iter in range(self.no_negative):
                         neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
@@ -243,7 +243,7 @@ class ModelMethods:
 
 
 
-                        metric_ACC.update_acc(torch.sigmoid(neg_pred).squeeze(), one_labels.squeeze())  # 1 dist means different
+                        metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
                         ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
