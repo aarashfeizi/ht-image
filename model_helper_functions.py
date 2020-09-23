@@ -625,26 +625,28 @@ class ModelMethods:
                 one_labels), Variable(zero_labels)
 
             ###
-            norm_pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-            class_loss = bce_loss(norm_pos_dist.squeeze(), zero_labels.squeeze())
+            pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
 
             for iter in range(self.no_negative):
-                print(anch.shape)
-                print(neg[:, iter, :, :, :].squeeze(dim=1).shape)
-                norm_neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                # print(anch.shape)
+                # print(neg[:, iter, :, :, :].squeeze(dim=1).shape)
+                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
                                                     feats=True)
 
-                class_loss += bce_loss(norm_neg_dist.squeeze(), one_labels.squeeze())
+                class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+
+                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
                 if iter == 0:
-                    ext_loss = loss_fn(anch_feat, pos_feat, neg_feat)
+                    ext_loss = ext_batch_loss
                 else:
-                    ext_loss += loss_fn(anch_feat, pos_feat, neg_feat)
+                    ext_loss += ext_batch_loss
 
             ext_loss /= self.no_negative
             class_loss /= (self.no_negative + 1)
 
-            loss = ext_loss + class_loss
+            loss = ext_loss + self.bce_weight * class_loss
             test_loss += loss.item()
             test_triplet_loss += ext_loss.item()
             test_bce_loss += class_loss.item()
@@ -678,8 +680,8 @@ class ModelMethods:
         self.logger.info(prompt_text % (tests_right, tests_error, test_acc, test_loss))
         self.logger.info('$' * 70)
 
-        self.writer.add_scalar(f'{prompt_text_tb}/Loss', test_loss, epoch)
-        self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/Fewshot_Loss', test_loss, epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/Fewshot_Acc', test_acc, epoch)
         self.writer.flush()
 
         return tests_right, tests_error, test_acc
