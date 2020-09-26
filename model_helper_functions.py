@@ -199,6 +199,11 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
+            print('Started crap')
+            self.test_metric(args, net, val_loaders[0],
+                             loss_fn, bce_loss, val=True,
+                             epoch=epoch, comment='known')
+            input()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
@@ -246,17 +251,18 @@ class ModelMethods:
                         metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
 
                         class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
-                        ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+                        if loss_fn is not None:
+                            ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
-                        if iter == 0:
-                            ext_loss = ext_batch_loss
-                        else:
-                            ext_loss += ext_batch_loss
-
-                        if args.loss == 'maxmargin':
                             if iter == 0:
-                                pos_parts.extend(parts[0].tolist())
-                            neg_parts.extend(parts[1].tolist())
+                                ext_loss = ext_batch_loss
+                            else:
+                                ext_loss += ext_batch_loss
+
+                            if args.loss == 'maxmargin':
+                                if iter == 0:
+                                    pos_parts.extend(parts[0].tolist())
+                                neg_parts.extend(parts[1].tolist())
 
                         # bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
 
@@ -265,22 +271,31 @@ class ModelMethods:
 
                     # train_loss_bces += neg_bce_losses / self.no_negative
 
-                    ext_loss /= self.no_negative
                     class_loss /= (self.no_negative + 1)
 
-                    loss = ext_loss + self.bce_weight * class_loss
+                    if loss_fn is not None:
+                        ext_loss /= self.no_negative
+                        loss = ext_loss + self.bce_weight * class_loss
+                        train_triplet_loss += ext_loss.item()
+                    else:
+                        loss = self.bce_weight * class_loss
 
                     train_loss += loss.item()
-                    train_triplet_loss += ext_loss.item()
                     train_bce_loss += class_loss.item()
                     loss.backward()  # training with triplet loss
                     opt.step()
 
-                    t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
-                                  bce_loss=f'{train_bce_loss / batch_id:.4f}',
-                                  triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
-                                  train_acc=f'{metric_ACC.get_acc():.4f}'
-                                  )
+                    if loss_fn is not None:
+                        t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                                      bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                                      triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
+                                      train_acc=f'{metric_ACC.get_acc():.4f}'
+                                      )
+                    else:
+                        t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                                      bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                                      train_acc=f'{metric_ACC.get_acc():.4f}'
+                                      )
 
                     train_losses.append(train_loss)
 
@@ -309,7 +324,8 @@ class ModelMethods:
                                  f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
 
                 self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
-                self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
+                if loss_fn is not None:
+                    self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
                 self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                 self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
 
@@ -636,26 +652,36 @@ class ModelMethods:
 
                 class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
 
-                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+                if loss_fn is not None:
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
-                if iter == 0:
-                    ext_loss = ext_batch_loss
-                else:
-                    ext_loss += ext_batch_loss
+                    if iter == 0:
+                        ext_loss = ext_batch_loss
+                    else:
+                        ext_loss += ext_batch_loss
 
-            ext_loss /= self.no_negative
+
             class_loss /= (self.no_negative + 1)
+            if loss_fn is not None:
+                ext_loss /= self.no_negative
+                test_triplet_loss += ext_loss.item()
+                loss = ext_loss + self.bce_weight * class_loss
+            else:
+                loss = self.bce_weight * class_loss
 
-            loss = ext_loss + self.bce_weight * class_loss
             test_loss += loss.item()
-            test_triplet_loss += ext_loss.item()
+
             test_bce_loss += class_loss.item()
 
         self.logger.info('$' * 70)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
+        self.logger.error(f'{prompt_text_tb}/Loss:  {test_loss / len(data_loader)}, epoch: {epoch}')
         self.writer.add_scalar(f'{prompt_text_tb}/Loss', test_loss / len(data_loader), epoch)
-        self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_triplet_loss / len(data_loader), epoch)
+        if loss_fn is not None:
+            self.logger.error(f'{prompt_text_tb}/Triplet_Loss: {test_triplet_loss / len(data_loader)}, epoch: {epoch}')
+            self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_triplet_loss / len(data_loader), epoch)
+        self.logger.error(f'{prompt_text_tb}/BCE_Loss: {test_bce_loss / len(data_loader)}, epoch: {epoch}')
         self.writer.add_scalar(f'{prompt_text_tb}/BCE_Loss', test_bce_loss / len(data_loader), epoch)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
