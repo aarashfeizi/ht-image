@@ -199,11 +199,6 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
-            print('Started crap')
-            self.test_metric(args, net, val_loaders[0],
-                             loss_fn, bce_loss, val=True,
-                             epoch=epoch, comment='known')
-            input()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
