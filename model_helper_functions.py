@@ -288,7 +288,8 @@ class ModelMethods:
 
                     train_loss += loss.item()
                     train_bce_loss += class_loss.item()
-                    class_loss.backward(retain_graph=True)
+                    lambda_class_loss = self.bce_weight * class_loss
+                    lambda_class_loss.backward(retain_graph=True)
 
                     utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
                                              grad_save_path)
