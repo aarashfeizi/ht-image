@@ -5,16 +5,20 @@ import os
 import time
 
 import h5py
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
 import metrics
+
+matplotlib.rc('font', size=24)
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -706,3 +710,63 @@ def get_overfit(data, labels, anchors=1, neg_per_pos=1):
             triplets.append({'anch': anch_path, 'pos': pos_path, 'neg': negs})
 
     return triplets
+
+
+def bar_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path):
+    '''Plots the gradients flowing through different layers in the net during training.
+    Can be used for checking for possible gradient vanishing / exploding problems.
+
+    Usage: Plug this function in Trainer class after loss.backwards() as
+    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
+    ave_grads = []
+    max_grads = []
+    layers = []
+    plt.figure(figsize=(64, 48))
+    for n, p in named_parameters:
+        if (p.requires_grad) and ("bias" not in n):
+            if n == 'ft_net.fc.weight':
+                continue
+            if p.grad is None:
+                # print(f'{label} {n} none grad!!! *********')
+                continue
+            ave_grads.append(p.grad.abs().mean())
+            max_grads.append(p.grad.abs().max())
+    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
+    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
+    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers)
+    plt.xlim(left=0, right=len(ave_grads))
+    # plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title(f"Gradient flow for  {label}_epoch{epoch}_batch{batch_id}")
+    plt.grid(True)
+    plt.legend([Line2D([0], [0], color="c", lw=4),
+                Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+    plt.savefig(os.path.join(save_path, f'bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
+
+
+
+def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path):
+    ave_grads = []
+    layers = []
+    plt.figure(figsize=(64, 48))
+    for n, p in named_parameters:
+        if (p.requires_grad) and ("bias" not in n):
+            if n == 'ft_net.fc.weight':
+                continue
+            if p.grad is None:
+                # print(f'{label} {n} none grad!!! *********')
+                continue
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    plt.plot(ave_grads, alpha=0.3, color="b")
+    plt.hlines(0, 0, len(ave_grads) + 1, linewidth=1, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(xmin=0, xmax=len(ave_grads))
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title(f"Gradient flow for {label}_epoch{epoch}_batch{batch_id}")
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, f'line_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))

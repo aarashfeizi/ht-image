@@ -43,9 +43,9 @@ class ModelMethods:
         self.logger.info("** Save path: " + self.save_path)
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
-        if args.loss == 'maxmargin':
-            self.plt_save_path = f'{self.save_path}/loss_plts/'
-            os.mkdir(self.plt_save_path)
+
+        self.plt_save_path = f'{self.save_path}/loss_plts/'
+        os.mkdir(self.plt_save_path)
 
     def _parse_args(self, args):
         name = 'model-betteraug-distmlp-' + self.model
@@ -201,6 +201,9 @@ class ModelMethods:
             metric_ACC.reset_acc()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
+                grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
+                # print(grad_save_path)
+                os.makedirs(grad_save_path)
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
 
                     # print('input: ', img1.size())
@@ -236,12 +239,13 @@ class ModelMethods:
                     metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
                     for iter in range(self.no_negative):
-                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1), feats=True)
+                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                                                                      feats=True)
+                        # neg_dist.register_hook(lambda x: print(f'neg_dist grad:{x}'))
+                        # neg_pred.register_hook(lambda x: print(f'neg_pred grad:{x}'))
 
                         if args.verbose:
                             print(f'norm neg {iter}: {neg_dist}')
-
-
 
                         metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
 
@@ -272,12 +276,32 @@ class ModelMethods:
                         ext_loss /= self.no_negative
                         loss = ext_loss + self.bce_weight * class_loss
                         train_triplet_loss += ext_loss.item()
+                        ext_loss.backward(retain_graph=True)
+                        utils.bar_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                                                 grad_save_path)
+                        utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                                                  grad_save_path)
+                        opt.zero_grad()
+
                     else:
                         loss = self.bce_weight * class_loss
 
                     train_loss += loss.item()
                     train_bce_loss += class_loss.item()
+                    class_loss.backward(retain_graph=True)
+
+                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                             grad_save_path)
+                    utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                              grad_save_path)
+
+                    opt.zero_grad()
+
                     loss.backward()  # training with triplet loss
+
+                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+                    utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+
                     opt.step()
 
                     if loss_fn is not None:
@@ -304,7 +328,8 @@ class ModelMethods:
                 # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
 
                 if args.loss == 'maxmargin':
-                    plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3, label=['pos', 'neg'])
+                    plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3,
+                             label=['pos', 'neg'])
                     plt.title(f'Losses Epoch {epoch}')
                     plt.legend(loc='upper right')
                     plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
@@ -643,7 +668,7 @@ class ModelMethods:
                 # print(anch.shape)
                 # print(neg[:, iter, :, :, :].squeeze(dim=1).shape)
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
-                                                    feats=True)
+                                                              feats=True)
 
                 class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
 
@@ -654,7 +679,6 @@ class ModelMethods:
                         ext_loss = ext_batch_loss
                     else:
                         ext_loss += ext_batch_loss
-
 
             class_loss /= (self.no_negative + 1)
             if loss_fn is not None:
@@ -693,7 +717,6 @@ class ModelMethods:
         else:
             prompt_text = comment + ' TEST FEW SHOT:\tcorrect:\t%d\terror:\t%d\ttest_acc:%f\ttest_loss:%f\t'
             prompt_text_tb = comment + '_Test'
-
 
         test_acc, test_loss, tests_right, tests_error = self.apply_fewshot_eval(args, net, data_loader, loss_fn)
 
