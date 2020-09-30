@@ -208,6 +208,8 @@ class ModelMethods:
 
                     # print('input: ', img1.size())
 
+                    debug_grad = args.debug_grad and (batch_id == 1 or batch_id == len(train_loader))
+
                     one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
                     zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
 
@@ -276,32 +278,37 @@ class ModelMethods:
                         ext_loss /= self.no_negative
                         loss = ext_loss + self.bce_weight * class_loss
                         train_triplet_loss += ext_loss.item()
-                        ext_loss.backward(retain_graph=True)
-                        utils.bar_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
-                                                 grad_save_path)
-                        utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
-                                                  grad_save_path)
-                        opt.zero_grad()
+
+                        if debug_grad:
+                            ext_loss.backward(retain_graph=True)
+                            utils.bar_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                                                     grad_save_path)
+                            utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                                                      grad_save_path)
+                            opt.zero_grad()
 
                     else:
                         loss = self.bce_weight * class_loss
 
                     train_loss += loss.item()
                     train_bce_loss += class_loss.item()
-                    lambda_class_loss = self.bce_weight * class_loss
-                    lambda_class_loss.backward(retain_graph=True)
 
-                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                                             grad_save_path)
-                    utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                                              grad_save_path)
+                    if debug_grad:
+                        lambda_class_loss = self.bce_weight * class_loss
+                        lambda_class_loss.backward(retain_graph=True)
 
-                    opt.zero_grad()
+                        utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                                 grad_save_path)
+                        utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                                  grad_save_path)
+
+                        opt.zero_grad()
 
                     loss.backward()  # training with triplet loss
 
-                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
-                    utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+                    if debug_grad:
+                        utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+                        utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
 
                     opt.step()
 

@@ -137,6 +137,7 @@ def get_args():
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
+    parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -745,7 +746,7 @@ def bar_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
     plt.savefig(os.path.join(save_path, f'bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
-
+    plt.close()
 
 
 def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path):
@@ -770,3 +771,4 @@ def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_pat
     plt.title(f"Gradient flow for {label}_epoch{epoch}_batch{batch_id}")
     plt.grid(True)
     plt.savefig(os.path.join(save_path, f'line_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
+    plt.close()
