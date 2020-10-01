@@ -63,10 +63,15 @@ class ModelMethods:
                           'margin',
                           'loss',
                           'overfit_num',
-                          'bcecoefficient']
+                          'bcecoefficient',
+                          'debug_grad']
 
         for arg in vars(args):
             if str(arg) in important_args:
+                if str(arg) == 'debug_grad' and not getattr(args, arg):
+                    continue
+                elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
+                    continue
                 name += '-' + str(arg) + '_' + str(getattr(args, arg))
 
         return name
