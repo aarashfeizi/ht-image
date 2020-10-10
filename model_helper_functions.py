@@ -15,6 +15,8 @@ from tqdm import tqdm
 
 import metrics
 import utils
+import copy
+
 
 
 class ModelMethods:
@@ -43,12 +45,12 @@ class ModelMethods:
         self.logger.info("** Save path: " + self.save_path)
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
-
         self.plt_save_path = f'{self.save_path}/loss_plts/'
         os.mkdir(self.plt_save_path)
 
     def _parse_args(self, args):
-        name = 'model-betteraug-distmlp-' + self.model
+        # name = 'model-betteraug-distmlp-' + self.model
+        name = 'model-' + self.model
 
         important_args = ['dataset_name',
                           'batch_size',
@@ -270,13 +272,6 @@ class ModelMethods:
                                     pos_parts.extend(parts[0].tolist())
                                 neg_parts.extend(parts[1].tolist())
 
-                        # bce_loss_value_neg = bce_loss(output_neg.squeeze(), zero_labels.squeeze())
-
-                        # neg_bce_losses += (bce_loss_value_neg.item())
-                    # print('loss: ', loss.item())
-
-                    # train_loss_bces += neg_bce_losses / self.no_negative
-
                     class_loss /= (self.no_negative + 1)
 
                     if loss_fn is not None:
@@ -286,10 +281,28 @@ class ModelMethods:
 
                         if debug_grad:
                             ext_loss.backward(retain_graph=True)
-                            utils.bar_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
-                                                     grad_save_path)
-                            utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
-                                                      grad_save_path)
+                            triplet_loss_named_parameters = net.named_parameters()
+
+                            trpl_ave_grads = []
+                            trpl_max_grads = []
+                            layers = []
+                            for n, p in net.named_parameters():
+                                if (p.requires_grad) and ("bias" not in n):
+                                    if n == 'ft_net.fc.weight':
+                                        continue
+                                    if p.grad is None:
+                                        trpl_ave_grads.append(torch.Tensor([0.0]))
+                                        trpl_max_grads.append(torch.Tensor([0.0]))
+                                    else:
+                                        trpl_ave_grads.append(p.grad.abs().mean())
+                                        trpl_max_grads.append(p.grad.abs().max())
+
+                                    layers.append(n)
+
+                            print('got triplet loss grads')
+
+                            # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                            #                           grad_save_path)
                             opt.zero_grad()
 
                     else:
@@ -302,18 +315,52 @@ class ModelMethods:
                         lambda_class_loss = self.bce_weight * class_loss
                         lambda_class_loss.backward(retain_graph=True)
 
-                        utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                                                 grad_save_path)
-                        utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                                                  grad_save_path)
+                        bce_named_parameters = net.named_parameters()
+                        bce_named_parameters = {k: v for k, v in bce_named_parameters}
+
+                        bce_ave_grads = []
+                        bce_max_grads = []
+                        for n, p in net.named_parameters():
+                            if (p.requires_grad) and ("bias" not in n):
+                                if n == 'ft_net.fc.weight':
+                                    continue
+                                if p.grad is None:
+                                    continue
+
+                                bce_ave_grads.append(p.grad.abs().mean())
+                                bce_max_grads.append(p.grad.abs().max())
+
+
+
+                        # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
+                        #                          epoch, grad_save_path)
+                        #
+                        # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
+                        #                          grad_save_path)
+
+                        print('got bce grads')
+
+                        if loss_fn is None:
+                            utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                                     grad_save_path)
+                            utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                                      grad_save_path)
+                        else:
+                            # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
+                            #                          'TRIPLET', batch_id, epoch, grad_save_path)
+                            # utils.bar_plot_grad_flow(args, bce_named_parameters,
+                            #                          'BCE', batch_id, epoch, grad_save_path)
+                            utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], [bce_ave_grads, bce_max_grads, layers],
+                                                         'BOTH', batch_id, epoch, grad_save_path)
 
                         opt.zero_grad()
 
                     loss.backward()  # training with triplet loss
 
-                    if debug_grad:
-                        utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
-                        utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+                    # if debug_grad:
+                    #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+                    #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
+                    #                               grad_save_path)
 
                     opt.step()
 

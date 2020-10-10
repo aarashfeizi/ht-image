@@ -753,7 +753,7 @@ def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_pat
     ave_grads = []
     layers = []
     plt.figure(figsize=(64, 48))
-    for n, p in named_parameters:
+    for n, p in named_parameters.items():
         if (p.requires_grad) and ("bias" not in n):
             if n == 'ft_net.fc.weight':
                 continue
@@ -771,4 +771,85 @@ def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_pat
     plt.title(f"Gradient flow for {label}_epoch{epoch}_batch{batch_id}")
     plt.grid(True)
     plt.savefig(os.path.join(save_path, f'line_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
+    plt.close()
+
+
+def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch, save_path):
+    '''Plots the gradients flowing through different layers in the net during training.
+    Can be used for checking for possible gradient vanishing / exploding problems.
+
+    Usage: Plug this function in Trainer class after loss.backwards() as
+    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
+
+    colors = {'average_bce': 'cyan',
+              'max_bce': 'blue',
+              'average_triplet': 'hotpink',
+              'max_triplet': 'red'}
+
+    dict_avg_grads = {}
+
+
+    plt.figure(figsize=(8, 6))
+    df = None
+    # for (label, named_parameters) in [('bce', bce_np), ('triplet', triplet_np)]:
+    #     # plt.figure(figsize=(64, 48))
+    #     ave_grads = []
+    #     max_grads = []
+    #     layers = []
+    #     for n, p in named_parameters.items():
+    #         if (p.requires_grad) and ("bias" not in n):
+    #             if n == 'ft_net.fc.weight':
+    #                 continue
+    #             if p.grad is None:
+    #                 print(f'{label} {n} none grad!!! *********')
+    #                 continue
+    #             ave_grads.append(p.grad.abs().mean())
+    #             max_grads.append(p.grad.abs().max())
+    #             layers.append(n)
+
+    for label, lists in [('bce', bce_np), ('triplet', triplet_np)]:
+        ave_grads = lists[0]
+        max_grads = lists[1]
+        layers = lists[2]
+
+        if df is None:
+            df = pd.DataFrame(index=layers)
+
+        df[f'average_{label}'] = ave_grads
+        df[f'max_{label}'] = max_grads
+        # dict_avg_grads[label] = max_grads
+        # plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.05, lw=1, color=colors[f'average_{label}'])
+        # plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.05, lw=1, color=colors[f'max_{label}'])
+
+    # plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
+    # # plt.ylim(bottom=-0.001, top=np.mean([np.mean(dict_avg_grads['bce']), np.mean(dict_avg_grads['triplet'])]))  # zoom in on the lower gradient regions
+    # plt.xticks(range(0, len(ave_grads), 1), layers)
+    # plt.xlim(left=0, right=len(ave_grads))
+    # # plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
+    # plt.xlabel("Layers")
+    # plt.ylabel("average gradient")
+    # plt.title(f"Gradient flow for  {name_label}_epoch{epoch}_batch{batch_id}")
+    # plt.grid(True)
+    # plt.legend([Line2D([0], [0], color=colors[f'max_bce'], lw=4),
+    #             Line2D([0], [0], color=colors[f'average_bce'], lw=4),
+    #             Line2D([0], [0], color=colors[f'max_triplet'], lw=4),
+    #             Line2D([0], [0], color=colors[f'average_triplet'], lw=4),
+    #             Line2D([0], [0], color="k", lw=4)],
+    #            ['bce-max-gradient', 'bce-mean-gradient',
+    #             'triplet-max-gradient', 'triplet-mean-gradient', 'zero-gradient'])
+    # plt.savefig(os.path.join(save_path, f'two_bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
+    # plt.show()
+    # plt.close()
+
+    # plt.figure(figsize=(32, 24))
+    plt.rcParams.update({'font.size': 15})  # must set in top
+    df = df.applymap(lambda x: x.item())
+    df.plot(kind='bar', colormap='plasma', figsize=(64, 48))
+    plt.ylim(bottom=0, top=0.02 * args.bcecoefficient)  # zoom in on the lower gradient regions
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title(f"Gradient flow for  {name_label}_epoch{epoch}_batch{batch_id}")
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, f'two_bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
+
     plt.close()
