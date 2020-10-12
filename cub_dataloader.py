@@ -10,13 +10,14 @@ from utils import get_shuffled_data, loadDataToMem, get_overfit
 
 
 class CUBTrain_Metric(Dataset):
-    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False):
+    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False):
         super(CUBTrain_Metric, self).__init__()
         np.random.seed(args.seed)
         self.transform = transform
         self.save_pictures = save_pictures
         self.no_negative = args.no_negative
         self.mask = args.mask
+        self.return_paths = return_paths
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -43,17 +44,22 @@ class CUBTrain_Metric(Dataset):
 
     def __getitem__(self, index):
 
+        paths = []
+
         if self.overfit:
             overfit_triplet = np.random.choice(self.overfit_samples, 1)[0]
+
+            paths.append(overfit_triplet['anch'])
+
             anch = Image.open(overfit_triplet['anch'])
             anch = anch.convert('RGB')
 
-
+            paths.append(overfit_triplet['pos'])
             pos = Image.open(overfit_triplet['pos'])
-
 
             negs = []
             for neg_path in overfit_triplet['neg']:
+                paths.append(neg_path)
                 neg = Image.open(neg_path)
                 neg = neg.convert('RGB')
 
@@ -62,10 +68,14 @@ class CUBTrain_Metric(Dataset):
         else:
             anch_idx = random.randint(0, self.num_classes - 1)
             anch_class = self.labels[anch_idx]
-            anch = Image.open(random.choice(self.datas[anch_class]))
+            random_path = random.choice(self.datas[anch_class])
+            paths.append(random_path)
+            anch = Image.open(random_path)
 
             # get pos image from same class
-            pos = Image.open(random.choice(self.datas[anch_class]))
+            random_path = random.choice(self.datas[anch_class])
+            paths.append(random_path)
+            pos = Image.open(random_path)
 
             # get neg image from different class
             negs = []
@@ -80,7 +90,9 @@ class CUBTrain_Metric(Dataset):
                     # class1 = self.labels[idx1]
 
                     # image1 = Image.open(random.choice(self.datas[self.class1]))
-                neg = Image.open(random.choice(self.datas[neg_class]))
+                random_path = random.choice(self.datas[neg_class])
+                paths.append(random_path)
+                neg = Image.open(random_path)
                 neg = neg.convert('RGB')
                 negs.append(neg)
 
@@ -107,7 +119,10 @@ class CUBTrain_Metric(Dataset):
             #     save_image(anch, f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_after.png')
             #     save_image(negs[0], f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_after.png')
 
-        return anch, pos, neg
+        if self.return_paths:
+            return anch, pos, neg, paths
+        else:
+            return anch, pos, neg
 
 
 class CUBTrain_FewShot(Dataset):

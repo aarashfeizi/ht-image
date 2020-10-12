@@ -126,9 +126,14 @@ class ResNet(tResNet):
 
     def __init__(self, block, layers, num_classes):
         super(ResNet, self).__init__(block, layers)
+        self.gradients = None
+        self.activations = None
         # self.new_fc = nn.Linear(512, num_classes)
 
-    def forward(self, x, is_feat=False):
+    def activations_hook(self, grad):
+        self.gradients = grad.clone()
+
+    def forward(self, x, is_feat=False, hook=False):
 
         x = self.conv1(x)
         x = self.bn1(x)
@@ -144,6 +149,11 @@ class ResNet(tResNet):
         x = self.layer3(x)
         f3 = x
         x = self.layer4(x)
+
+        if hook:
+            x.register_hook(self.activations_hook)
+            self.activations = x.clone()
+
         x = self.avgpool(x)
         feat = x
         x = torch.flatten(x, 1)
@@ -154,6 +164,13 @@ class ResNet(tResNet):
             return [f0, f1, f2, f3, feat], x
         else:
             return x
+
+    def get_activations_gradient(self):
+        return self.gradients
+
+    # method for the activation exctraction
+    def get_activations(self):
+        return self.activations
 
     def load_my_state_dict(self, state_dict):
 

@@ -160,3 +160,7 @@ hists/
 new_hists/
 
 org_loader/
+
+*.png
+*.jpeg
+*.jpg

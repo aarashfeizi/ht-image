@@ -4,9 +4,11 @@ import pickle
 import time
 from collections import deque
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image
 from matplotlib.lines import Line2D
 from sklearn.metrics import confusion_matrix
 from torch.autograd import Variable
@@ -15,8 +17,6 @@ from tqdm import tqdm
 
 import metrics
 import utils
-import copy
-
 
 
 class ModelMethods:
@@ -161,8 +161,137 @@ class ModelMethods:
 
         return net
 
+    def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform=None, epoch=0, count=1):
+
+        net.eval()
+
+        heatmap_path = f'{self.save_path}/heatmaps_epoch{epoch}/'
+        os.mkdir(heatmap_path)
+
+        for id, (anch, pos, neg, paths) in enumerate(cam_loader, 1):
+
+            anch_org = np.asarray(transform(Image.open(paths[0][0])))
+            pos_org = np.asarray(transform(Image.open(paths[1][0])))
+            neg_org = np.asarray(transform(Image.open(paths[2][0])))
+
+            #
+            # anch_org = cv2.imread(paths[0][0])
+            # pos_org = cv2.imread(paths[1][0])
+            # neg_org = cv2.imread(paths[2][0])
+
+            # import pdb
+            # pdb.set_trace()
+
+            class_loss = 0
+            ext_loss = 0
+
+            zero_labels = torch.tensor([0], dtype=float)
+            one_labels = torch.tensor([1], dtype=float)
+
+            pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True, hook=True)
+
+            pos_class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
+            pos_class_loss.backward(retain_graph=True)
+            class_loss = pos_class_loss
+
+            self.apply_heatmaps(net.get_activations_gradient(),
+                                net.get_activations().detach(),
+                                {'anch': anch_org,
+                                 'pos': pos_org}, 'bce_anch_pos', id, heatmap_path)
+
+            for neg_iter in range(self.no_negative):
+                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                                                              feats=True, hook=True)
+                if args.verbose:
+                    print(f'norm neg {neg_iter}: {neg_dist}')
+
+                neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+                neg_class_loss.backward(retain_graph=True)
+                class_loss += neg_class_loss
+
+                self.apply_heatmaps(net.get_activations_gradient(),
+                                    net.get_activations().detach(),
+                                    {'anch': anch_org,
+                                     'neg': neg_org}, 'bce_anch_neg', id, heatmap_path)
+
+                if loss_fn is not None:
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+
+                    if neg_iter == 0:
+                        ext_loss = ext_batch_loss
+                    else:
+                        ext_loss += ext_batch_loss
+
+            if loss_fn is not None:
+                ext_loss.backward(retain_graph=True)
+                ext_loss /= self.no_negative
+                self.apply_heatmaps(net.get_activations_gradient(),
+                                    net.get_activations().detach(),
+                                    {'anch': anch_org,
+                                     'pos': pos_org,
+                                     'neg': neg_org}, 'triplet', id, heatmap_path)
+
+                class_loss /= (self.no_negative + 1)
+
+                loss = ext_loss + self.bce_weight * class_loss
+
+            else:
+
+                loss = self.bce_weight * class_loss
+
+            loss.backward()
+            self.apply_heatmaps(net.get_activations_gradient(),
+                                net.get_activations().detach(),
+                                {'anch': anch_org,
+                                 'pos': pos_org,
+                                 'neg': neg_org}, 'all', id, heatmap_path)
+            if id == count:
+                break
+
+    def to_numpy_axis_order_change(self, t):
+        t = t.numpy()
+        t = np.moveaxis(t.squeeze(), 0, -1)
+        return t
+
+    def apply_heatmaps(self, grads, activations, img_dict, label, id, path):
+
+        pooled_gradients = torch.mean(grads, dim=[0, 2, 3])
+
+        for i in range(len(pooled_gradients)):
+            activations[:, i, :, :] *= pooled_gradients[i]
+
+        heatmap = torch.mean(activations, dim=1).squeeze()
+
+        # relu on top of the heatmap
+        # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+        heatmap = np.maximum(heatmap, 0)
+
+        # normalize the heatmap
+        heatmap /= torch.max(heatmap)
+
+        # draw the heatmap
+        plt.matshow(heatmap.squeeze())
+        # plt.savefig(f'cam_{id}.png')
+
+        anch_org = img_dict['anch']
+
+        # import pdb
+        # pdb.set_trace()
+
+        heatmap = cv2.resize(np.float32(heatmap), (anch_org.shape[0], anch_org.shape[1]))
+        heatmap = np.uint8(255 * heatmap)
+        heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+        for l, i in img_dict.items():
+            temp = i.copy()
+
+            cv2.addWeighted(heatmap, 0.4, i, 0.6, 0, temp)
+            cv2.imwrite(os.path.join(path, f'cam_{id}_{label}_{l}.png'), temp)
+            # import pdb
+            # pdb.set_trace()
+
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
-                             train_loader_fewshot):
+                             train_loader_fewshot, cam_args=None):
         net.train()
         val_tol = args.early_stopping
 
@@ -247,14 +376,14 @@ class ModelMethods:
                     class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
                     metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
-                    for iter in range(self.no_negative):
-                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                    for neg_iter in range(self.no_negative):
+                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                                       feats=True)
                         # neg_dist.register_hook(lambda x: print(f'neg_dist grad:{x}'))
                         # neg_pred.register_hook(lambda x: print(f'neg_pred grad:{x}'))
 
                         if args.verbose:
-                            print(f'norm neg {iter}: {neg_dist}')
+                            print(f'norm neg {neg_iter}: {neg_dist}')
 
                         metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
 
@@ -262,13 +391,13 @@ class ModelMethods:
                         if loss_fn is not None:
                             ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
-                            if iter == 0:
+                            if neg_iter == 0:
                                 ext_loss = ext_batch_loss
                             else:
                                 ext_loss += ext_batch_loss
 
                             if args.loss == 'maxmargin':
-                                if iter == 0:
+                                if neg_iter == 0:
                                     pos_parts.extend(parts[0].tolist())
                                 neg_parts.extend(parts[1].tolist())
 
@@ -330,8 +459,6 @@ class ModelMethods:
                                 bce_ave_grads.append(p.grad.abs().mean())
                                 bce_max_grads.append(p.grad.abs().max())
 
-
-
                         # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
                         #                          epoch, grad_save_path)
                         #
@@ -350,7 +477,8 @@ class ModelMethods:
                             #                          'TRIPLET', batch_id, epoch, grad_save_path)
                             # utils.bar_plot_grad_flow(args, bce_named_parameters,
                             #                          'BCE', batch_id, epoch, grad_save_path)
-                            utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], [bce_ave_grads, bce_max_grads, layers],
+                            utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                         [bce_ave_grads, bce_max_grads, layers],
                                                          'BOTH', batch_id, epoch, grad_save_path)
 
                         opt.zero_grad()
@@ -476,6 +604,20 @@ class ModelMethods:
                     max_val_acc = val_acc
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
+
+            if args.cam:
+                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                self.draw_heatmaps(net=net,
+                                   loss_fn=loss_fn,
+                                   bce_loss=bce_loss,
+                                   args=args,
+                                   cam_loader=cam_args[0],
+                                   transform=cam_args[1],
+                                   epoch=epoch,
+                                   count=5)
+
+                self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
+
 
             self._tb_draw_histograms(args, net, epoch)
 
@@ -724,10 +866,10 @@ class ModelMethods:
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
             class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
 
-            for iter in range(self.no_negative):
+            for neg_iter in range(self.no_negative):
                 # print(anch.shape)
-                # print(neg[:, iter, :, :, :].squeeze(dim=1).shape)
-                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, iter, :, :, :].squeeze(dim=1),
+                # print(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
                 class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
@@ -735,7 +877,7 @@ class ModelMethods:
                 if loss_fn is not None:
                     ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
-                    if iter == 0:
+                    if neg_iter == 0:
                         ext_loss = ext_batch_loss
                     else:
                         ext_loss += ext_batch_loss

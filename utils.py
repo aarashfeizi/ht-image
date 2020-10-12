@@ -54,7 +54,7 @@ class TransformLoader:
         else:
             return method()
 
-    def get_composed_transform(self, aug=False, random_crop=False, basic_aug=True):
+    def get_composed_transform(self, aug=False, random_crop=False, basic_aug=True, for_network=True):
         transform_list = []
         if basic_aug:
             if aug:
@@ -69,7 +69,8 @@ class TransformLoader:
         else:
             transform_list.extend(['CenterCrop'])
 
-        transform_list.extend(['ToTensor', 'Normalize'])
+        if for_network:
+            transform_list.extend(['ToTensor', 'Normalize'])
 
         transform_funcs = [self.parse_transform(x) for x in transform_list]
         transform = transforms.Compose(transform_funcs)
@@ -138,6 +139,7 @@ def get_args():
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
+    parser.add_argument('-cam', '--cam', default=False, action='store_true')
 
     args = parser.parse_args()
 

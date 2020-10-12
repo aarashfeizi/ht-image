@@ -25,17 +25,24 @@ class TopModel(nn.Module):
         # print('SIAMESE NET')
         # print(self.sm_net)
 
-    def forward(self, x1, x2, single=False, feats=False, dist=False):
+    def get_activations_gradient(self):
+        return self.ft_net.get_activations_gradient()
+
+    # method for the activation exctraction
+    def get_activations(self):
+        return self.ft_net.get_activations()
+
+    def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False):
         # print('model input:', x1[-1].size())
 
-        x1_f, x1_l = self.ft_net(x1, is_feat=True)
+        x1_f, x1_l = self.ft_net(x1, is_feat=True, hook=hook)
         out1, out2 = None, None
 
         if single and feats:
             raise Exception('Both single and feats cannot be True')
 
         if not single:
-            x2_f, x2_l = self.ft_net(x2, is_feat=True)
+            x2_f, x2_l = self.ft_net(x2, is_feat=True, hook=hook)
             ret = self.sm_net(x1_f[-1], x2_f[-1], feats=feats)
             if feats:
                 pred, pdist, out1, out2 = ret

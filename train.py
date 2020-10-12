@@ -55,6 +55,15 @@ def main():
         aug=args.aug, random_crop=False, basic_aug=basic_aug)
     logger.info(f'val transforms: {transform_list_val}')
 
+    cam_data_transforms, cam_transform_list = utils.TransformLoader(args.image_size,
+                                                                            rotate=args.rotate).get_composed_transform(
+        aug=args.aug, random_crop=False, basic_aug=basic_aug, for_network=False)
+
+    logger.info(f'cam transforms: {transform_list_val}')
+
+    # import pdb
+    # pdb.set_trace()
+
     if args.gpu_ids != '':
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
         print("use gpu:", args.gpu_ids, "to train.")
@@ -84,6 +93,18 @@ def main():
         logger.error(f'Dataset not suppored:  {args.dataset_name}')
 
     # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
+
+    print('*' * 10)
+    cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
+    if args.cam:
+        cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
+                                             overfit=True, return_paths=True)
+        print('*' * 10)
+        cam_val_set_known_metric = train_metric_dataset(args, transform=cam_data_transforms, mode='val_seen',
+                                                        save_pictures=False, overfit=False, return_paths=True)
+        print('*' * 10)
+        cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
+                                                          save_pictures=False, overfit=False, return_paths=True)
 
     print('*' * 10)
     if args.metric_learning:
@@ -153,6 +174,15 @@ def main():
     val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
 
+    dl_cam_train = dl_cam_val_known = dl_cam_val_unknown = None
+    if args.cam:
+        dl_cam_train = DataLoader(cam_train_set, batch_size=1, shuffle=False, num_workers=workers,
+                                  pin_memory=pin_memory)
+        dl_cam_val_known = DataLoader(cam_val_set_known_metric, batch_size=1, shuffle=False, num_workers=workers,
+                                      pin_memory=pin_memory)
+        dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
+                                        pin_memory=pin_memory)
+
     if args.metric_learning:
         val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
                                                    pin_memory, batch_size=args.batch_size)
@@ -207,7 +237,8 @@ def main():
                                                                             train_loader=train_loader,
                                                                             val_loaders=val_loaders_metric,
                                                                             val_loaders_fewshot=val_loaders_fewshot,
-                                                                            train_loader_fewshot=train_loader_fewshot)
+                                                                            train_loader_fewshot=train_loader_fewshot,
+                                                                            cam_args=[dl_cam_train, cam_data_transforms])
         else:
             tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
                                                                      train_loader=train_loader,
