@@ -344,18 +344,6 @@ class ModelMethods:
         val_counter = 0
 
         for epoch in range(epochs):
-            if args.cam:
-                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_heatmaps(net=net,
-                                   loss_fn=loss_fn,
-                                   bce_loss=bce_loss,
-                                   args=args,
-                                   cam_loader=cam_args[0],
-                                   transform=cam_args[1],
-                                   epoch=epoch,
-                                   count=5)
-
-                self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
 
             train_loss = 0
             train_bce_loss = 0
