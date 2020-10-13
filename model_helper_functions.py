@@ -174,6 +174,22 @@ class ModelMethods:
             pos_org = np.asarray(transform(Image.open(paths[1][0])))
             neg_org = np.asarray(transform(Image.open(paths[2][0])))
 
+            zero_labels = torch.tensor([0], dtype=float)
+            one_labels = torch.tensor([1], dtype=float)
+
+            if args.cuda:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                          Variable(pos.cuda()), \
+                                                          Variable(neg.cuda()), \
+                                                          Variable(one_labels.cuda()), \
+                                                          Variable(zero_labels.cuda())
+            else:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), \
+                                                          Variable(pos), \
+                                                          Variable(neg), \
+                                                          Variable(one_labels), \
+                                                          Variable(zero_labels)
+
             #
             # anch_org = cv2.imread(paths[0][0])
             # pos_org = cv2.imread(paths[1][0])
@@ -185,8 +201,6 @@ class ModelMethods:
             class_loss = 0
             ext_loss = 0
 
-            zero_labels = torch.tensor([0], dtype=float)
-            one_labels = torch.tensor([1], dtype=float)
 
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True, hook=True)
 
