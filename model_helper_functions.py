@@ -170,6 +170,9 @@ class ModelMethods:
 
         for id, (anch, pos, neg, paths) in enumerate(cam_loader, 1):
 
+            self.logger.info(f'Anch path: {paths[0][0]}')
+            self.logger.info(f'Pos path: {paths[1][0]}')
+            self.logger.info(f'Neg path: {paths[2][0]}')
             anch_org = np.asarray(transform(Image.open(paths[0][0])))
             pos_org = np.asarray(transform(Image.open(paths[1][0])))
             neg_org = np.asarray(transform(Image.open(paths[2][0])))
@@ -200,7 +203,6 @@ class ModelMethods:
 
             class_loss = 0
             ext_loss = 0
-
 
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True, hook=True)
 
@@ -301,6 +303,8 @@ class ModelMethods:
 
         for l, i in img_dict.items():
             temp = i.copy()
+            print('img shape:', temp.shape)
+            print('heatmap shape:', heatmap.shape)
 
             cv2.addWeighted(heatmap, 0.4, i, 0.6, 0, temp)
             cv2.imwrite(os.path.join(path, f'cam_{id}_{label}_{l}.png'), temp)
@@ -494,6 +498,11 @@ class ModelMethods:
                             #                          'TRIPLET', batch_id, epoch, grad_save_path)
                             # utils.bar_plot_grad_flow(args, bce_named_parameters,
                             #                          'BCE', batch_id, epoch, grad_save_path)
+                            utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                          [bce_ave_grads, bce_max_grads, layers],
+                                                          'BOTH', batch_id, epoch, grad_save_path)
+                            # import pdb
+                            # pdb.set_trace()
                             utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
                                                          [bce_ave_grads, bce_max_grads, layers],
                                                          'BOTH', batch_id, epoch, grad_save_path)
@@ -634,7 +643,6 @@ class ModelMethods:
                                    count=5)
 
                 self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
-
 
             self._tb_draw_histograms(args, net, epoch)
 

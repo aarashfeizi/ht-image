@@ -776,6 +776,38 @@ def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_pat
     plt.close()
 
 
+def two_line_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch, save_path):
+    ave_grads = []
+    layers = []
+    plt.figure(figsize=(64, 48))
+    plt.rcParams.update({'font.size': 15})  # must set in top
+
+
+    colors = {'average_bce': 'blue',
+              'average_triplet': 'red'}
+
+    for label, lists in [('average_bce', bce_np), ('average_triplet', triplet_np)]:
+        ave_grads = lists[0]
+        layers = lists[2]
+
+
+        plt.plot(ave_grads, color=colors[label])
+    plt.hlines(0, 0, len(ave_grads) + 1, linewidth=1, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(xmin=0, xmax=len(ave_grads))
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.legend([Line2D([0], [0], color=colors[f'average_bce'], lw=4),
+                Line2D([0], [0], color=colors[f'average_triplet'], lw=4),
+                Line2D([0], [0], color="k", lw=4)],
+               ['bce-mean-gradient',
+                'triplet-mean-gradient', 'zero-gradient'])
+    plt.title(f"Gradient flow for {name_label}_epoch{epoch}_batch{batch_id}")
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, f'two_line_{args.loss}_bco{args.bcecoefficient}_{name_label}_batch{batch_id}.png'))
+    plt.close()
+
+
 def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch, save_path):
     '''Plots the gradients flowing through different layers in the net during training.
     Can be used for checking for possible gradient vanishing / exploding problems.
@@ -846,7 +878,7 @@ def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch
     # plt.figure(figsize=(32, 24))
     plt.rcParams.update({'font.size': 15})  # must set in top
     df = df.applymap(lambda x: x.item())
-    df.plot(kind='bar', colormap='plasma', figsize=(64, 48))
+    df.plot(kind='bar', colormap='plasma', figsize=(64, 48), alpha=0.5)
     plt.ylim(bottom=0, top=0.02 * args.bcecoefficient)  # zoom in on the lower gradient regions
     plt.xlabel("Layers")
     plt.ylabel("average gradient")
