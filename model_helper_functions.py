@@ -365,20 +365,20 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
-
-            if args.cam:
-                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_heatmaps(net=net,
-                                   loss_fn=loss_fn,
-                                   bce_loss=bce_loss,
-                                   args=args,
-                                   cam_loader=cam_args[0],
-                                   transform_for_model=cam_args[1],
-                                   transform_for_heatmap=cam_args[2],
-                                   epoch=epoch,
-                                   count=1)
-
-            print('DONE DOING THE FIRST DRAWING *******************************************************')
+            #
+            # if args.cam:
+            #     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+            #     self.draw_heatmaps(net=net,
+            #                        loss_fn=loss_fn,
+            #                        bce_loss=bce_loss,
+            #                        args=args,
+            #                        cam_loader=cam_args[0],
+            #                        transform_for_model=cam_args[1],
+            #                        transform_for_heatmap=cam_args[2],
+            #                        epoch=epoch,
+            #                        count=1)
+            #
+            # print('DONE DOING THE FIRST DRAWING *******************************************************')
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
