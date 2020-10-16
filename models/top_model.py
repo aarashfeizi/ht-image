@@ -32,10 +32,15 @@ class TopModel(nn.Module):
     def get_activations(self):
         return self.ft_net.get_activations()
 
+
     def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False):
         # print('model input:', x1[-1].size())
 
         x1_f, x1_l = self.ft_net(x1, is_feat=True, hook=hook)
+        if hook:
+            anch_pass_act = self.get_activations().detach()
+        else:
+            anch_pass_act = None
         out1, out2 = None, None
 
         if single and feats:
@@ -43,10 +48,19 @@ class TopModel(nn.Module):
 
         if not single:
             x2_f, x2_l = self.ft_net(x2, is_feat=True, hook=hook)
+            if hook:
+                other_pass_act = self.get_activations().detach()
+            else:
+                other_pass_act = None
+
             ret = self.sm_net(x1_f[-1], x2_f[-1], feats=feats)
+
             if feats:
                 pred, pdist, out1, out2 = ret
-                return pred, pdist, out1, out2
+                if hook:
+                    return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
+                else:
+                    return pred, pdist, out1, out2
             else:
                 pred, pdist = ret
                 return pred, pdist

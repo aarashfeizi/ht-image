@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import time
 
+import cv2
 import h5py
 import matplotlib
 import matplotlib.pyplot as plt
@@ -140,6 +141,7 @@ def get_args():
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
+    parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
 
     args = parser.parse_args()
 
@@ -887,3 +889,60 @@ def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch
     plt.savefig(os.path.join(save_path, f'two_bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
 
     plt.close()
+
+
+def get_heatmap(activations, shape, save_path=None, label=None):
+    heatmap = torch.mean(activations, dim=1).squeeze()
+
+    # relu on top of the heatmap
+    # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+
+    heatmap = heatmap.data.cpu().numpy()
+
+    heatmap = np.maximum(heatmap, 0)
+
+    # normalize the heatmap
+    heatmap /= np.max(heatmap)
+
+    # draw the heatmap
+    plt.matshow(heatmap.squeeze())
+    # plt.savefig(f'cam_{id}.png')
+
+    # import pdb
+    # pdb.set_trace()
+
+    heatmap = cv2.resize(np.float32(heatmap), shape)
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+
+    return heatmap
+
+
+def merge_heatmap_img(img, heatmap, path):
+    temp = img.copy()
+    print('img shape:', temp.shape)
+    print('heatmap shape:', heatmap.shape)
+    cv2.addWeighted(heatmap, 0.4, img, 0.6, 0, temp)
+    cv2.imwrite(path, temp)
+
+
+def read_img_paths(path):
+    import re
+    final_lines = []
+    with open(path, 'r') as file:
+        cam_path = file.readline().strip()
+        lines = list(map(lambda x:
+                         tuple(map(lambda y:
+                                   os.path.join(cam_path, y) if len(y) != 0 else '',
+                                   re.split(" +", x.strip()))),
+                         file.readlines()))
+
+        for l in lines:
+            if len(l[0]) != 0:
+                # splits = l.split('/')
+                # file_name = splits[len(splits) - 1].split('.')[0]
+                # final_lines.append((l, file_name))
+                final_lines.append(l)
+
+    return final_lines

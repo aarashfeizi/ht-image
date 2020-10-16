@@ -97,14 +97,16 @@ def main():
     print('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
     if args.cam:
-        cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
-                                             overfit=True, return_paths=True)
-        print('*' * 10)
-        cam_val_set_known_metric = train_metric_dataset(args, transform=cam_data_transforms, mode='val_seen',
-                                                        save_pictures=False, overfit=False, return_paths=True)
-        print('*' * 10)
-        cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                          save_pictures=False, overfit=False, return_paths=True)
+        cam_img_paths = utils.read_img_paths(args.cam_path)
+
+        # cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
+        #                                      overfit=True, return_paths=True)
+        # print('*' * 10)
+        # cam_val_set_known_metric = train_metric_dataset(args, transform=cam_data_transforms, mode='val_seen',
+        #                                                 save_pictures=False, overfit=False, return_paths=True)
+        # print('*' * 10)
+        # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
+        #                                                   save_pictures=False, overfit=False, return_paths=True)
 
     print('*' * 10)
     if args.metric_learning:
@@ -175,13 +177,13 @@ def main():
                                                 pin_memory)
 
     dl_cam_train = dl_cam_val_known = dl_cam_val_unknown = None
-    if args.cam:
-        dl_cam_train = DataLoader(cam_train_set, batch_size=1, shuffle=False, num_workers=workers,
-                                  pin_memory=pin_memory)
-        dl_cam_val_known = DataLoader(cam_val_set_known_metric, batch_size=1, shuffle=False, num_workers=workers,
-                                      pin_memory=pin_memory)
-        dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
-                                        pin_memory=pin_memory)
+    # if args.cam:
+        # dl_cam_train = DataLoader(cam_train_set, batch_size=1, shuffle=False, num_workers=workers,
+        #                           pin_memory=pin_memory)
+        # dl_cam_val_known = DataLoader(cam_val_set_known_metric, batch_size=1, shuffle=False, num_workers=workers,
+        #                               pin_memory=pin_memory)
+        # dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
+        #                                 pin_memory=pin_memory)
 
     if args.metric_learning:
         val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
@@ -238,7 +240,7 @@ def main():
                                                                             val_loaders=val_loaders_metric,
                                                                             val_loaders_fewshot=val_loaders_fewshot,
                                                                             train_loader_fewshot=train_loader_fewshot,
-                                                                            cam_args=[dl_cam_train, cam_data_transforms])
+                                                                            cam_args=[cam_img_paths, data_transforms_val, cam_data_transforms])
         else:
             tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
                                                                      train_loader=train_loader,

@@ -164,3 +164,6 @@ org_loader/
 *.png
 *.jpeg
 *.jpg
+!cam_images/*
+copy_stuff.sh
+srcdirs.txt

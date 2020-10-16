@@ -1,0 +1,4 @@
+cam_images/
+3484669_anch1.jpg 3484668_pos1.jpg 3785630_neg1.jpg
+3940559_anch2.jpg 3940560_pos2.jpg 3439634_neg2.jpg
+3439636_anch3.jpg 3439637_pos3.jpg 2994322_neg3.jpg
