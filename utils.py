@@ -946,3 +946,7 @@ def read_img_paths(path):
                 final_lines.append(l)
 
     return final_lines
+
+def vector_merge_function(v1, v2):
+    merged = torch.pow((v1 - v2), 2)
+    return merged

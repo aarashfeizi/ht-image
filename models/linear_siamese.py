@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import utils
 
 class LiSiamese(nn.Module):
 
@@ -49,7 +49,8 @@ class LiSiamese(nn.Module):
 
 
         # out_cat = torch.cat((out1, out2), 1)
-        out_dist = torch.pow((out1 - out2), 2)
+        # out_dist = torch.pow((out1 - out2), 2)
+        out_dist = utils.vector_merge_function(out1, out2)
 
 
         # dis = torch.abs(out1 - out2)

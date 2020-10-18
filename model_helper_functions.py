@@ -164,7 +164,8 @@ class ModelMethods:
 
         return net
 
-    def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None, transform_for_heatmap=None, epoch=0, count=1):
+    def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
+                      transform_for_heatmap=None, epoch=0, count=1):
 
         net.eval()
         heatmap_path = f'{self.save_path}/heatmap/'
@@ -178,14 +179,24 @@ class ModelMethods:
             pos_hm_path = os.path.join(heatmap_path, f'image_pos_{id}/')
             neg_hm_path = os.path.join(heatmap_path, f'image_neg_{id}/')
 
+            anchpos_hm_path = os.path.join(heatmap_path, f'image_anch_pos_{id}/')
+            anchneg_hm_path = os.path.join(heatmap_path, f'image_anch_neg_{id}/')
+
             if not self.created_image_heatmap_path:
                 os.mkdir(anch_hm_path)
                 os.mkdir(pos_hm_path)
                 os.mkdir(neg_hm_path)
+                os.mkdir(anchpos_hm_path)
+                os.mkdir(anchneg_hm_path)
 
             anch_hm_file_path = os.path.join(anch_hm_path, f'epoch_{epoch}.png')
             pos_hm_file_path = os.path.join(pos_hm_path, f'epoch_{epoch}.png')
             neg_hm_file_path = os.path.join(neg_hm_path, f'epoch_{epoch}.png')
+
+            anchneg_anch_hm_file_path = os.path.join(anchneg_hm_path, f'epoch_{epoch}_anch.png')
+            anchneg_neg_hm_file_path = os.path.join(anchneg_hm_path, f'epoch_{epoch}_neg.png')
+            anchpos_anch_hm_file_path = os.path.join(anchpos_hm_path, f'epoch_{epoch}_anch.png')
+            anchpos_pos_hm_file_path = os.path.join(anchpos_hm_path, f'epoch_{epoch}_pos.png')
 
             self.logger.info(f'Anch path: {anch_path}')
             self.logger.info(f'Pos path: {pos_path}')
@@ -243,16 +254,22 @@ class ModelMethods:
 
             self.apply_forward_heatmap(acts,
                                        [('anch', anch_org), ('pos', pos_org)],
-                                       id, heatmap_path_perepoch, individual_paths=[anch_hm_file_path,
-                                                                                    pos_hm_file_path])
+                                       id,
+                                       heatmap_path_perepoch,
+                                       individual_paths=[anch_hm_file_path,
+                                                         pos_hm_file_path],
+                                       pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path])
 
             neg_pred, neg_dist, _, neg_feat, acts = net.forward(anch, neg,
                                                                 feats=True, hook=True)
 
             self.apply_forward_heatmap(acts,
                                        [('anch', anch_org), ('neg', neg_org)],
-                                       id, heatmap_path_perepoch, individual_paths=[anch_hm_file_path,
-                                                                                    neg_hm_file_path])
+                                       id,
+                                       heatmap_path_perepoch,
+                                       individual_paths=[anch_hm_file_path,
+                                                         neg_hm_file_path],
+                                       pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path])
 
             neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
             neg_class_loss.backward(retain_graph=True)
@@ -311,14 +328,28 @@ class ModelMethods:
             path_ = os.path.join(path, f'cam_{id}_{label}_{l}.png')
             utils.merge_heatmap_img(i, heatmap, path=path_)
 
-    def apply_forward_heatmap(self, acts, img_list, id, path, individual_paths=None):
+    def apply_forward_heatmap(self, acts, img_list, id, path, individual_paths=None, pair_paths=None):
 
+        heatmaps = []
         for idx, (l, i) in enumerate(img_list):
-            heatmap = utils.get_heatmap(acts[idx], shape=(i.shape[0], i.shape[1]))
+            heatmap = utils.get_heatmap(acts[idx], shape=(i.shape[0], i.shape[1]), label=l)
+            heatmaps.append(heatmap)
             path_ = os.path.join(path, f'cam_{id}_{l}.png')
             utils.merge_heatmap_img(i, heatmap, path=path_)
+
             if individual_paths is not None:
                 utils.merge_heatmap_img(i, heatmap, path=individual_paths[idx])
+
+        # dist_heatmap = torch.pow((heatmaps[0] - heatmaps[1]), 2)
+        # import pdb
+        # pdb.set_trace()
+
+        dist_heatmap = utils.get_heatmap(utils.vector_merge_function(acts[0], acts[1]),
+                                         shape=(i.shape[0], i.shape[1]), label='subtractionn')
+        # dist_heatmap = utils.vector_merge_function(heatmaps[0], heatmaps[1])
+        # dist_heatmap = np.power(heatmaps[0] - heatmaps[1], 2)
+        for idx, (l, i) in enumerate(img_list):
+            utils.merge_heatmap_img(i, dist_heatmap, path=pair_paths[idx])
 
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
                              train_loader_fewshot, cam_args=None):
@@ -1189,7 +1220,6 @@ class ModelMethods:
             parts = None
 
         return loss, parts
-
 
     # todo make customized dataloader for cam
     # todo easy cases?
