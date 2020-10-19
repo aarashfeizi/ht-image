@@ -240,7 +240,8 @@ def main():
                                                                             val_loaders=val_loaders_metric,
                                                                             val_loaders_fewshot=val_loaders_fewshot,
                                                                             train_loader_fewshot=train_loader_fewshot,
-                                                                            cam_args=[cam_img_paths, data_transforms_val, cam_data_transforms])
+                                                                            cam_args=[cam_img_paths, data_transforms_val, cam_data_transforms],
+                                                                            db_loader=db_loader)
         else:
             tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
                                                                      train_loader=train_loader,

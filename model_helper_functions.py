@@ -6,6 +6,7 @@ from collections import deque
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from matplotlib.lines import Line2D
@@ -48,6 +49,10 @@ class ModelMethods:
         os.mkdir(self.plt_save_path)
 
         self.created_image_heatmap_path = False
+
+        self.scatter_plot_path = f'{self.save_path}/scatter_plots/'
+        os.mkdir(self.scatter_plot_path)
+
         if args.cam:
             os.mkdir(f'{self.save_path}/heatmap/')
 
@@ -352,7 +357,7 @@ class ModelMethods:
             utils.merge_heatmap_img(i, dist_heatmap, path=pair_paths[idx])
 
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
-                             train_loader_fewshot, cam_args=None):
+                             train_loader_fewshot, cam_args=None, db_loader=None):
         net.train()
         val_tol = args.early_stopping
 
@@ -685,6 +690,15 @@ class ModelMethods:
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
+            self.make_emb_db(args, net, db_loader,
+                             eval_sampled=args.sampled_results,
+                             eval_per_class=args.per_class_results,
+                             newly_trained=True,
+                             batch_size=args.db_batch,
+                             mode='val',
+                             epoch=epoch,
+                             k_at_n=False)
+
             if args.cam:
                 self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
                 self.draw_heatmaps(net=net,
@@ -1013,7 +1027,7 @@ class ModelMethods:
         return tests_right, tests_error, test_acc
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
-                    mode='val'):
+                    mode='val', epoch=-1, k_at_n=True):
         """
 
         :param batch_size:
@@ -1024,6 +1038,8 @@ class ModelMethods:
         :param args: utils args
         :param net: trained top_model network
         :param data_loader: DataLoader object
+        :param epoch: epoch we're in
+        :param k_at_n: Do k at n
         :return: None
         """
 
@@ -1069,21 +1085,63 @@ class ModelMethods:
         test_classes = utils.load_h5(f'{mode}_classes', os.path.join(self.save_path, f'{mode}Classes.h5'))
         test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
 
-        utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
-                               limit=args.limit_samples,
-                               run_number=args.number_of_runs,
-                               save_path=self.save_path,
-                               sampled=eval_sampled,
-                               per_class=eval_per_class,
-                               mode=mode)
+        pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
+        tsne_path = os.path.join(self.scatter_plot_path, f'tsne_{epoch}.png')
 
-        self.logger.info('results at: ' + self.save_path)
+        self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
+        self.draw_dim_reduced(test_feats, test_classes, method='tsne', title="on epoch " + str(epoch), path=tsne_path)
+
+        # import pdb
+        # pdb.set_trace()
+        if k_at_n:
+            utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
+                                   limit=args.limit_samples,
+                                   run_number=args.number_of_runs,
+                                   save_path=self.save_path,
+                                   sampled=eval_sampled,
+                                   per_class=eval_per_class,
+                                   mode=mode)
+
+            self.logger.info('results at: ' + self.save_path)
 
     def load_model(self, args, net, best_model):
         checkpoint = torch.load(os.path.join(self.save_path, best_model))
         self.logger.info('Loading model %s from epoch [%d]' % (best_model, checkpoint['epoch']))
         net.load_state_dict(checkpoint['model_state_dict'])
         return net
+
+    def draw_dim_reduced(self, features, labels, title, path, method='pca'):
+        """
+
+        :param features:
+        :param labels:
+        :param method: pce or tsne
+        :return: None
+        """
+
+        if method == 'pca':
+            from sklearn.decomposition import PCA
+            model = PCA(n_components=2, random_state=0)
+
+        elif method == 'tsne':
+            from sklearn.manifold import TSNE
+            model = TSNE(n_components=2, random_state=0)
+        else:
+            raise Exception('Not acceptable method')
+
+        feats_reduced = model.fit_transform(features)
+
+        tsne_data = np.vstack((feats_reduced.T, labels)).T
+
+        df = pd.DataFrame(data=tsne_data, columns=('dim1', 'dim2', 'label'))
+
+        df.plot.scatter(x='dim1',
+                        y='dim2',
+                        c='label',
+                        colormap='plasma')
+
+        plt.title(method + " " + title)
+        plt.savefig(path)
 
     def save_model(self, args, net, epoch, val_acc):
         best_model = 'model-epoch-' + str(epoch + 1) + '-val-acc-' + str(val_acc) + '.pt'
