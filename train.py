@@ -141,7 +141,8 @@ def main():
         # todo test not supported for metric learning
 
     if args.cbir:
-        db_set = db_dataset(args, transform=data_transforms_val, mode='val')
+        train_db_set = db_dataset(args, transform=data_transforms_val, mode='train')
+        val_db_set = db_dataset(args, transform=data_transforms_val, mode='val')
         # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
@@ -196,11 +197,11 @@ def main():
         #                                  pin_memory=pin_memory)
 
     if args.cbir:
-        db_loader = DataLoader(db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+        val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                pin_memory=pin_memory)
 
-        # db_loader_train = DataLoader(db_set_train, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-        #                              pin_memory=pin_memory)
+        train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                     pin_memory=pin_memory)
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
@@ -241,7 +242,7 @@ def main():
                                                                             val_loaders_fewshot=val_loaders_fewshot,
                                                                             train_loader_fewshot=train_loader_fewshot,
                                                                             cam_args=[cam_img_paths, data_transforms_val, cam_data_transforms],
-                                                                            db_loader=db_loader)
+                                                                            db_loaders=[train_db_loader, val_db_loader])
         else:
             tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
                                                                      train_loader=train_loader,

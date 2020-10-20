@@ -36,8 +36,8 @@ class CUBTrain_Metric(Dataset):
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
         # self.masks =
 
-        print('hotel train classes: ', self.num_classes)
-        print('hotel train length: ', self.length)
+        print('CUBTrain_Metric hotel train classes: ', self.num_classes)
+        print('CUBTrain_Metric hotel train length: ', self.length)
 
     def __len__(self):
         return self.length
@@ -143,8 +143,8 @@ class CUBTrain_FewShot(Dataset):
 
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
 
-        print('hotel train classes: ', self.num_classes)
-        print('hotel train length: ', self.length)
+        print('CUBTrain_FewShot hotel train classes: ', self.num_classes)
+        print('CUBTrain_FewShot hotel train length: ', self.length)
 
     def __len__(self):
         return self.length
@@ -242,8 +242,8 @@ class CUBTest_FewShot(Dataset):
                                                                                     portion=args.portion,
                                                                                     dataset_folder=args.dataset_folder)
 
-        print(f'hotel {mode} classes: ', self.num_classes)
-        print(f'hotel {mode} length: ', self.__len__())
+        print(f'CUBTest_FewShot hotel {mode} classes: ', self.num_classes)
+        print(f'CUBTest_FewShot hotel {mode} length: ', self.__len__())
 
     def __len__(self):
         return self.times * self.way
@@ -293,6 +293,8 @@ class CUB_DB(Dataset):
         self.transform = transform
 
         total = True
+        self.mode = mode
+
         if mode == 'val' or mode == 'test':  # mode == *_seen or *_unseen or train
             mode_tmp = mode + '_seen'
             total = True
@@ -310,13 +312,13 @@ class CUB_DB(Dataset):
         self.all_shuffled_data = get_shuffled_data(self.all_data,
                                                    seed=args.seed,
                                                    one_hot=False,
-                                                   both_seen_unseen=True,
+                                                   both_seen_unseen=(mode != 'train'),
                                                    shuffle=False)
         # else: # todo
         #     self.all_shuffled_data = get_shuffled_data(self.datas, seed=args.seed, one_hot=False)
 
-        print(f'hotel {mode} classes: ', self.num_classes)
-        print(f'hotel {mode} length: ', self.__len__())
+        print(f'CUB_DB hotel {self.mode} classes: ', self.num_classes)
+        print(f'CUB_DB hotel {self.mode} length: ', self.__len__())
 
     def __len__(self):
         return len(self.all_shuffled_data)
@@ -324,7 +326,8 @@ class CUB_DB(Dataset):
     def __getitem__(self, index):
         lbl = self.all_shuffled_data[index][0]
         img = Image.open(self.all_shuffled_data[index][1]).convert('RGB')
-        bl = self.all_shuffled_data[index][2]
+        if self.mode != 'train':
+            bl = self.all_shuffled_data[index][2]
 
         path = self.all_shuffled_data[index][1].split('/')
 
@@ -334,5 +337,7 @@ class CUB_DB(Dataset):
 
         if self.transform:
             img = self.transform(img)
-
-        return img, lbl, bl, id
+        if self.mode != 'train':
+            return img, lbl, bl, id
+        else:
+            return img, lbl, id

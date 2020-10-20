@@ -45,13 +45,18 @@ class ModelMethods:
         self.logger.info("** Save path: " + self.save_path)
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
-        self.plt_save_path = f'{self.save_path}/loss_plts/'
-        os.mkdir(self.plt_save_path)
+        if args.debug_grad:
+            self.plt_save_path = f'{self.save_path}/loss_plts/'
+            os.mkdir(self.plt_save_path)
+        else:
+            self.plt_save_path = ''
 
         self.created_image_heatmap_path = False
 
         self.scatter_plot_path = f'{self.save_path}/scatter_plots/'
         os.mkdir(self.scatter_plot_path)
+        os.mkdir(os.path.join(self.scatter_plot_path, 'train'))
+        os.mkdir(os.path.join(self.scatter_plot_path, 'val'))
 
         if args.cam:
             os.mkdir(f'{self.save_path}/heatmap/')
@@ -194,14 +199,8 @@ class ModelMethods:
                 os.mkdir(anchpos_hm_path)
                 os.mkdir(anchneg_hm_path)
 
-            anch_hm_file_path = os.path.join(anch_hm_path, f'epoch_{epoch}.png')
-            pos_hm_file_path = os.path.join(pos_hm_path, f'epoch_{epoch}.png')
-            neg_hm_file_path = os.path.join(neg_hm_path, f'epoch_{epoch}.png')
 
-            anchneg_anch_hm_file_path = os.path.join(anchneg_hm_path, f'epoch_{epoch}_anch.png')
-            anchneg_neg_hm_file_path = os.path.join(anchneg_hm_path, f'epoch_{epoch}_neg.png')
-            anchpos_anch_hm_file_path = os.path.join(anchpos_hm_path, f'epoch_{epoch}_anch.png')
-            anchpos_pos_hm_file_path = os.path.join(anchpos_hm_path, f'epoch_{epoch}_pos.png')
+
 
             self.logger.info(f'Anch path: {anch_path}')
             self.logger.info(f'Pos path: {pos_path}')
@@ -248,6 +247,28 @@ class ModelMethods:
 
             pos_pred, pos_dist, anch_feat, pos_feat, acts = net.forward(anch, pos, feats=True, hook=True)
 
+            ks = list(map(lambda x: int(x), args.k_best_maps))
+
+            for k in ks:
+                acts_tmp = []
+                anch_hm_file_path = os.path.join(anch_hm_path, f'k_{k}_epoch_{epoch}.png')
+                pos_hm_file_path = os.path.join(pos_hm_path, f'k_{k}_epoch_{epoch}.png')
+
+                anchpos_anch_hm_file_path = os.path.join(anchpos_hm_path, f'k_{k}_epoch_{epoch}_anch.png')
+                anchpos_pos_hm_file_path = os.path.join(anchpos_hm_path, f'k_{k}_epoch_{epoch}_pos.png')
+                pos_max_indices = torch.topk(pos_dist, k=k).indices
+
+                acts_tmp.append(acts[0][:, pos_max_indices, :, :].squeeze(dim=0))
+                acts_tmp.append(acts[1][:, pos_max_indices, :, :].squeeze(dim=0))
+
+                self.apply_forward_heatmap(acts_tmp,
+                                           [('anch', anch_org), ('pos', pos_org)],
+                                           id,
+                                           heatmap_path_perepoch,
+                                           individual_paths=[anch_hm_file_path,
+                                                             pos_hm_file_path],
+                                           pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path])
+
             pos_class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
             pos_class_loss.backward(retain_graph=True)
             class_loss = pos_class_loss
@@ -257,24 +278,30 @@ class ModelMethods:
                                      {'anch': anch_org,
                                       'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch)
 
-            self.apply_forward_heatmap(acts,
-                                       [('anch', anch_org), ('pos', pos_org)],
-                                       id,
-                                       heatmap_path_perepoch,
-                                       individual_paths=[anch_hm_file_path,
-                                                         pos_hm_file_path],
-                                       pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path])
-
             neg_pred, neg_dist, _, neg_feat, acts = net.forward(anch, neg,
                                                                 feats=True, hook=True)
 
-            self.apply_forward_heatmap(acts,
-                                       [('anch', anch_org), ('neg', neg_org)],
-                                       id,
-                                       heatmap_path_perepoch,
-                                       individual_paths=[anch_hm_file_path,
-                                                         neg_hm_file_path],
-                                       pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path])
+            for k in ks:
+                acts_tmp = []
+
+                anch_hm_file_path = os.path.join(anch_hm_path, f'k_{k}_epoch_{epoch}.png')
+                neg_hm_file_path = os.path.join(neg_hm_path, f'k_{k}_epoch_{epoch}.png')
+
+                anchneg_anch_hm_file_path = os.path.join(anchneg_hm_path, f'k_{k}_epoch_{epoch}_anch.png')
+                anchneg_neg_hm_file_path = os.path.join(anchneg_hm_path, f'k_{k}_epoch_{epoch}_neg.png')
+                neg_max_indices = torch.topk(neg_dist, k=k).indices
+
+                acts_tmp.append(acts[0][:, neg_max_indices, :, :].squeeze(dim=0))
+                acts_tmp.append(acts[1][:, neg_max_indices, :, :].squeeze(dim=0))
+
+                self.apply_forward_heatmap(acts_tmp,
+                                           [('anch', anch_org), ('neg', neg_org)],
+                                           id,
+                                           heatmap_path_perepoch,
+                                           individual_paths=[anch_hm_file_path,
+                                                             neg_hm_file_path],
+                                           pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path])
+
 
             neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
             neg_class_loss.backward(retain_graph=True)
@@ -339,8 +366,8 @@ class ModelMethods:
         for idx, (l, i) in enumerate(img_list):
             heatmap = utils.get_heatmap(acts[idx], shape=(i.shape[0], i.shape[1]), label=l)
             heatmaps.append(heatmap)
-            path_ = os.path.join(path, f'cam_{id}_{l}.png')
-            utils.merge_heatmap_img(i, heatmap, path=path_)
+            # path_ = os.path.join(path, f'cam_{id}_{l}.png')
+            # utils.merge_heatmap_img(i, heatmap, path=path_)
 
             if individual_paths is not None:
                 utils.merge_heatmap_img(i, heatmap, path=individual_paths[idx])
@@ -350,16 +377,19 @@ class ModelMethods:
         # pdb.set_trace()
 
         dist_heatmap = utils.get_heatmap(utils.vector_merge_function(acts[0], acts[1]),
-                                         shape=(i.shape[0], i.shape[1]), label='subtractionn')
+                                         shape=(i.shape[0], i.shape[1]),
+                                         label='subtractionn')
         # dist_heatmap = utils.vector_merge_function(heatmaps[0], heatmaps[1])
         # dist_heatmap = np.power(heatmaps[0] - heatmaps[1], 2)
         for idx, (l, i) in enumerate(img_list):
             utils.merge_heatmap_img(i, dist_heatmap, path=pair_paths[idx])
 
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
-                             train_loader_fewshot, cam_args=None, db_loader=None):
+                             train_loader_fewshot, cam_args=None, db_loaders=None):
         net.train()
         val_tol = args.early_stopping
+        train_db_loader = db_loaders[0]
+        val_db_loader = db_loaders[1]
 
         if net.mask:
             opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
@@ -401,20 +431,6 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
-            #
-            # if args.cam:
-            #     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-            #     self.draw_heatmaps(net=net,
-            #                        loss_fn=loss_fn,
-            #                        bce_loss=bce_loss,
-            #                        args=args,
-            #                        cam_loader=cam_args[0],
-            #                        transform_for_model=cam_args[1],
-            #                        transform_for_heatmap=cam_args[2],
-            #                        epoch=epoch,
-            #                        count=1)
-            #
-            # print('DONE DOING THE FIRST DRAWING *******************************************************')
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
@@ -690,16 +706,26 @@ class ModelMethods:
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
-            self.make_emb_db(args, net, db_loader,
-                             eval_sampled=args.sampled_results,
-                             eval_per_class=args.per_class_results,
-                             newly_trained=True,
-                             batch_size=args.db_batch,
-                             mode='val',
-                             epoch=epoch,
-                             k_at_n=False)
+            if epoch % 5 == 0:
+                self.make_emb_db(args, net, train_db_loader,
+                                 eval_sampled=args.sampled_results,
+                                 eval_per_class=args.per_class_results,
+                                 newly_trained=True,
+                                 batch_size=args.db_batch,
+                                 mode='train',
+                                 epoch=epoch,
+                                 k_at_n=False)
 
-            if args.cam:
+                self.make_emb_db(args, net, val_db_loader,
+                                 eval_sampled=args.sampled_results,
+                                 eval_per_class=args.per_class_results,
+                                 newly_trained=True,
+                                 batch_size=args.db_batch,
+                                 mode='val',
+                                 epoch=epoch,
+                                 k_at_n=False)
+
+            if args.cam and epoch % 5 == 0:
                 self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
                 self.draw_heatmaps(net=net,
                                    loss_fn=loss_fn,
@@ -1060,36 +1086,47 @@ class ModelMethods:
             else:
                 raise Exception('Not handled feature extractor')
 
-            for idx, (img, lbl, seen, path) in enumerate(data_loader):
+            for idx, tpl in enumerate(data_loader):
+
+                end = min((idx + 1) * batch_size, len(test_feats))
+
+                if mode != 'train':
+                    (img, lbl, seen, path) = tpl
+                else:
+                    (img, lbl, path) = tpl
 
                 if args.cuda:
                     img = img.cuda()
+
                 img = Variable(img)
 
                 output = net.forward(img, None, single=True)
                 output = output.data.cpu().numpy()
 
-                end = min((idx + 1) * batch_size, len(test_feats))
-
                 test_feats[idx * batch_size:end, :] = output
                 test_classes[idx * batch_size:end] = lbl
                 test_paths[idx * batch_size:end] = path
-                test_seen[idx * batch_size:end] = seen.to(int)
+
+                if mode != 'train':
+                    test_seen[idx * batch_size:end] = seen.to(int)
 
             utils.save_h5(f'{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{mode}Ids.h5'))
             utils.save_h5(f'{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{mode}Classes.h5'))
             utils.save_h5(f'{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{mode}Feats.h5'))
-            utils.save_h5(f'{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{mode}Seen.h5'))
+            if mode != 'train':
+                utils.save_h5(f'{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{mode}Seen.h5'))
 
         test_feats = utils.load_h5(f'{mode}_feats', os.path.join(self.save_path, f'{mode}Feats.h5'))
         test_classes = utils.load_h5(f'{mode}_classes', os.path.join(self.save_path, f'{mode}Classes.h5'))
-        test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
+        if mode != 'train':
+            test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
 
-        pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
-        tsne_path = os.path.join(self.scatter_plot_path, f'tsne_{epoch}.png')
+        # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
+        tsne_path = os.path.join(self.scatter_plot_path, f'{mode}/tsne_{epoch}.png')
 
-        self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
-        self.draw_dim_reduced(test_feats, test_classes, method='tsne', title="on epoch " + str(epoch), path=tsne_path)
+        # self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
+        self.draw_dim_reduced(test_feats, test_classes, method='tsne', title=f"{mode}, epoch: " + str(epoch),
+                              path=tsne_path)
 
         # import pdb
         # pdb.set_trace()

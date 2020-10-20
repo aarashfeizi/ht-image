@@ -137,6 +137,7 @@ def get_args():
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
+    parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
@@ -569,7 +570,7 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
     print(f'{mode} number of imgs:', len(image_labels))
     print(f'{mode} number of labels:', len(np.unique(image_labels)))
 
-    if return_bg and mode != 'train':
+    if return_bg:
         print(f'{mode} number of bg imgs:', len(image_labels_bg))
         print(f'{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
     else:
