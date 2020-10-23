@@ -2,3 +2,9 @@ cam_images/
 3484669_anch1.jpg 3484668_pos1.jpg 3785630_neg1.jpg
 3940559_anch2.jpg 3940560_pos2.jpg 3439634_neg2.jpg
 3439636_anch3.jpg 3439637_pos3.jpg 2994322_neg3.jpg
+6282613_anch4.jpg 6282619_pos4.jpg 6347238_neg4.jpg
+6347233_anch5.jpg 6347234_pos5.jpg 3484669_neg5.jpg
+6347238_anch6.jpg 6347242_pos6.jpg 7077719_neg6.jpg
+6004109_anch7.jpg 6004115_pos7.jpg 7645089_neg7.jpg
+6780777_anch8.jpg 6780780_pos8.jpg 6085108_neg8.jpg
+6085105_anch9.jpg 6085106_pos9.jpg 6347233_neg9.jpg

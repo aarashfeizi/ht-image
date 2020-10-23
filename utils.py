@@ -922,8 +922,8 @@ def get_heatmap(activations, shape, save_path=None, label=None):
 
 def merge_heatmap_img(img, heatmap, path):
     temp = img.copy()
-    print('img shape:', temp.shape)
-    print('heatmap shape:', heatmap.shape)
+    # print('img shape:', temp.shape)
+    # print('heatmap shape:', heatmap.shape)
     cv2.addWeighted(heatmap, 0.4, img, 0.6, 0, temp)
     cv2.imwrite(path, temp)
 

@@ -62,6 +62,8 @@ class ModelMethods:
 
         if args.cam:
             os.mkdir(f'{self.save_path}/heatmap/')
+            self.cam_negs = [0 for _ in range(100)]
+            self.pos_negs = [0 for _ in range(100)]
 
     def _parse_args(self, args):
         # name = 'model-betteraug-distmlp-' + self.model
@@ -202,8 +204,6 @@ class ModelMethods:
                 os.mkdir(anchneg_hm_path)
 
 
-
-
             self.logger.info(f'Anch path: {anch_path}')
             self.logger.info(f'Pos path: {pos_path}')
             self.logger.info(f'Neg path: {neg_path}')
@@ -248,6 +248,9 @@ class ModelMethods:
             ext_loss = 0
 
             pos_pred, pos_dist, anch_feat, pos_feat, acts = net.forward(anch, pos, feats=True, hook=True)
+            import pdb
+            print('neg_pred', torch.sigmoid(pos_pred))
+            pdb.set_trace()
 
             ks = list(map(lambda x: int(x), args.k_best_maps))
 
@@ -280,8 +283,10 @@ class ModelMethods:
                                      {'anch': anch_org,
                                       'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch)
 
-            neg_pred, neg_dist, _, neg_feat, acts = net.forward(anch, neg,
-                                                                feats=True, hook=True)
+            neg_pred, neg_dist, _, neg_feat, acts = net.forward(anch, neg, feats=True, hook=True)
+
+            print('neg_pred', torch.sigmoid(neg_pred))
+            pdb.set_trace()
 
             for k in ks:
                 acts_tmp = []
@@ -433,6 +438,19 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
+            if args.cam and epoch % 5 == 0:
+                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                self.draw_heatmaps(net=net,
+                                   loss_fn=loss_fn,
+                                   bce_loss=bce_loss,
+                                   args=args,
+                                   cam_loader=cam_args[0],
+                                   transform_for_model=cam_args[1],
+                                   transform_for_heatmap=cam_args[2],
+                                   epoch=epoch,
+                                   count=1)
+
+                self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:
