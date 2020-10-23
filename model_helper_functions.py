@@ -62,8 +62,9 @@ class ModelMethods:
 
         if args.cam:
             os.mkdir(f'{self.save_path}/heatmap/')
-            self.cam_negs = [0 for _ in range(100)]
-            self.pos_negs = [0 for _ in range(100)]
+            self.cam_all = 0
+            self.cam_neg = np.array([0 for _ in range(9)])
+            self.cam_pos = np.array([0 for _ in range(9)])
 
     def _parse_args(self, args):
         # name = 'model-betteraug-distmlp-' + self.model
@@ -186,7 +187,7 @@ class ModelMethods:
         heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
 
         os.mkdir(heatmap_path_perepoch)
-
+        self.cam_all += 1
         for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
 
             anch_hm_path = os.path.join(heatmap_path, f'image_anch_{id}/')
@@ -246,11 +247,10 @@ class ModelMethods:
 
             class_loss = 0
             ext_loss = 0
-
             pos_pred, pos_dist, anch_feat, pos_feat, acts = net.forward(anch, pos, feats=True, hook=True)
-            import pdb
-            print('neg_pred', torch.sigmoid(pos_pred))
-            pdb.set_trace()
+
+            # print(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
+            self.cam_pos[id - 1] += int(torch.sigmoid(pos_pred).item() < 0.5)
 
             ks = list(map(lambda x: int(x), args.k_best_maps))
 
@@ -284,9 +284,10 @@ class ModelMethods:
                                       'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch)
 
             neg_pred, neg_dist, _, neg_feat, acts = net.forward(anch, neg, feats=True, hook=True)
+            # print(f'cam neg {id - 1}: ', torch.sigmoid(neg_pred).item())
+            self.cam_neg[id - 1] += int(torch.sigmoid(neg_pred).item() >= 0.5)
 
-            print('neg_pred', torch.sigmoid(neg_pred))
-            pdb.set_trace()
+            # print('neg_pred', torch.sigmoid(neg_pred))
 
             for k in ks:
                 acts_tmp = []
@@ -347,6 +348,9 @@ class ModelMethods:
                                       'neg': neg_org}, 'all', id, heatmap_path_perepoch)
 
         self.created_image_heatmap_path = True
+
+        self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
+        self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
 
     def to_numpy_axis_order_change(self, t):
         t = t.numpy()
