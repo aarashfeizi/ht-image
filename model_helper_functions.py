@@ -46,9 +46,11 @@ class ModelMethods:
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
         if args.debug_grad:
+            self.draw_grad = True
             self.plt_save_path = f'{self.save_path}/loss_plts/'
             os.mkdir(self.plt_save_path)
         else:
+            self.draw_grad = False
             self.plt_save_path = ''
 
         self.created_image_heatmap_path = False
@@ -433,14 +435,16 @@ class ModelMethods:
             metric_ACC.reset_acc()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
-                grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
-                # print(grad_save_path)
-                os.makedirs(grad_save_path)
+                if self.draw_grad:
+                    grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
+                    # print(grad_save_path)
+                    os.makedirs(grad_save_path)
+
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
 
                     # print('input: ', img1.size())
 
-                    debug_grad = args.debug_grad and (batch_id == 1 or batch_id == len(train_loader))
+                    debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
 
                     one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
                     zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
