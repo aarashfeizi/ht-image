@@ -719,7 +719,8 @@ class ModelMethods:
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
-            if epoch % 5 == 0:
+            if epoch % 10 == 0:
+                self.logger.info('plotting train scatter plot...')
                 self.make_emb_db(args, net, train_db_loader,
                                  eval_sampled=args.sampled_results,
                                  eval_per_class=args.per_class_results,
@@ -729,6 +730,7 @@ class ModelMethods:
                                  epoch=epoch,
                                  k_at_n=False)
 
+                self.logger.info('plotting val scatter plot...')
                 self.make_emb_db(args, net, val_db_loader,
                                  eval_sampled=args.sampled_results,
                                  eval_per_class=args.per_class_results,
