@@ -7,7 +7,8 @@
   "hotels": {
     "splits_file_path": "../../dataset/hotels_trainval/dummy_splits_50k",
     "dataset_folder": "hotels_trainval/",
-    "image_size": 228
+    "image_size": 228,
+    "mask_path": "mask_paths.csv"
   },
   "omniglot": {
     "dataset_folder": "omniglot/",

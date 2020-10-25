@@ -167,3 +167,4 @@ org_loader/
 !cam_images/*
 copy_stuff.sh
 srcdirs.txt
+!mask_paths.csv

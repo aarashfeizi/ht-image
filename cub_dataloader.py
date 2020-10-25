@@ -6,8 +6,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
 
-from utils import get_shuffled_data, loadDataToMem, get_overfit
-
+from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
+import utils
 
 class CUBTrain_Metric(Dataset):
     def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False):
@@ -16,8 +16,9 @@ class CUBTrain_Metric(Dataset):
         self.transform = transform
         self.save_pictures = save_pictures
         self.no_negative = args.no_negative
-        self.mask = args.mask
+        self.aug_mask = args.aug_mask
         self.return_paths = return_paths
+        self.normalize = utils.TransformLoader(-1).transform_normalize
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -34,6 +35,13 @@ class CUBTrain_Metric(Dataset):
             self.overfit = False
 
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
+
+        if self.aug_mask:
+            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+
+        else:
+            self.masks = []
+
         # self.masks =
 
         print('CUBTrain_Metric hotel train classes: ', self.num_classes)
@@ -108,10 +116,31 @@ class CUBTrain_Metric(Dataset):
                 # anch.save(f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_before.png')
                 # negs[0].save(f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_before.png')
 
-            anch = self.transform(anch)
-            pos = self.transform(pos)
+
+            if self.aug_mask:
+                anch_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                pos_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                anch, _, anch_mask = utils.add_mask(anch, anch_mask)
+                pos, _, pos_mask = utils.add_mask(pos, pos_mask)
+
+                masked_negs = []
+                neg_masks = []
+
+                for neg in negs:
+                    neg_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                    neg, _, neg_mask = utils.add_mask(neg, neg_mask)
+
+                    masked_negs.append(neg)
+                    neg_masks.append(neg_mask)
+
+                negs = masked_negs
+
+            anch = self.do_transform(anch)
+            pos = self.do_transform(pos)
             for i, neg in enumerate(negs):
-                negs[i] = self.transform(neg)
+                negs[i] = self.do_transform(neg)
 
             neg = torch.stack(negs)
 
@@ -124,6 +153,11 @@ class CUBTrain_Metric(Dataset):
         else:
             return anch, pos, neg
 
+    def do_transform(self, img):
+        img = self.transform(img)
+        img = self.normalize(img)
+        return img
+
 
 class CUBTrain_FewShot(Dataset):
     def __init__(self, args, transform=None, mode='train', save_pictures=False):
@@ -134,6 +168,7 @@ class CUBTrain_FewShot(Dataset):
         self.class1 = 0
         self.image1 = None
         self.no_negative = args.no_negative
+        self.normalize = utils.TransformLoader(-1).transform_normalize
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -143,6 +178,13 @@ class CUBTrain_FewShot(Dataset):
 
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
 
+        self.aug_mask = args.aug_mask
+
+        if self.aug_mask:
+            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+
+        else:
+            self.masks = []
         print('CUBTrain_FewShot hotel train classes: ', self.num_classes)
         print('CUBTrain_FewShot hotel train length: ', self.length)
 
@@ -189,8 +231,16 @@ class CUBTrain_FewShot(Dataset):
                 image1.save(f'hotel_imagesamples/train/train_{self.class1}_{img1_random}_before.png')
                 image2.save(f'hotel_imagesamples/train/train_{class2}_{img2_random}_before.png')
 
-            image2 = self.transform(image2)
-            image1 = self.transform(image1)
+            if self.aug_mask:
+                image1_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                image2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                image1, _, image1_mask = utils.add_mask(image1, image1_mask)
+                image2, _, image2_mask = utils.add_mask(image2, image2_mask)
+
+            image2 = self.do_transform(image2)
+            image1 = self.do_transform(image1)
 
             if save:
                 save_image(image1, f'hotel_imagesamples/train/train_{self.class1}_{img1_random}_after.png')
@@ -206,7 +256,7 @@ class CUBTrain_FewShot(Dataset):
         image = image.convert('RGB')
 
         if self.transform:
-            image = self.transform(image)
+            image = self.do_transform(image)
 
         return image, torch.from_numpy(np.array(label, dtype=np.float32))
 
@@ -222,6 +272,12 @@ class CUBTrain_FewShot(Dataset):
         return imgs, lbls
 
 
+    def do_transform(self, img):
+        img = self.transform(img)
+        img = self.normalize(img)
+        return img
+
+
 class CUBTest_FewShot(Dataset):
 
     def __init__(self, args, transform=None, mode='test_seen', save_pictures=False):
@@ -234,6 +290,7 @@ class CUBTest_FewShot(Dataset):
         self.img1 = None
         self.c1 = None
         self.mode = mode
+        self.normalize = utils.TransformLoader(-1).transform_normalize
 
         self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
                                                                                     args.dataset_name,
@@ -241,6 +298,15 @@ class CUBTest_FewShot(Dataset):
                                                                                     split_file_path=args.splits_file_path,
                                                                                     portion=args.portion,
                                                                                     dataset_folder=args.dataset_folder)
+
+
+        self.aug_mask = args.aug_mask
+
+        if self.aug_mask:
+            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+
+        else:
+            self.masks = []
 
         print(f'CUBTest_FewShot hotel {mode} classes: ', self.num_classes)
         print(f'CUBTest_FewShot hotel {mode} length: ', self.__len__())
@@ -276,8 +342,16 @@ class CUBTest_FewShot(Dataset):
                 self.img1.save(f'hotel_imagesamples/val/val_{self.c1}_{img1_random}_before.png')
                 img2.save(f'hotel_imagesamples/val/val_{c2}_{img2_random}_before.png')
 
-            img1 = self.transform(self.img1)
-            img2 = self.transform(img2)
+            if self.aug_mask:
+                img1_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                img2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                img1, _, img1_mask = utils.add_mask(self.img1, img1_mask)
+                img2, _, img2_mask = utils.add_mask(img2, img2_mask)
+
+            img1 = self.do_transform(self.img1)
+            img2 = self.do_transform(img2)
 
             if save:
                 save_image(img1, f'hotel_imagesamples/val/val_{self.c1}_{img1_random}_after.png')
@@ -286,12 +360,18 @@ class CUBTest_FewShot(Dataset):
         return img1, img2
 
 
+    def do_transform(self, img):
+        img = self.transform(img)
+        img = self.normalize(img)
+        return img
+
+
 class CUB_DB(Dataset):
     def __init__(self, args, transform=None, mode='test'):
         np.random.seed(args.seed)
         super(CUB_DB, self).__init__()
         self.transform = transform
-
+        self.normalize = utils.TransformLoader(-1).transform_normalize
         total = True
         self.mode = mode
 
@@ -314,6 +394,15 @@ class CUB_DB(Dataset):
                                                    one_hot=False,
                                                    both_seen_unseen=(mode != 'train'),
                                                    shuffle=False)
+
+        self.aug_mask = args.aug_mask
+
+        if self.aug_mask:
+            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+
+        else:
+            self.masks = []
+
         # else: # todo
         #     self.all_shuffled_data = get_shuffled_data(self.datas, seed=args.seed, one_hot=False)
 
@@ -336,8 +425,20 @@ class CUB_DB(Dataset):
         id += '-' + path[-1].split('.')[0]
 
         if self.transform:
-            img = self.transform(img)
+
+            if self.aug_mask:
+                img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                img, _, img2_mask = utils.add_mask(img, img_mask)
+
+            img = self.do_transform(img)
+
+
         if self.mode != 'train':
             return img, lbl, bl, id
         else:
             return img, lbl, id
+
+    def do_transform(self, img):
+        img = self.do_transform(img)
+        img = self.normalize(img)
+        return img

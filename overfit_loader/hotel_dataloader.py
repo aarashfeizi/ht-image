@@ -18,7 +18,7 @@ class HotelTrain_Metric(Dataset):
         self.transform = transform
         self.save_pictures = save_pictures
         self.no_negative = args.no_negative
-        self.mask = args.mask
+        self.aug_mask = args.aug_mask
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,

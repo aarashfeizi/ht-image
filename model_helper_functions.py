@@ -204,7 +204,6 @@ class ModelMethods:
                 os.mkdir(anchpos_hm_path)
                 os.mkdir(anchneg_hm_path)
 
-
             self.logger.info(f'Anch path: {anch_path}')
             self.logger.info(f'Pos path: {pos_path}')
             self.logger.info(f'Neg path: {neg_path}')
@@ -310,7 +309,6 @@ class ModelMethods:
                                                              neg_hm_file_path],
                                            pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path])
 
-
             neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
             neg_class_loss.backward(retain_graph=True)
             class_loss += neg_class_loss
@@ -402,10 +400,10 @@ class ModelMethods:
         train_db_loader = db_loaders[0]
         val_db_loader = db_loaders[1]
 
-        if net.mask:
+        if net.aug_mask:
             opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
-                                    {'params': net.ft_net.parameters(), 'lr': args.lr_resnet},
-                                    {'params': net.input_layer.parameters(), 'lr': args.lr_siamese}],
+                                    {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                    {'params': net.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
                                    lr=args.lr_siamese)
         else:
             opt = torch.optim.Adam([{'params': net.sm_net.parameters()},

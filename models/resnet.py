@@ -124,10 +124,21 @@ class Bottleneck(nn.Module):
 
 class ResNet(tResNet):
 
-    def __init__(self, block, layers, num_classes):
+    def __init__(self, block, layers, num_classes, mask=False):
         super(ResNet, self).__init__(block, layers)
         self.gradients = None
         self.activations = None
+        if mask:
+            self.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3,
+                                   bias=False)
+            self.rest = nn.Sequential(self.bn1,
+                                      self.relu,
+                                      self.maxpool,
+                                      self.layer1,
+                                      self.layer2,
+                                      self.layer3,
+                                      self.layer4,
+                                      self.avgpool)
         # self.new_fc = nn.Linear(512, num_classes)
 
     def activations_hook(self, grad):
@@ -172,11 +183,16 @@ class ResNet(tResNet):
     def get_activations(self):
         return self.activations
 
-    def load_my_state_dict(self, state_dict):
+    def load_my_state_dict(self, state_dict, mask):
 
         own_state = self.state_dict()
         for name, param in state_dict.items():
-            if name not in own_state:
+            # if mask and name == 'conv1.weight':
+            #     import pdb
+            #     pdb.set_trace()
+            #     print('name: ', name)
+
+            if name not in own_state or (mask and name == 'conv1.weight'):
                 continue
             if isinstance(param, Parameter):
                 # backwards compatibility for serialized parameters
@@ -187,8 +203,8 @@ class ResNet(tResNet):
             own_state[name].copy_(param)
 
 
-def _resnet(arch, block, layers, pretrained, progress, num_classes, **kwargs):
-    model = ResNet(block, layers, num_classes, **kwargs)
+def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, **kwargs):
+    model = ResNet(block, layers, num_classes, mask=mask, **kwargs)
     if pretrained:
         if os.path.exists(f'models/pretrained_{arch}.pt'):
             print(f'loading {arch} from pretrained')
@@ -199,12 +215,12 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, **kwargs):
             #                                             progress=progress)
             state_dict = torch.load('/Users/aarash/Downloads/resnet50-19c8e357.pth', map_location=None)
 
-        model.load_my_state_dict(state_dict)
+        model.load_my_state_dict(state_dict, mask)
         print('pretrained loaded!')
     return model
 
 
-def resnet18(pretrained=False, progress=True, num_classes=1, **kwargs):
+def resnet18(pretrained=False, progress=True, num_classes=1, mask=False, **kwargs):
     r"""ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
@@ -212,7 +228,7 @@ def resnet18(pretrained=False, progress=True, num_classes=1, **kwargs):
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                   **kwargs)
+                    mask, **kwargs)
 
 
 def resnet34(pretrained=False, progress=True, num_classes=1, **kwargs):
@@ -226,7 +242,7 @@ def resnet34(pretrained=False, progress=True, num_classes=1, **kwargs):
                    **kwargs)
 
 
-def resnet50(pretrained=False, progress=True, num_classes=1, **kwargs):
+def resnet50(pretrained=False, progress=True, num_classes=1, mask=False, **kwargs):
     r"""ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
@@ -234,7 +250,7 @@ def resnet50(pretrained=False, progress=True, num_classes=1, **kwargs):
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes,
-                   **kwargs)
+                   mask=mask, **kwargs)
 
 
 def resnet101(pretrained=False, progress=True, **kwargs):

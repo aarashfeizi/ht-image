@@ -4,20 +4,20 @@ from models.resnet import *
 
 class TopModel(nn.Module):
 
-    def __init__(self, ft_net, sm_net, mask=False):
+    def __init__(self, ft_net, sm_net, aug_mask=False):
         super(TopModel, self).__init__()
         self.ft_net = ft_net
         self.sm_net = sm_net
-        self.mask = mask
+        self.aug_mask = aug_mask
 
-        if self.mask:
-            conv1weight = ft_net.conv1.weight.clone()
-            self.ft_net = nn.Sequential(*list(self.ft_net.children())[1:])
-            self.input_layer = nn.Sequential(nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False))
-            # self.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
-            with torch.no_grad():
-                with torch.no_grad():
-                    self.input_layer.weight[:, :3] = conv1weight
+
+        # if self.mask:
+        #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
+        #     self.ft_net = nn.Sequential(*list(self.ft_net.children())[1:])
+        #     # self.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        #     with torch.no_grad():
+        #         with torch.no_grad():
+        #             self.input_layer.weight[:, :3] = conv1weight
                     # self.input_layer.weight[:, 3] = self.ft_net.conv1.weight[:, 0]
 
         # print('FEATURE NET')
@@ -90,9 +90,11 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         'resnet101': resnet101,
     }
 
+    use_pretrained = not (args.from_scratch)
+
     if trained_feat_net is None:
         print('Using pretrained model')
-        ft_net = model_dict[args.feat_extractor](pretrained=True, num_classes=num_classes)
+        ft_net = model_dict[args.feat_extractor](pretrained=use_pretrained, num_classes=num_classes, mask=mask)
     else:
         print('Using recently trained model')
         ft_net = trained_feat_net
@@ -106,4 +108,4 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         for param in ft_net.parameters():
             param.requires_grad = False
 
-    return TopModel(ft_net=ft_net, sm_net=sm_net, mask=mask)
+    return TopModel(ft_net=ft_net, sm_net=sm_net, aug_mask=mask)

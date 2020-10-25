@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+from PIL import Image, ImageOps
 from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
@@ -36,6 +37,7 @@ class TransformLoader:
         self.normalize_param = normalize_param
         self.jitter_param = jitter_param
         self.rotate = rotate
+        self.normalize = transforms.Normalize(**self.normalize_param)
 
     def parse_transform(self, transform_type):
         # if transform_type == 'ImageJitter':
@@ -71,14 +73,22 @@ class TransformLoader:
             transform_list.extend(['CenterCrop'])
 
         if for_network:
-            transform_list.extend(['ToTensor', 'Normalize'])
+            transform_list.extend(['ToTensor'])
 
         transform_funcs = [self.parse_transform(x) for x in transform_list]
         transform = transforms.Compose(transform_funcs)
         return transform, transform_list
 
+    def transform_normalize(self, img):
+        if img.shape[0] == 3:
+            return self.normalize(img)
+        else:
+            half_normalized = self.normalize(img[0:3, :, :])
+            ret = torch.cat([half_normalized, img[3, :, :].unsqueeze(dim=0)], dim=0)
+            return ret
 
-# '../../dataset/omniglot/python/images_background'
+
+    # '../../dataset/omniglot/python/images_background'
 # '../../dataset/omniglot/python/images_evaluation'
 def get_args():
     parser = argparse.ArgumentParser()
@@ -142,6 +152,8 @@ def get_args():
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
+    parser.add_argument('-am', '--aug_mask', default=False, action='store_true')
+    parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
 
     args = parser.parse_args()
@@ -785,14 +797,12 @@ def two_line_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoc
     plt.figure(figsize=(64, 48))
     plt.rcParams.update({'font.size': 15})  # must set in top
 
-
     colors = {'average_bce': 'blue',
               'average_triplet': 'red'}
 
     for label, lists in [('average_bce', bce_np), ('average_triplet', triplet_np)]:
         ave_grads = lists[0]
         layers = lists[2]
-
 
         plt.plot(ave_grads, color=colors[label])
     plt.hlines(0, 0, len(ave_grads) + 1, linewidth=1, color="k")
@@ -807,7 +817,8 @@ def two_line_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoc
                 'triplet-mean-gradient', 'zero-gradient'])
     plt.title(f"Gradient flow for {name_label}_epoch{epoch}_batch{batch_id}")
     plt.grid(True)
-    plt.savefig(os.path.join(save_path, f'two_line_{args.loss}_bco{args.bcecoefficient}_{name_label}_batch{batch_id}.png'))
+    plt.savefig(
+        os.path.join(save_path, f'two_line_{args.loss}_bco{args.bcecoefficient}_{name_label}_batch{batch_id}.png'))
     plt.close()
 
 
@@ -824,7 +835,6 @@ def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch
               'max_triplet': 'red'}
 
     dict_avg_grads = {}
-
 
     plt.figure(figsize=(8, 6))
     df = None
@@ -916,7 +926,6 @@ def get_heatmap(activations, shape, save_path=None, label=None):
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
-
     return heatmap
 
 
@@ -948,6 +957,78 @@ def read_img_paths(path):
 
     return final_lines
 
+
 def vector_merge_function(v1, v2):
     merged = torch.pow((v1 - v2), 2)
     return merged
+
+
+def add_mask(org_img, mask):
+    img = org_img.copy()
+
+    angle = np.random.uniform(0, 360)
+    mask = Image.Image.rotate(mask, angle=angle, expand=True)
+
+    img_shape = img.size
+    mask_shape = mask.size
+    x_factor = img_shape[0] / mask_shape[0]
+    y_factor = img_shape[1] / mask_shape[1]
+
+    while x_factor <= 1 or y_factor <= 1:
+        print(f'!!!MASK WAS BIGGER!!!! img_size = {img_shape}, mask_size = {mask_shape}')
+        mask = mask.resize((mask_shape[0] // 2, mask_shape[1] // 2))
+        mask_shape = mask.size
+        x_factor = img_shape[0] / mask_shape[0]
+        y_factor = img_shape[1] / mask_shape[1]
+
+    x_resize_factor = np.random.uniform(1, x_factor)
+    y_resize_factor = np.random.uniform(1, y_factor)
+
+    mask = mask.resize((int(x_resize_factor * mask_shape[0]),
+                        int(y_resize_factor * mask_shape[1])))
+
+    mask_np = np.array(mask)
+    mask_np[mask_np > 0] = 255
+    mask = Image.fromarray(mask_np)
+
+    mask_shape = mask.size
+
+    if mask_shape[0] < img_shape[0]:
+        x_offset = np.random.randint(0, img_shape[0] - mask_shape[0])
+    else:
+        x_offset = np.random.randint(0, img_shape[0] // 2)
+
+    if mask_shape[1] < img_shape[1]:
+        y_offset = np.random.randint(0, img_shape[1] - mask_shape[1])
+    else:
+        y_offset = np.random.randint(0, img_shape[1] // 2)
+
+    # x_offset = np.random.randint(img_shape[0]//5, 3 * img_shape[0]//5)
+    # y_offset = np.random.randint(img_shape[1]//5, 3 * img_shape[1]//5)
+
+    padding = (x_offset,  # left
+               y_offset,  # top
+               img_shape[0] - (x_offset + mask_shape[0]),  # right
+               img_shape[1] - (y_offset + mask_shape[1]))  # bottom
+
+    mask = ImageOps.expand(mask, padding)
+    img.paste(mask, (0, 0), mask=mask)
+    assert mask.size == img.size
+
+    four_channel_img = Image.fromarray(np.dstack((np.asarray(img), np.asarray(mask)[:, :, 3] // 255)))
+
+    return four_channel_img, img, mask
+
+
+def get_masks(data_path, data_setname, mask_path):
+    masks = np.array(pd.read_csv(mask_path).mask_path)
+
+    masks = np.array(list(map(lambda x: os.path.join(data_path, data_setname, x), masks)))
+
+    return masks
+    # print(f'angle = {angle}')
+    # print(f'x_offset = {x_offset}')
+    # print(f'y_offset = {y_offset}')
+    # print(f'x_resize_factor = {x_resize_factor}')
+    # print(f'y_resize_factor = {y_resize_factor}')
+    # print(f'mask shape: {(mask_shape[0], mask_shape[1])}')
