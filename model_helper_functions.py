@@ -28,6 +28,7 @@ import utils
 class ModelMethods:
 
     def __init__(self, args, logger, model='top'):  # res or top
+
         id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
         id_str = '-time_' + id_str.replace('.', '-')
 
@@ -61,16 +62,27 @@ class ModelMethods:
 
         self.created_image_heatmap_path = False
 
-        self.scatter_plot_path = f'{self.save_path}/scatter_plots/'
-        os.mkdir(self.scatter_plot_path)
-        os.mkdir(os.path.join(self.scatter_plot_path, 'train'))
-        os.mkdir(os.path.join(self.scatter_plot_path, 'val'))
+        self.gen_plot_path = f'{self.save_path}/plots/'
+        os.mkdir(self.gen_plot_path)
+        os.mkdir(os.path.join(self.gen_plot_path, 'train'))
+        os.mkdir(os.path.join(self.gen_plot_path, 'val'))
 
         if args.cam:
             os.mkdir(f'{self.save_path}/heatmap/')
             self.cam_all = 0
             self.cam_neg = np.array([0 for _ in range(9)])
             self.cam_pos = np.array([0 for _ in range(9)])
+
+        self.class_diffs = {'train':
+                                {'between_class_average': [],
+                                 'between_class_min': [],
+                                 'in_class_average': [],
+                                 'in_class_max': []},
+                            'val':
+                                {'between_class_average': [],
+                                 'between_class_min': [],
+                                 'in_class_average': [],
+                                 'in_class_max': []}}
 
     def _parse_args(self, args):
         # name = 'model-betteraug-distmlp-' + self.model
@@ -356,7 +368,6 @@ class ModelMethods:
                 loss = self.bce_weight * class_loss
 
             plot_title = f"Backward Total Loss" + result_text
-
 
             loss.backward()
             utils.apply_grad_heatmaps(net.get_activations_gradient(),
@@ -695,26 +706,25 @@ class ModelMethods:
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
-            if epoch % 10 == 0:
-                self.logger.info('plotting train scatter plot...')
-                self.make_emb_db(args, net, train_db_loader,
-                                 eval_sampled=args.sampled_results,
-                                 eval_per_class=args.per_class_results,
-                                 newly_trained=True,
-                                 batch_size=args.db_batch,
-                                 mode='train',
-                                 epoch=epoch,
-                                 k_at_n=False)
+            self.logger.info('plotting train class diff plot...')
+            self.make_emb_db(args, net, train_db_loader,
+                             eval_sampled=args.sampled_results,
+                             eval_per_class=args.per_class_results,
+                             newly_trained=True,
+                             batch_size=args.db_batch,
+                             mode='train',
+                             epoch=epoch,
+                             k_at_n=False)
 
-                self.logger.info('plotting val scatter plot...')
-                self.make_emb_db(args, net, val_db_loader,
-                                 eval_sampled=args.sampled_results,
-                                 eval_per_class=args.per_class_results,
-                                 newly_trained=True,
-                                 batch_size=args.db_batch,
-                                 mode='val',
-                                 epoch=epoch,
-                                 k_at_n=False)
+            self.logger.info('plotting val class diff plot...')
+            self.make_emb_db(args, net, val_db_loader,
+                             eval_sampled=args.sampled_results,
+                             eval_per_class=args.per_class_results,
+                             newly_trained=True,
+                             batch_size=args.db_batch,
+                             mode='val',
+                             epoch=epoch,
+                             k_at_n=False)
 
             if args.cam:
                 self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
@@ -1113,11 +1123,21 @@ class ModelMethods:
             test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
 
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
-        tsne_path = os.path.join(self.scatter_plot_path, f'{mode}/tsne_{epoch}.png')
 
         # self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
-        self.draw_dim_reduced(test_feats, test_classes, method='tsne', title=f"{mode}, epoch: " + str(epoch),
-                              path=tsne_path)
+
+
+        ##  for drawing tsne plot
+        # tsne_path = os.path.join(self.gen_plot_path, f'{mode}/tsne_{epoch}.png')
+        # self.draw_dim_reduced(test_feats, test_classes, method='tsne', title=f"{mode}, epoch: " + str(epoch),
+        #                       path=tsne_path)
+
+
+        diff_class_path = os.path.join(self.gen_plot_path, f'{mode}/class_diff_plot.png')
+        self.plot_class_diff_plots(test_feats, test_classes,
+                                   epoch=epoch,
+                                   mode=mode,
+                                   path=diff_class_path)
 
         # import pdb
         # pdb.set_trace()
@@ -1309,3 +1329,35 @@ class ModelMethods:
 
     # todo make customized dataloader for cam
     # todo easy cases?
+    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path):
+        res = utils.get_euc_distances(img_feats, img_classes)
+        for k, v in self.class_diffs[mode].items():
+            v.append(res[k])
+
+        colors = ['r', 'b', 'y', 'g']
+        epochs = [i for i in range(epoch + 1)]
+        legends = []
+        colors_reordered = []
+
+        plt.figure(figsize=(10, 10))
+        for (k, v), c in zip(self.class_diffs[mode].items(), colors):
+            if len(v) > 1:
+                plt.plot(epochs, v, color=c, linewidth=2, markersize=12)
+            else:
+                plt.scatter(epochs, v, color=c)
+            legends.append(k)
+            colors_reordered.append(c)
+
+        plt.grid(True)
+        plt.xlabel('Epoch')
+        plt.ylabel('Euclidean Distance')
+        plt.xlim(left=-1, right=epoch + 5)
+        plt.legend([Line2D([0], [0], color=colors_reordered[0], lw=4),
+                    Line2D([0], [0], color=colors_reordered[1], lw=4),
+                    Line2D([0], [0], color=colors_reordered[2], lw=4),
+                    Line2D([0], [0], color=colors_reordered[3], lw=4)], legends)
+
+        plt.title(f'{mode} class diffs')
+
+        plt.savefig(path)
+        plt.close()

@@ -14,7 +14,7 @@ import torch
 from PIL import Image, ImageOps
 from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
@@ -1228,3 +1228,28 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     #
     # pics = np.concatenate(new_pics, axis=1)
     # cv2.imwrite(path, pic)
+
+def get_euc_distances(img_feats, img_classes):
+    dists = euclidean_distances(img_feats)
+    diff_average_dist = np.zeros_like(dists[0])
+    diff_min_dist = np.zeros_like(dists[0])
+    same_average_dist = np.zeros_like(dists[0])
+    same_max_dist = np.zeros_like(dists[0])
+
+    for idx, (row, label) in enumerate(zip(dists, img_classes)):
+        diff_class_dists = row[img_classes != label]
+        same_class_dists = row[img_classes == label]
+        diff_average_dist[idx] = diff_class_dists.mean()
+        diff_min_dist[idx] = diff_class_dists.min()
+        same_average_dist[idx] = same_class_dists.mean()
+        same_max_dist[idx] = same_class_dists.max()
+
+    diff_average_dist_mean = diff_average_dist.mean()
+    diff_min_dist_mean = diff_min_dist.mean()
+    same_average_dist_mean = same_average_dist.mean()
+    same_max_dist_mean = same_max_dist.mean()
+
+    return {'between_class_average': diff_average_dist_mean,
+            'between_class_min': diff_min_dist_mean,
+            'in_class_average': same_average_dist_mean,
+            'in_class_max': same_max_dist_mean}
