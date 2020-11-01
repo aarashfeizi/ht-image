@@ -192,7 +192,7 @@ class ResNet(tResNet):
             #     pdb.set_trace()
             #     print('name: ', name)
 
-            if name not in own_state or (mask and name == 'conv1.weight'):
+            if name not in own_state:
                 continue
             if isinstance(param, Parameter):
                 # backwards compatibility for serialized parameters
@@ -200,6 +200,11 @@ class ResNet(tResNet):
             print(name, param.size())
             # print('pretrained:')
             # print('own:', own_state[name].size())
+            if mask and name == 'conv1.weight':
+                print('Augmented zero initialized!!!')
+                zeros = torch.zeros(size=[64, 1, 7, 7])
+                param = torch.cat((param, zeros), axis=1)
+
             own_state[name].copy_(param)
 
 
