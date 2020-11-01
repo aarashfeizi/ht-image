@@ -126,8 +126,8 @@ class HotelTrain_Metric(Dataset):
 
                 pos_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                anch, masked_anch, anch_mask = utils.add_mask(anch, anch_mask)
-                pos, masked_pos, pos_mask = utils.add_mask(pos, pos_mask)
+                anch, masked_anch, anch_mask, _ = utils.add_mask(anch, anch_mask)
+                pos, masked_pos, pos_mask, _ = utils.add_mask(pos, pos_mask)
 
 
                 masked_negs = []
@@ -135,7 +135,7 @@ class HotelTrain_Metric(Dataset):
 
                 for neg in negs:
                     neg_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                    neg, masked_neg, neg_mask = utils.add_mask(neg, neg_mask)
+                    neg, masked_neg, neg_mask, _ = utils.add_mask(neg, neg_mask)
 
                     masked_negs.append(neg)
                     neg_masks.append(neg_mask)
@@ -252,8 +252,8 @@ class HotelTrain_FewShot(Dataset):
 
                 image2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                image1, _, image1_mask = utils.add_mask(image1, image1_mask)
-                image2, _, image2_mask = utils.add_mask(image2, image2_mask)
+                image1, _, image1_mask, _ = utils.add_mask(image1, image1_mask)
+                image2, _, image2_mask, _ = utils.add_mask(image2, image2_mask)
 
 
 
@@ -363,8 +363,8 @@ class HotelTest_FewShot(Dataset):
 
                 img2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                img1, _, img1_mask = utils.add_mask(img1, img1_mask)
-                img2, _, img2_mask = utils.add_mask(img2, img2_mask)
+                img1, _, img1_mask, _ = utils.add_mask(img1, img1_mask)
+                img2, _, img2_mask, _ = utils.add_mask(img2, img2_mask)
 
             img1 = self.do_transform(img1)
             img2 = self.do_transform(img2)
@@ -444,7 +444,7 @@ class Hotel_DB(Dataset):
         if self.transform:
             if self.aug_mask:
                 img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                img, _, img2_mask = utils.add_mask(img, img_mask)
+                img, _, img_mask, _ = utils.add_mask(img, img_mask)
 
             img = self.do_transform(img)
 

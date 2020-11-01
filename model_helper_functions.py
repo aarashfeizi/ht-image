@@ -84,6 +84,20 @@ class ModelMethods:
                                  'in_class_average': [],
                                  'in_class_max': []}}
 
+        self.aug_mask = args.aug_mask
+
+        if self.aug_mask:
+            masks = utils.get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.anch_mask = Image.open(masks[np.random.randint(len(masks))])
+            self.pos_mask = Image.open(masks[np.random.randint(len(masks))])
+            self.neg_mask = Image.open(masks[np.random.randint(len(masks))])
+            self.anch_offsets = None
+            self.anch_resizefactors = None
+            self.pos_offsets = None
+            self.pos_resizefactors = None
+            self.neg_offsets = None
+            self.neg_resizefactors = None
+
     def _parse_args(self, args):
         # name = 'model-betteraug-distmlp-' + self.model
         name = 'model-' + self.model
@@ -217,17 +231,46 @@ class ModelMethods:
             if not self.created_image_heatmap_path:
                 os.mkdir(heatmap_path_perepoch_id)
 
-            anch = transform_for_model(Image.open(anch_path))
-            pos = transform_for_model(Image.open(pos_path))
-            neg = transform_for_model(Image.open(neg_path))
+            anch = Image.open(anch_path)
+            pos = Image.open(pos_path)
+            neg = Image.open(neg_path)
+
+            if self.aug_mask:
+                anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask, offsets=self.anch_offsets,
+                                                                resize_factors=self.anch_resizefactors)
+                pos, masked_pos, pos_mask, param_pos = utils.add_mask(pos, self.pos_mask, offsets=self.pos_offsets,
+                                                             resize_factors=self.pos_resizefactors)
+                neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
+                                                             resize_factors=self.neg_resizefactors)
+
+                if self.anch_offsets is None:
+                    self.anch_offsets = param_anch['offsets']
+                    self.anch_resizefactors = param_anch['resize_factors']
+
+                    self.pos_offsets = param_pos['offsets']
+                    self.pos_resizefactors = param_pos['resize_factors']
+
+                    self.neg_offsets = param_neg['offsets']
+                    self.neg_resizefactors = param_neg['resize_factors']
+
+            tl = utils.TransformLoader(228)
+
+            anch = tl.transform_normalize(transform_for_model(anch))
+            pos = tl.transform_normalize(transform_for_model(pos))
+            neg = tl.transform_normalize(transform_for_model(neg))
 
             anch = anch.reshape(shape=(1, anch.shape[0], anch.shape[1], anch.shape[2]))
             pos = pos.reshape(shape=(1, pos.shape[0], pos.shape[1], pos.shape[2]))
             neg = neg.reshape(shape=(1, neg.shape[0], neg.shape[1], neg.shape[2]))
 
-            anch_org = np.asarray(transform_for_heatmap(Image.open(anch_path)))
-            pos_org = np.asarray(transform_for_heatmap(Image.open(pos_path)))
-            neg_org = np.asarray(transform_for_heatmap(Image.open(neg_path)))
+            if self.aug_mask:
+                anch_org = np.asarray(transform_for_heatmap(masked_anch))
+                pos_org = np.asarray(transform_for_heatmap(masked_pos))
+                neg_org = np.asarray(transform_for_heatmap(masked_neg))
+            else:
+                anch_org = np.asarray(transform_for_heatmap(Image.open(anch_path)))
+                pos_org = np.asarray(transform_for_heatmap(Image.open(pos_path)))
+                neg_org = np.asarray(transform_for_heatmap(Image.open(neg_path)))
 
             zero_labels = torch.tensor([0], dtype=float)
             one_labels = torch.tensor([1], dtype=float)
@@ -1126,12 +1169,10 @@ class ModelMethods:
 
         # self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
 
-
         ##  for drawing tsne plot
         # tsne_path = os.path.join(self.gen_plot_path, f'{mode}/tsne_{epoch}.png')
         # self.draw_dim_reduced(test_feats, test_classes, method='tsne', title=f"{mode}, epoch: " + str(epoch),
         #                       path=tsne_path)
-
 
         diff_class_path = os.path.join(self.gen_plot_path, f'{mode}/class_diff_plot.png')
         self.plot_class_diff_plots(test_feats, test_classes,

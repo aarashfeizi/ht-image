@@ -993,7 +993,7 @@ def vector_merge_function(v1, v2):
     return merged
 
 
-def add_mask(org_img, mask):
+def add_mask(org_img, mask, offsets=None, resize_factors=None):
     img = org_img.copy()
 
     angle = np.random.uniform(0, 360)
@@ -1001,18 +1001,22 @@ def add_mask(org_img, mask):
 
     img_shape = img.size
     mask_shape = mask.size
-    x_factor = img_shape[0] / mask_shape[0]
-    y_factor = img_shape[1] / mask_shape[1]
 
-    while x_factor <= 1 or y_factor <= 1:
-        print(f'!!!MASK WAS BIGGER!!!! img_size = {img_shape}, mask_size = {mask_shape}')
-        mask = mask.resize((mask_shape[0] // 2, mask_shape[1] // 2))
-        mask_shape = mask.size
+    if resize_factors is None:
         x_factor = img_shape[0] / mask_shape[0]
         y_factor = img_shape[1] / mask_shape[1]
 
-    x_resize_factor = np.random.uniform(1, x_factor)
-    y_resize_factor = np.random.uniform(1, y_factor)
+        while x_factor <= 1 or y_factor <= 1:
+            print(f'!!!MASK WAS BIGGER!!!! img_size = {img_shape}, mask_size = {mask_shape}')
+            mask = mask.resize((mask_shape[0] // 2, mask_shape[1] // 2))
+            mask_shape = mask.size
+            x_factor = img_shape[0] / mask_shape[0]
+            y_factor = img_shape[1] / mask_shape[1]
+
+        x_resize_factor = np.random.uniform(1, x_factor)
+        y_resize_factor = np.random.uniform(1, y_factor)
+    else:
+        x_resize_factor, y_resize_factor = resize_factors
 
     mask = mask.resize((int(x_resize_factor * mask_shape[0]),
                         int(y_resize_factor * mask_shape[1])))
@@ -1023,16 +1027,18 @@ def add_mask(org_img, mask):
 
     mask_shape = mask.size
 
-    if mask_shape[0] < img_shape[0]:
-        x_offset = np.random.randint(0, img_shape[0] - mask_shape[0])
-    else:
-        x_offset = np.random.randint(0, img_shape[0] // 2)
+    if offsets is None:
+        if mask_shape[0] < img_shape[0]:
+            x_offset = np.random.randint(0, img_shape[0] - mask_shape[0])
+        else:
+            x_offset = np.random.randint(0, img_shape[0] // 2)
 
-    if mask_shape[1] < img_shape[1]:
-        y_offset = np.random.randint(0, img_shape[1] - mask_shape[1])
+        if mask_shape[1] < img_shape[1]:
+            y_offset = np.random.randint(0, img_shape[1] - mask_shape[1])
+        else:
+            y_offset = np.random.randint(0, img_shape[1] // 2)
     else:
-        y_offset = np.random.randint(0, img_shape[1] // 2)
-
+        x_offset, y_offset = offsets
     # x_offset = np.random.randint(img_shape[0]//5, 3 * img_shape[0]//5)
     # y_offset = np.random.randint(img_shape[1]//5, 3 * img_shape[1]//5)
 
@@ -1047,7 +1053,8 @@ def add_mask(org_img, mask):
 
     four_channel_img = Image.fromarray(np.dstack((np.asarray(img), np.asarray(mask)[:, :, 3] // 255)))
 
-    return four_channel_img, img, mask
+    return four_channel_img, img, mask, {'offsets': (x_offset, y_offset),
+                                         'resize_factors': (x_resize_factor, y_resize_factor)}
 
 
 def get_masks(data_path, data_setname, mask_path):
