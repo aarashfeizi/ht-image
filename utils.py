@@ -87,8 +87,9 @@ class TransformLoader:
             ret = torch.cat([half_normalized, img[3, :, :].unsqueeze(dim=0)], dim=0)
             return ret
 
-
     # '../../dataset/omniglot/python/images_background'
+
+
 # '../../dataset/omniglot/python/images_evaluation'
 def get_args():
     parser = argparse.ArgumentParser()
@@ -902,6 +903,20 @@ def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch
     plt.close()
 
 
+def __post_create_heatmap(heatmap, shape):
+    # draw the heatmap
+    plt.matshow(heatmap.squeeze())
+    # plt.savefig(f'cam_{id}.png')
+
+    # import pdb
+    # pdb.set_trace()
+
+    heatmap = cv2.resize(np.float32(heatmap), shape)
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    return heatmap
+
+
 def get_heatmap(activations, shape, save_path=None, label=None):
     heatmap = torch.mean(activations, dim=1).squeeze()
 
@@ -915,26 +930,41 @@ def get_heatmap(activations, shape, save_path=None, label=None):
     # normalize the heatmap
     heatmap /= np.max(heatmap)
 
-    # draw the heatmap
-    plt.matshow(heatmap.squeeze())
-    # plt.savefig(f'cam_{id}.png')
-
-    # import pdb
-    # pdb.set_trace()
-
-    heatmap = cv2.resize(np.float32(heatmap), shape)
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    heatmap = __post_create_heatmap(heatmap, shape)
+    plt.close()
 
     return heatmap
 
 
-def merge_heatmap_img(img, heatmap, path):
-    temp = img.copy()
+def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
+    activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
+                                    activations)))
+
+    # relu on top of the heatmap
+    # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+
+    # heatmap = heatmap
+    final_heatmaps = []
+
+    heatmaps = np.maximum(activations, 0)
+
+    # normalize the heatmap
+    heatmaps /= np.max(heatmaps)
+
+    for heatmap in heatmaps:
+        final_heatmaps.append(__post_create_heatmap(heatmap, shape))
+
+    return final_heatmaps
+
+
+def merge_heatmap_img(img, heatmap):
+    pic = img.copy()
     # print('img shape:', temp.shape)
     # print('heatmap shape:', heatmap.shape)
-    cv2.addWeighted(heatmap, 0.4, img, 0.6, 0, temp)
-    cv2.imwrite(path, temp)
+    cv2.addWeighted(heatmap, 0.4, img, 0.6, 0, pic)
+    pic = cv2.cvtColor(pic, cv2.COLOR_BGR2RGB)
+
+    return pic
 
 
 def read_img_paths(path):
@@ -1032,3 +1062,169 @@ def get_masks(data_path, data_setname, mask_path):
     # print(f'x_resize_factor = {x_resize_factor}')
     # print(f'y_resize_factor = {y_resize_factor}')
     # print(f'mask shape: {(mask_shape[0], mask_shape[1])}')
+
+
+def create_subplot(ax, label, img):
+    ax.imshow(img)
+    ax.axis('off')
+    ax.set_title(label)
+
+
+def draw_act_histograms(acts, titles, path, plot_title):
+    # plt.rcParams.update({'font.size': 5})
+    # fig = plt.Figure(figsize=(20, 20))
+    legends = list(map(lambda x: x + ' value distribution', titles))
+    plt.figure(figsize=(10, 10))
+    colors = ['b', 'r']
+    max = 0
+    for act, title, color in zip(acts, titles, colors):
+        flatten_act = act.flatten()
+        if max < flatten_act.max():
+            max = flatten_act.max()
+        plt.hist(flatten_act, bins=100, alpha=0.4, color=color)
+
+    plt.axis('on')
+    plt.xlim(left=-0.1, right=max + 1)
+    plt.legend([Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="r", lw=4)], legends)
+    plt.title(plot_title)
+    plt.savefig(path)
+    plt.close()
+
+
+def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title):
+    pooled_gradients = torch.mean(grads, dim=[0, 2, 3])
+
+    for i in range(len(pooled_gradients)):
+        activations[:, i, :, :] *= pooled_gradients[i]
+
+    anch_org = img_dict['anch']
+    heatmap = get_heatmap(activations, shape=(anch_org.shape[0], anch_org.shape[1]))
+
+    pics = []
+    paths = []
+    titles = []
+
+    for l, i in img_dict.items():
+        pics.append(merge_heatmap_img(i, heatmap))
+        titles.append(l)
+
+    path_ = os.path.join(path, f'backward_triplet{id}_{label}.png')
+    plt.rcParams.update({'font.size': 10})
+    plt.rcParams.update({'figure.figsize': (10, 10)})
+    fig, axes = plt.subplots(1, len(pics))
+
+    for ax, pic, title in zip(axes, pics, titles):
+        ax.imshow(pic)
+        ax.axis('off')
+        ax.set_title(title)
+
+    fig.suptitle(plot_title)
+    plt.savefig(path_)
+    plt.close()
+
+    # for pic, path in zip(pics, paths):
+    #     cv2.imwrite(path, pic)
+
+
+def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, titles=[''], histogram_path=''):
+    """
+
+    :param acts: [anch_activation_p,
+                    pos_activation,
+                    anch_activation_n,
+                    neg_activation]
+    :param img_list: [(anch_lbl, anch_img),
+                        (pos_lbl, pos_img),
+                        (neg_lbl, neg_img)]
+    :param id:
+    :param heatmap_path:
+    :param individual_paths:
+    :param pair_paths:
+    :return:
+    """
+
+    shape = img_list[0][1].shape[0:2]
+
+    acts.append(vector_merge_function(acts[0], acts[1]))  # anch_pos_subtraction
+    titles.append('anch_pos_subtraction')
+
+    acts.append(vector_merge_function(acts[0], acts[2]))  # anch_neg_subtraction
+    titles.append('anch_neg_subtraction')
+
+    draw_act_histograms(acts[3:5], titles[3:5], histogram_path, overall_title)
+
+    heatmaps = get_heatmaps(acts[:3], shape=shape)
+    heatmaps.extend(get_heatmaps(acts[3:5], shape=shape))
+
+    # path_ = os.path.join(path, f'cam_{id}_{l}.png')
+    # merge_heatmap_img(i, heatmap, path=path_)
+
+    pics = [merge_heatmap_img(img_list[0][1], heatmaps[0]),
+            merge_heatmap_img(img_list[1][1], heatmaps[1]),
+            merge_heatmap_img(img_list[2][1], heatmaps[2]),
+            merge_heatmap_img(img_list[0][1], heatmaps[3]),
+            merge_heatmap_img(img_list[1][1], heatmaps[3]),
+            merge_heatmap_img(img_list[0][1], heatmaps[4]),
+            merge_heatmap_img(img_list[2][1], heatmaps[4])]
+
+    plt.rcParams.update({'font.size': 10})
+    plt.rcParams.update({'figure.figsize': (10, 10)})
+
+    fig = plt.figure()
+    ax_anch = plt.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
+    ax_pos = plt.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
+    ax_neg = plt.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)
+    ax_anchpos_anch = plt.subplot2grid((6, 6), (1, 2), rowspan=2, colspan=2)
+    ax_anchneg_anch = plt.subplot2grid((6, 6), (3, 2), rowspan=2, colspan=2)
+    ax_anchpos_pos = plt.subplot2grid((6, 6), (1, 4), rowspan=2, colspan=2)
+    ax_anchneg_neg = plt.subplot2grid((6, 6), (3, 4), rowspan=2, colspan=2)
+
+    create_subplot(ax_anch, titles[0], pics[0])
+    create_subplot(ax_pos, titles[1], pics[1])
+    create_subplot(ax_neg, titles[2], pics[2])
+    create_subplot(ax_anchpos_anch, titles[3], pics[3])
+    create_subplot(ax_anchpos_pos, titles[3], pics[4])
+    create_subplot(ax_anchneg_anch, titles[4], pics[5])
+    create_subplot(ax_anchneg_neg, titles[4], pics[6])
+
+    fig.suptitle(overall_title)
+
+    plt.savefig(heatmap_path)
+
+    # for pic, title in zip(pics, titles):
+    #
+    #     new_pics.append(self.put_text_on_pic(pic, title))
+
+    # for idx, (l, i) in enumerate(img_list):
+    #     pics.append(merge_heatmap_img(i, heatmaps[idx], path=individual_paths[idx]))
+
+    # titles = ['anch', 'pos', 'subtraction']
+    # new_pics = []
+    # for pic, l in zip(pics, titles):
+    #     new_pics.append(self.put_text_on_pic(pic, l))
+
+    # row1 = np.concatenate([new_pics[0], new_pics[1], new_pics[4]], axis=1)
+    # row2 = np.concatenate([new_pics[2], new_pics[3], new_pics[5]], axis=1)
+    #
+    # pic = np.concatenate([row1, row2], axis=0)
+
+    # cv2.imshow('nahji', pic)
+
+    # dist_heatmap = torch.pow((heatmaps[0] - heatmaps[1]), 2)
+    # import pdb
+    # pdb.set_trace()
+
+    # dist_heatmap = vector_merge_function(heatmaps[0], heatmaps[1])
+    # dist_heatmap = np.power(heatmaps[0] - heatmaps[1], 2)
+    # pics = []
+    # for idx, (l, i) in enumerate(img_list):
+    #     pics.append(merge_heatmap_img(i, heatmaps[2], path=pair_paths[idx]))
+    #
+    # titles = ['anch', 'pos', 'subtraction']
+    # new_pics = []
+    # for pic, l in zip(pics, titles):
+    #     new_pics.append(self.put_text_on_pic(pic, l))
+    #
+    # pics = np.concatenate(new_pics, axis=1)
+    # cv2.imwrite(path, pic)

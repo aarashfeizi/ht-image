@@ -349,12 +349,13 @@ class HotelTest_FewShot(Dataset):
             else:
                 img2 = Image.open(random.choice(self.datas_bg[c2])[0]).convert('RGB')
         save = False
+        img1 = self.img1
         if self.transform:
             if self.save_pictures and random.random() < 0.001:
                 save = True
                 img1_random = random.randint(0, 1000)
                 img2_random = random.randint(0, 1000)
-                self.img1.save(f'hotel_imagesamples/val/val_{self.c1}_{img1_random}_before.png')
+                img1.save(f'hotel_imagesamples/val/val_{self.c1}_{img1_random}_before.png')
                 img2.save(f'hotel_imagesamples/val/val_{c2}_{img2_random}_before.png')
 
             if self.aug_mask:
@@ -362,7 +363,7 @@ class HotelTest_FewShot(Dataset):
 
                 img2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                img1, _, img1_mask = utils.add_mask(self.img1, img1_mask)
+                img1, _, img1_mask = utils.add_mask(img1, img1_mask)
                 img2, _, img2_mask = utils.add_mask(img2, img2_mask)
 
             img1 = self.do_transform(img1)

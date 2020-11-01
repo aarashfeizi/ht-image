@@ -38,7 +38,7 @@ class TopModel(nn.Module):
 
         x1_f, x1_l = self.ft_net(x1, is_feat=True, hook=hook)
         if hook:
-            anch_pass_act = self.get_activations().detach()
+            anch_pass_act = self.get_activations().detach().clone()
         else:
             anch_pass_act = None
         out1, out2 = None, None
@@ -49,7 +49,7 @@ class TopModel(nn.Module):
         if not single:
             x2_f, x2_l = self.ft_net(x2, is_feat=True, hook=hook)
             if hook:
-                other_pass_act = self.get_activations().detach()
+                other_pass_act = self.get_activations().detach().clone()
             else:
                 other_pass_act = None
 

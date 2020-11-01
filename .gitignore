@@ -168,3 +168,4 @@ org_loader/
 copy_stuff.sh
 srcdirs.txt
 !mask_paths.csv
+tensorboard_pow1pow2/
