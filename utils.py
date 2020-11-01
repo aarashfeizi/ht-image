@@ -1073,6 +1073,9 @@ def create_subplot(ax, label, img):
 def draw_act_histograms(acts, titles, path, plot_title):
     # plt.rcParams.update({'font.size': 5})
     # fig = plt.Figure(figsize=(20, 20))
+
+    acts = list(map(lambda x: x.cpu().numpy(), acts))
+
     legends = list(map(lambda x: x + ' value distribution', titles))
     plt.figure(figsize=(10, 10))
     colors = ['b', 'r']
