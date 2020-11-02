@@ -399,6 +399,7 @@ class ModelMethods:
                 all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchneg.png')
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchneg.png')
 
+
                 acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
@@ -502,6 +503,21 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
+
+            if args.cam:
+                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                self.draw_heatmaps(net=net,
+                                   loss_fn=loss_fn,
+                                   bce_loss=bce_loss,
+                                   args=args,
+                                   cam_loader=cam_args[0],
+                                   transform_for_model=cam_args[1],
+                                   transform_for_heatmap=cam_args[2],
+                                   epoch=epoch,
+                                   count=1)
+
+                self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
+
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:

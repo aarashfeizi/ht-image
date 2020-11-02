@@ -1077,29 +1077,34 @@ def create_subplot(ax, label, img):
     ax.set_title(label)
 
 
-def draw_act_histograms(acts, titles, path, plot_title):
+def draw_act_histograms(ax, acts, titles, plot_title):
     # plt.rcParams.update({'font.size': 5})
     # fig = plt.Figure(figsize=(20, 20))
 
     acts = list(map(lambda x: x.cpu().numpy(), acts))
 
     legends = list(map(lambda x: x + ' value distribution', titles))
-    plt.figure(figsize=(10, 10))
-    colors = ['b', 'r']
+    if len(acts) == 2:
+        colors = ['b', 'r']
+        lines = [Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="r", lw=4)]
+    elif len(acts) == 3:
+        colors = ['b', 'r', 'g']
+        lines = [Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="r", lw=4),
+                 Line2D([0], [0], color="g", lw=4)]
+
     max = 0
     for act, title, color in zip(acts, titles, colors):
         flatten_act = act.flatten()
         if max < flatten_act.max():
             max = flatten_act.max()
-        plt.hist(flatten_act, bins=100, alpha=0.4, color=color)
+        ax.hist(flatten_act, bins=100, alpha=0.4, color=color)
 
-    plt.axis('on')
-    plt.xlim(left=-0.1, right=max + 1)
-    plt.legend([Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="r", lw=4)], legends)
-    plt.title(plot_title)
-    plt.savefig(path)
-    plt.close()
+    ax.axis('on')
+    ax.set_xlim(left=-0.1, right=max + 1)
+    ax.legend(lines, legends)
+    ax.set_title(plot_title)
 
 
 def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title):
@@ -1120,9 +1125,8 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
         titles.append(l)
 
     path_ = os.path.join(path, f'backward_triplet{id}_{label}.png')
-    plt.rcParams.update({'font.size': 10})
-    plt.rcParams.update({'figure.figsize': (10, 10)})
-    fig, axes = plt.subplots(1, len(pics))
+    plt.rcParams.update({'font.size': 19})
+    fig, axes = plt.subplots(1, len(pics), figsize=(len(pics) * 10, 10))
 
     for ax, pic, title in zip(axes, pics, titles):
         ax.imshow(pic)
@@ -1162,7 +1166,17 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     acts.append(vector_merge_function(acts[0], acts[2]))  # anch_neg_subtraction
     titles.append('anch_neg_subtraction')
 
-    draw_act_histograms(acts[3:5], titles[3:5], histogram_path, overall_title)
+    plt.rcParams.update({'font.size': 19})
+
+    fig, axes = plt.subplots(1, 2, figsize=(22, 10))
+    draw_act_histograms(axes[0], acts[0:3], titles[0:3], 'Heatmaps')
+    draw_act_histograms(axes[1], acts[3:5], titles[3:5], 'Heatmap diffs')
+
+    fig.suptitle(overall_title)
+
+    plt.savefig(histogram_path)
+    plt.close()
+
 
     heatmaps = get_heatmaps(acts[:3], shape=shape)
     heatmaps.extend(get_heatmaps(acts[3:5], shape=shape))
