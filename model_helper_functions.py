@@ -228,8 +228,7 @@ class ModelMethods:
 
             heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
 
-            if not self.created_image_heatmap_path:
-                os.mkdir(heatmap_path_perepoch_id)
+            os.mkdir(heatmap_path_perepoch_id)
 
             anch = Image.open(anch_path)
             pos = Image.open(pos_path)
