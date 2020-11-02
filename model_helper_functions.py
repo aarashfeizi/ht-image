@@ -55,7 +55,8 @@ class ModelMethods:
         if args.debug_grad:
             self.draw_grad = True
             self.plt_save_path = f'{self.save_path}/loss_plts/'
-            os.mkdir(self.plt_save_path)
+            if not os.path.exists(self.plt_save_path):
+                os.mkdir(self.plt_save_path)
         else:
             self.draw_grad = False
             self.plt_save_path = ''
@@ -63,12 +64,15 @@ class ModelMethods:
         self.created_image_heatmap_path = False
 
         self.gen_plot_path = f'{self.save_path}/plots/'
-        os.mkdir(self.gen_plot_path)
-        os.mkdir(os.path.join(self.gen_plot_path, 'train'))
-        os.mkdir(os.path.join(self.gen_plot_path, 'val'))
+        if not os.path.exists(self.gen_plot_path):
+            os.mkdir(self.gen_plot_path)
+            os.mkdir(os.path.join(self.gen_plot_path, 'train'))
+            os.mkdir(os.path.join(self.gen_plot_path, 'val'))
 
         if args.cam:
-            os.mkdir(f'{self.save_path}/heatmap/')
+            if not os.path.exists(f'{self.save_path}/heatmap/'):
+                os.mkdir(f'{self.save_path}/heatmap/')
+
             self.cam_all = 0
             self.cam_neg = np.array([0 for _ in range(9)])
             self.cam_pos = np.array([0 for _ in range(9)])
@@ -243,7 +247,8 @@ class ModelMethods:
         heatmap_path = f'{self.save_path}/heatmap/'
         heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
 
-        os.mkdir(heatmap_path_perepoch)
+        if not os.path.exists(heatmap_path_perepoch):
+            os.mkdir(heatmap_path_perepoch)
         self.cam_all += 1
         for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
 
@@ -253,7 +258,8 @@ class ModelMethods:
 
             heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
 
-            os.mkdir(heatmap_path_perepoch_id)
+            if not os.path.exists(heatmap_path_perepoch_id):
+                os.mkdir(heatmap_path_perepoch_id)
 
             anch = Image.open(anch_path)
             pos = Image.open(pos_path)
