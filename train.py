@@ -263,10 +263,23 @@ def main():
     else:  # test
         logger.info('Testing')
         best_model_top = args.pretrained_model_name
-
-    if args.katn and args.pretrained_model_name != '':
         logger.info(f"Not training, loading {best_model_top} model...")
         tm_net = model_methods_top.load_model(args, tm_net, best_model_top)
+
+    if args.cam and args.pretrained_model_name != '':
+        logger.info(f'Drawing heatmaps on epoch {-1}...')
+        model_methods_top.draw_heatmaps(net=tm_net,
+                           loss_fn=loss_fn,
+                           bce_loss=loss_fn_bce,
+                           args=args,
+                           cam_loader=cam_img_paths,
+                           transform_for_model=data_transforms_val,
+                           transform_for_heatmap=cam_data_transforms,
+                           epoch=-1,
+                           count=1)
+        logger.info(f'DONE drawing heatmaps on epoch {-1}!!!')
+
+    if args.katn and args.pretrained_model_name != '':
         logger.info('Calculating K@Ns for Validation')
         # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
         #                               eval_sampled=False,

@@ -102,21 +102,41 @@ class ModelMethods:
         # name = 'model-betteraug-distmlp-' + self.model
         name = 'model-' + self.model
 
-        important_args = ['dataset_name',
-                          'batch_size',
-                          'lr_siamese',
-                          'lr_resnet',
-                          # 'early_stopping',
-                          'feat_extractor',
-                          'extra_layer',
-                          # 'normalize',
-                          'number_of_runs',
-                          'no_negative',
-                          'margin',
-                          'loss',
-                          'overfit_num',
-                          'bcecoefficient',
-                          'debug_grad']
+        if args.loss == 'bce':
+            important_args = ['dataset_name',
+                              'batch_size',
+                              'lr_siamese',
+                              'lr_resnet',
+                              # 'early_stopping',
+                              'feat_extractor',
+                              'extra_layer',
+                              # 'normalize',
+                              'number_of_runs',
+                              'no_negative',
+                              'loss',
+                              'overfit_num',
+                              'debug_grad',
+                              'aug_mask',
+                              'from_scratch']
+
+        else:
+            important_args = ['dataset_name',
+                              'batch_size',
+                              'lr_siamese',
+                              'lr_resnet',
+                              # 'early_stopping',
+                              'feat_extractor',
+                              'extra_layer',
+                              # 'normalize',
+                              'number_of_runs',
+                              'no_negative',
+                              'margin',
+                              'loss',
+                              'overfit_num',
+                              'bcecoefficient',
+                              'debug_grad',
+                              'aug_mask',
+                              'from_scratch']
 
         for arg in vars(args):
             if str(arg) in important_args:
@@ -124,6 +144,11 @@ class ModelMethods:
                     continue
                 elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
                     continue
+                elif str(arg) == 'aug_mask' and getattr(args, arg) == 0:
+                    continue
+                elif str(arg) == 'from_scratch' and getattr(args, arg) == 0:
+                    continue
+
                 name += '-' + str(arg) + '_' + str(getattr(args, arg))
 
         return name
