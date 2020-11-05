@@ -11,6 +11,7 @@ import torch
 from PIL import Image
 from matplotlib.lines import Line2D
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import silhouette_score, silhouette_samples
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -80,13 +81,19 @@ class ModelMethods:
         self.class_diffs = {'train':
                                 {'between_class_average': [],
                                  'between_class_min': [],
+                                 'between_class_max': [],
                                  'in_class_average': [],
+                                 'in_class_min': [],
                                  'in_class_max': []},
                             'val':
                                 {'between_class_average': [],
                                  'between_class_min': [],
+                                 'between_class_max': [],
                                  'in_class_average': [],
+                                 'in_class_min': [],
                                  'in_class_max': []}}
+        self.silhouette_scores = {'train': [],
+                                  'val': []}
 
         self.aug_mask = args.aug_mask
 
@@ -266,12 +273,13 @@ class ModelMethods:
             neg = Image.open(neg_path)
 
             if self.aug_mask:
-                anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask, offsets=self.anch_offsets,
-                                                                resize_factors=self.anch_resizefactors)
+                anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask,
+                                                                          offsets=self.anch_offsets,
+                                                                          resize_factors=self.anch_resizefactors)
                 pos, masked_pos, pos_mask, param_pos = utils.add_mask(pos, self.pos_mask, offsets=self.pos_offsets,
-                                                             resize_factors=self.pos_resizefactors)
+                                                                      resize_factors=self.pos_resizefactors)
                 neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
-                                                             resize_factors=self.neg_resizefactors)
+                                                                      resize_factors=self.neg_resizefactors)
 
                 if self.anch_offsets is None:
                     self.anch_offsets = param_anch['offsets']
@@ -399,7 +407,6 @@ class ModelMethods:
                 all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchneg.png')
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchneg.png')
 
-
                 acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
@@ -504,20 +511,24 @@ class ModelMethods:
 
             metric_ACC.reset_acc()
 
-            if args.cam:
-                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_heatmaps(net=net,
-                                   loss_fn=loss_fn,
-                                   bce_loss=bce_loss,
-                                   args=args,
-                                   cam_loader=cam_args[0],
-                                   transform_for_model=cam_args[1],
-                                   transform_for_heatmap=cam_args[2],
-                                   epoch=epoch,
-                                   count=1)
-
-                self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
-
+            self.logger.info('plotting train class diff plot...')
+            self.make_emb_db(args, net, train_db_loader,
+                             eval_sampled=args.sampled_results,
+                             eval_per_class=args.per_class_results,
+                             newly_trained=True,
+                             batch_size=args.db_batch,
+                             mode='train',
+                             epoch=epoch,
+                             k_at_n=False)
+            self.logger.info('plotting val class diff plot...')
+            self.make_emb_db(args, net, val_db_loader,
+                             eval_sampled=args.sampled_results,
+                             eval_per_class=args.per_class_results,
+                             newly_trained=True,
+                             batch_size=args.db_batch,
+                             mode='val',
+                             epoch=epoch,
+                             k_at_n=False)
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:
@@ -1226,6 +1237,12 @@ class ModelMethods:
                                    mode=mode,
                                    path=diff_class_path)
 
+        silhouette_path = ['', '']
+        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_plot.png')
+        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_dist_plot_{epoch}.png')
+
+        self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
+
         # import pdb
         # pdb.set_trace()
         if k_at_n:
@@ -1421,7 +1438,7 @@ class ModelMethods:
         for k, v in self.class_diffs[mode].items():
             v.append(res[k])
 
-        colors = ['r', 'b', 'y', 'g']
+        colors = ['r', 'b', 'y', 'g', 'c', 'm']
         epochs = [i for i in range(epoch + 1)]
         legends = []
         colors_reordered = []
@@ -1442,9 +1459,48 @@ class ModelMethods:
         plt.legend([Line2D([0], [0], color=colors_reordered[0], lw=4),
                     Line2D([0], [0], color=colors_reordered[1], lw=4),
                     Line2D([0], [0], color=colors_reordered[2], lw=4),
-                    Line2D([0], [0], color=colors_reordered[3], lw=4)], legends)
+                    Line2D([0], [0], color=colors_reordered[3], lw=4),
+                    Line2D([0], [0], color=colors_reordered[4], lw=4),
+                    Line2D([0], [0], color=colors_reordered[5], lw=4)], legends)
 
         plt.title(f'{mode} class diffs')
 
         plt.savefig(path)
+        plt.close()
+
+    def plot_silhouette_score(self, X, labels, epoch, mode, path):
+
+        self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='euclidean'))
+        samples_silhouette = silhouette_samples(X, labels)
+
+        epochs = [i for i in range(epoch + 1)]
+
+        plt.figure(figsize=(10, 10))
+        if len(self.silhouette_scores[mode]) > 1:
+            plt.plot(epochs, self.silhouette_scores[mode], linewidth=2, markersize=12)
+        else:
+            plt.scatter(epochs, self.silhouette_scores[mode])
+
+        plt.grid(True)
+        plt.xlabel('Epoch')
+        plt.ylabel(f'Silhouette Score')
+        plt.xlim(left=-1, right=epoch + 5)
+
+        plt.title(f'Silhouette Scores for {mode} set')
+
+        plt.savefig(path[0])
+        plt.close()
+
+        plt.figure(figsize=(10, 10))
+
+        plt.hist(samples_silhouette, bins=40)
+
+        plt.grid(True)
+        plt.xlabel('Silhouette Score')
+        plt.ylabel(f'Freq')
+        plt.xlim(left=-1.1, right=1.1)
+
+        plt.title(f'Silhouette Scores Distribution on {mode} set')
+
+        plt.savefig(path[1])
         plt.close()

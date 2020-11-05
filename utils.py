@@ -928,7 +928,8 @@ def get_heatmap(activations, shape, save_path=None, label=None):
     heatmap = np.maximum(heatmap, 0)
 
     # normalize the heatmap
-    heatmap /= np.max(heatmap)
+    if np.max(heatmap) != 0:
+        heatmap /= np.max(heatmap)
 
     heatmap = __post_create_heatmap(heatmap, shape)
     plt.close()
@@ -1215,6 +1216,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     fig.suptitle(overall_title)
 
     plt.savefig(heatmap_path)
+    plt.close()
 
     # for pic, title in zip(pics, titles):
     #
@@ -1257,23 +1259,42 @@ def get_euc_distances(img_feats, img_classes):
     dists = euclidean_distances(img_feats)
     diff_average_dist = np.zeros_like(dists[0])
     diff_min_dist = np.zeros_like(dists[0])
+    diff_max_dist = np.zeros_like(dists[0])
+
     same_average_dist = np.zeros_like(dists[0])
     same_max_dist = np.zeros_like(dists[0])
+    same_min_dist = np.zeros_like(dists[0])
 
     for idx, (row, label) in enumerate(zip(dists, img_classes)):
-        diff_class_dists = row[img_classes != label]
-        same_class_dists = row[img_classes == label]
+        row = np.delete(row, idx)
+        img_classes_temp = np.delete(img_classes, idx)
+
+        diff_class_dists = row[img_classes_temp != label]
+        same_class_dists = row[img_classes_temp == label]
+
         diff_average_dist[idx] = diff_class_dists.mean()
         diff_min_dist[idx] = diff_class_dists.min()
-        same_average_dist[idx] = same_class_dists.mean()
-        same_max_dist[idx] = same_class_dists.max()
+        diff_max_dist[idx] = diff_class_dists.max()
+
+        if len(same_class_dists) == 0:
+            same_average_dist[idx] = 0
+            same_min_dist[idx] = 0
+            same_max_dist[idx] = 0
+        else:
+            same_average_dist[idx] = same_class_dists.mean()
+            same_max_dist[idx] = same_class_dists.max()
+            same_min_dist[idx] = same_class_dists.min()
 
     diff_average_dist_mean = diff_average_dist.mean()
     diff_min_dist_mean = diff_min_dist.mean()
+    diff_max_dist_mean = diff_max_dist.mean()
     same_average_dist_mean = same_average_dist.mean()
     same_max_dist_mean = same_max_dist.mean()
+    same_min_dist_mean = same_min_dist.mean()
 
     return {'between_class_average': diff_average_dist_mean,
             'between_class_min': diff_min_dist_mean,
+            'between_class_max': diff_max_dist_mean,
             'in_class_average': same_average_dist_mean,
+            'in_class_min': same_min_dist_mean,
             'in_class_max': same_max_dist_mean}

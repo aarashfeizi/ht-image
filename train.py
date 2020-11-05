@@ -228,8 +228,11 @@ def main():
     if len(args.gpu_ids.split(",")) > 1:
         tm_net = torch.nn.DataParallel(tm_net)
 
-    if args.cuda:
-        tm_net.cuda()
+
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+        tm_net = nn.DataParallel(tm_net)
 
     logger.info('Training Top')
     if args.pretrained_model_name == '':
