@@ -511,24 +511,7 @@ class ModelMethods:
 
             metric_ACC.reset_acc()
 
-            self.logger.info('plotting train class diff plot...')
-            self.make_emb_db(args, net, train_db_loader,
-                             eval_sampled=args.sampled_results,
-                             eval_per_class=args.per_class_results,
-                             newly_trained=True,
-                             batch_size=args.db_batch,
-                             mode='train',
-                             epoch=epoch,
-                             k_at_n=False)
-            self.logger.info('plotting val class diff plot...')
-            self.make_emb_db(args, net, val_db_loader,
-                             eval_sampled=args.sampled_results,
-                             eval_per_class=args.per_class_results,
-                             newly_trained=True,
-                             batch_size=args.db_batch,
-                             mode='val',
-                             epoch=epoch,
-                             k_at_n=False)
+
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:
