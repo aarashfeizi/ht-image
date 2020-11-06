@@ -233,10 +233,12 @@ def main():
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
         tm_net = nn.DataParallel(tm_net)
-        tm_net = tm_net.cuda()
+
+        device = f'cuda:{tm_net.device_ids[0]}'
+
     if args.cuda:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
-        tm_net = tm_net.cuda()
+        tm_net = tm_net.to(device)
 
     logger.info('Training Top')
     if args.pretrained_model_name == '':
