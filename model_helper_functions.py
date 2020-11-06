@@ -177,7 +177,7 @@ class ModelMethods:
         # lbls = torch.stack(lbls)
         print('imgs.shape', imgs.shape)
         if args.cuda:
-            imgs_c = Variable(imgs.to(device))
+            imgs_c = Variable(imgs.cuda())
         else:
             imgs_c = Variable(imgs)
 
@@ -227,7 +227,7 @@ class ModelMethods:
                     # print('input: ', img1.size())
 
                     if args.cuda:
-                        img, label = Variable(img.to(device)), Variable(label.to(device))
+                        img, label = Variable(img.cuda()), Variable(label.cuda())
                     else:
                         img, label = Variable(img), Variable(label)
 
@@ -320,11 +320,11 @@ class ModelMethods:
             one_labels = torch.tensor([1], dtype=float)
 
             if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = Variable(anch.to(device)), \
-                                                          Variable(pos.to(device)), \
-                                                          Variable(neg.to(device)), \
-                                                          Variable(one_labels.to(device)), \
-                                                          Variable(zero_labels.to(device))
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                          Variable(pos.cuda()), \
+                                                          Variable(neg.cuda()), \
+                                                          Variable(one_labels.cuda()), \
+                                                          Variable(zero_labels.cuda())
             else:
                 anch, pos, neg, one_labels, zero_labels = Variable(anch), \
                                                           Variable(pos), \
@@ -537,11 +537,11 @@ class ModelMethods:
                     zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
 
                     if args.cuda:
-                        anch, pos, neg, one_labels, zero_labels = Variable(anch.to(device)), \
-                                                                  Variable(pos.to(device)), \
-                                                                  Variable(neg.to(device)), \
-                                                                  Variable(one_labels.to(device)), \
-                                                                  Variable(zero_labels.to(device))
+                        anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                                  Variable(pos.cuda()), \
+                                                                  Variable(neg.cuda()), \
+                                                                  Variable(one_labels.cuda()), \
+                                                                  Variable(zero_labels.cuda())
                     else:
                         anch, pos, neg, one_labels, zero_labels = Variable(anch), \
                                                                   Variable(pos), \
@@ -890,7 +890,7 @@ class ModelMethods:
                     # print('input: ', img1.size())
 
                     if args.cuda:
-                        img1, img2, label = Variable(img1.to(device)), Variable(img2.to(device)), Variable(label.to(device))
+                        img1, img2, label = Variable(img1.cuda()), Variable(img2.cuda()), Variable(label.cuda())
                     else:
                         img1, img2, label = Variable(img1), Variable(img2), Variable(label)
 
@@ -1022,7 +1022,7 @@ class ModelMethods:
 
         for label, (test1, test2) in enumerate(data_loader, 1):
             if args.cuda:
-                test1, test2 = test1.to(device), test2.to(device)
+                test1, test2 = test1.cuda(), test2.cuda()
             test1, test2 = Variable(test1), Variable(test2)
 
             output = net.forward(test1, test2)
@@ -1073,7 +1073,7 @@ class ModelMethods:
             zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
 
             if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = anch.to(device), pos.to(device), neg.to(device), one_labels.to(device), zero_labels.to(device)
+                anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
             anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
                 one_labels), Variable(zero_labels)
 
@@ -1192,7 +1192,7 @@ class ModelMethods:
                     (img, lbl, path) = tpl
 
                 if args.cuda:
-                    img = img.to(device)
+                    img = img.cuda()
 
                 img = Variable(img)
 
@@ -1371,7 +1371,7 @@ class ModelMethods:
         for idx, (img, lbl, seen, _) in enumerate(data_loader):
 
             if args.cuda:
-                img = img.to(device)
+                img = img.cuda()
             img = Variable(img)
 
             output = net.forward(img, None, single=True)
@@ -1395,13 +1395,13 @@ class ModelMethods:
         label = torch.from_numpy(label)
         loss = 0
         if args.cuda:
-            label = Variable(label.to(device))
+            label = Variable(label.cuda())
         else:
             label = Variable(label)
 
         for _, (img1, img2) in enumerate(data_loader, 1):
             if args.cuda:
-                img1, img2 = img1.to(device), img2.to(device)
+                img1, img2 = img1.cuda(), img2.cuda()
             img1, img2 = Variable(img1), Variable(img2)
             pred_vector, dist = net.forward(img1, img2)
             loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
