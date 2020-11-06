@@ -550,7 +550,7 @@ class ModelMethods:
                                                                   Variable(zero_labels)
 
                     if not drew_graph:
-                        self.writer.add_graph(net, (anch, pos), verbose=True)
+                        self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
                         self.writer.flush()
                         drew_graph = True
 
