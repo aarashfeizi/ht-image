@@ -234,7 +234,7 @@ def main():
         # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
         tm_net = nn.DataParallel(tm_net)
         tm_net = tm_net.cuda()
-    elif args.cuda:
+    if args.cuda:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         tm_net = tm_net.cuda()
 
