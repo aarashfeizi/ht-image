@@ -165,16 +165,19 @@ class ModelMethods:
         return name
 
     def _tb_project_embeddings(self, args, net, loader, k):
+
+        net.eval()
+        device = f'cuda:{net.device_ids[0]}'
+
         imgs, lbls = loader.dataset.get_k_samples(k)
 
         lbls = list(map(lambda x: x.argmax(), lbls))
 
         imgs = torch.stack(imgs)
         # lbls = torch.stack(lbls)
-
         print('imgs.shape', imgs.shape)
         if args.cuda:
-            imgs_c = Variable(imgs.cuda())
+            imgs_c = Variable(imgs.to(device))
         else:
             imgs_c = Variable(imgs)
 
@@ -196,6 +199,7 @@ class ModelMethods:
 
     def train_classify(self, net, loss_fn, args, trainLoader, valLoader):
         net.train()
+        device = f'cuda:{net.device_ids[0]}'
 
         opt = torch.optim.Adam(net.parameters(), lr=args.lr_siamese)
         opt.zero_grad()
@@ -223,11 +227,12 @@ class ModelMethods:
                     # print('input: ', img1.size())
 
                     if args.cuda:
-                        img, label = Variable(img.cuda()), Variable(label.cuda())
+                        img, label = Variable(img.to(device)), Variable(label.to(device))
                     else:
                         img, label = Variable(img), Variable(label)
 
                     net.train()
+                    device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
 
                     output = net.forward(img)
@@ -251,6 +256,7 @@ class ModelMethods:
                       transform_for_heatmap=None, epoch=0, count=1):
 
         net.eval()
+        device = f'cuda:{net.device_ids[0]}'
         heatmap_path = f'{self.save_path}/heatmap/'
         heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
 
@@ -314,11 +320,11 @@ class ModelMethods:
             one_labels = torch.tensor([1], dtype=float)
 
             if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
-                                                          Variable(pos.cuda()), \
-                                                          Variable(neg.cuda()), \
-                                                          Variable(one_labels.cuda()), \
-                                                          Variable(zero_labels.cuda())
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.to(device)), \
+                                                          Variable(pos.to(device)), \
+                                                          Variable(neg.to(device)), \
+                                                          Variable(one_labels.to(device)), \
+                                                          Variable(zero_labels.to(device))
             else:
                 anch, pos, neg, one_labels, zero_labels = Variable(anch), \
                                                           Variable(pos), \
@@ -466,9 +472,11 @@ class ModelMethods:
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
                              train_loader_fewshot, cam_args=None, db_loaders=None):
         net.train()
+        device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
         train_db_loader = db_loaders[0]
         val_db_loader = db_loaders[1]
+
 
         if net.module.module.aug_mask:
             opt = torch.optim.Adam([{'params': net.module.module.sm_net.parameters()},
@@ -529,11 +537,11 @@ class ModelMethods:
                     zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
 
                     if args.cuda:
-                        anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
-                                                                  Variable(pos.cuda()), \
-                                                                  Variable(neg.cuda()), \
-                                                                  Variable(one_labels.cuda()), \
-                                                                  Variable(zero_labels.cuda())
+                        anch, pos, neg, one_labels, zero_labels = Variable(anch.to(device)), \
+                                                                  Variable(pos.to(device)), \
+                                                                  Variable(neg.to(device)), \
+                                                                  Variable(one_labels.to(device)), \
+                                                                  Variable(zero_labels.to(device))
                     else:
                         anch, pos, neg, one_labels, zero_labels = Variable(anch), \
                                                                   Variable(pos), \
@@ -547,6 +555,7 @@ class ModelMethods:
                         drew_graph = True
 
                     net.train()
+                    device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
 
                     pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
@@ -727,7 +736,7 @@ class ModelMethods:
 
                 if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
                     net.eval()
-
+                    device = f'cuda:{net.device_ids[0]}'
                     val_acc_unknwn, val_acc_knwn = -1, -1
 
                     if args.eval_mode == 'fewshot':
@@ -843,6 +852,7 @@ class ModelMethods:
 
     def train_fewshot(self, net, loss_fn, args, train_loader, val_loaders):
         net.train()
+        device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
         opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
                                 {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}], lr=args.lr_siamese)
@@ -880,7 +890,7 @@ class ModelMethods:
                     # print('input: ', img1.size())
 
                     if args.cuda:
-                        img1, img2, label = Variable(img1.cuda()), Variable(img2.cuda()), Variable(label.cuda())
+                        img1, img2, label = Variable(img1.to(device)), Variable(img2.to(device)), Variable(label.to(device))
                     else:
                         img1, img2, label = Variable(img1), Variable(img2), Variable(label)
 
@@ -890,6 +900,7 @@ class ModelMethods:
                         drew_graph = True
 
                     net.train()
+                    device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
 
                     output = net.forward(img1, img2)
@@ -921,7 +932,7 @@ class ModelMethods:
 
                 if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
                     net.eval()
-
+                    device = f'cuda:{net.device_ids[0]}'
                     val_acc_unknwn, val_acc_knwn = -1, -1
 
                     if args.eval_mode == 'fewshot':
@@ -994,7 +1005,7 @@ class ModelMethods:
 
     def test_simple(self, args, net, data_loader, loss_fn, val=False, epoch=0):
         net.eval()
-
+        device = f'cuda:{net.device_ids[0]}'
         if val:
             prompt_text = f'VAL SIMPLE epoch {epoch}: \tcorrect:\t%d\terror:\t%d\tval_loss:%f\tval_acc:%f\tval_rec:%f\tval_negacc:%f\t'
             prompt_text_tb = 'Val'
@@ -1011,7 +1022,7 @@ class ModelMethods:
 
         for label, (test1, test2) in enumerate(data_loader, 1):
             if args.cuda:
-                test1, test2 = test1.cuda(), test2.cuda()
+                test1, test2 = test1.to(device), test2.to(device)
             test1, test2 = Variable(test1), Variable(test2)
 
             output = net.forward(test1, test2)
@@ -1041,7 +1052,7 @@ class ModelMethods:
 
     def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment=''):
         net.eval()
-
+        device = f'cuda:{net.device_ids[0]}'
         if val:
             prompt_text = comment + f' VAL METRIC LEARNING epoch {epoch}:\tcorrect:\t%d\terror:\t%d\tval_acc:%f\tval_loss:%f\t'
             prompt_text_tb = comment + '_Val'
@@ -1062,7 +1073,7 @@ class ModelMethods:
             zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
 
             if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
+                anch, pos, neg, one_labels, zero_labels = anch.to(device), pos.to(device), neg.to(device), one_labels.to(device), zero_labels.to(device)
             anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
                 one_labels), Variable(zero_labels)
 
@@ -1116,7 +1127,7 @@ class ModelMethods:
 
     def test_fewshot(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
-
+        device = f'cuda:{net.device_ids[0]}'
         if val:
             prompt_text = comment + f' VAL FEW SHOT epoch {epoch}:\tcorrect:\t%d\terror:\t%d\tval_acc:%f\tval_loss:%f\t'
             prompt_text_tb = comment + '_Val'
@@ -1155,6 +1166,7 @@ class ModelMethods:
 
         if newly_trained:
             net.eval()
+            device = f'cuda:{net.device_ids[0]}'
             if batch_size is None:
                 batch_size = args.batch_size
 
@@ -1180,7 +1192,7 @@ class ModelMethods:
                     (img, lbl, path) = tpl
 
                 if args.cuda:
-                    img = img.cuda()
+                    img = img.to(device)
 
                 img = Variable(img)
 
@@ -1344,6 +1356,7 @@ class ModelMethods:
     def get_embeddings(self, args, net, data_loader, batch_size=None):
 
         net.eval()
+        device = f'cuda:{net.device_ids[0]}'
         if batch_size is None:
             batch_size = args.batch_size
 
@@ -1358,7 +1371,7 @@ class ModelMethods:
         for idx, (img, lbl, seen, _) in enumerate(data_loader):
 
             if args.cuda:
-                img = img.cuda()
+                img = img.to(device)
             img = Variable(img)
 
             output = net.forward(img, None, single=True)
@@ -1375,19 +1388,20 @@ class ModelMethods:
     def apply_fewshot_eval(self, args, net, data_loader, loss_fn):
 
         right, error = 0, 0
-
+        net.eval()
+        device = f'cuda:{net.device_ids[0]}'
         label = np.ones(shape=args.way, dtype=np.float32)
         label[0] = 0
         label = torch.from_numpy(label)
         loss = 0
         if args.cuda:
-            label = Variable(label.cuda())
+            label = Variable(label.to(device))
         else:
             label = Variable(label)
 
         for _, (img1, img2) in enumerate(data_loader, 1):
             if args.cuda:
-                img1, img2 = img1.cuda(), img2.cuda()
+                img1, img2 = img1.to(device), img2.to(device)
             img1, img2 = Variable(img1), Variable(img2)
             pred_vector, dist = net.forward(img1, img2)
             loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
