@@ -167,7 +167,7 @@ class ModelMethods:
     def _tb_project_embeddings(self, args, net, loader, k):
 
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
 
         imgs, lbls = loader.dataset.get_k_samples(k)
 
@@ -199,7 +199,7 @@ class ModelMethods:
 
     def train_classify(self, net, loss_fn, args, trainLoader, valLoader):
         net.train()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
 
         opt = torch.optim.Adam(net.parameters(), lr=args.lr_siamese)
         opt.zero_grad()
@@ -232,7 +232,7 @@ class ModelMethods:
                         img, label = Variable(img), Variable(label)
 
                     net.train()
-                    device = f'cuda:{net.device_ids[0]}'
+                    # device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
 
                     output = net.forward(img)
@@ -256,7 +256,7 @@ class ModelMethods:
                       transform_for_heatmap=None, epoch=0, count=1):
 
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         heatmap_path = f'{self.save_path}/heatmap/'
         heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
 
@@ -472,11 +472,10 @@ class ModelMethods:
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
                              train_loader_fewshot, cam_args=None, db_loaders=None):
         net.train()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
         train_db_loader = db_loaders[0]
         val_db_loader = db_loaders[1]
-
 
         if net.module.aug_mask:
             opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
@@ -485,7 +484,8 @@ class ModelMethods:
                                    lr=args.lr_siamese)
         else:
             opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
-                                    {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}], lr=args.lr_siamese)
+                                    {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}],
+                                   lr=args.lr_siamese)
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt.zero_grad()
 
@@ -505,7 +505,9 @@ class ModelMethods:
         val_err = 0
         best_model = ''
 
-        drew_graph = False
+        multiple_gpu = len(args.gpu_ids.split(",")) > 1
+
+        drew_graph = multiple_gpu
 
         val_counter = 0
 
@@ -518,8 +520,6 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
-
-
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:
@@ -555,7 +555,7 @@ class ModelMethods:
                         drew_graph = True
 
                     net.train()
-                    device = f'cuda:{net.device_ids[0]}'
+                    # device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
 
                     pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
@@ -736,7 +736,7 @@ class ModelMethods:
 
                 if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
                     net.eval()
-                    device = f'cuda:{net.device_ids[0]}'
+                    # device = f'cuda:{net.device_ids[0]}'
                     val_acc_unknwn, val_acc_knwn = -1, -1
 
                     if args.eval_mode == 'fewshot':
@@ -852,7 +852,7 @@ class ModelMethods:
 
     def train_fewshot(self, net, loss_fn, args, train_loader, val_loaders):
         net.train()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
         opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
                                 {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}], lr=args.lr_siamese)
@@ -900,7 +900,7 @@ class ModelMethods:
                         drew_graph = True
 
                     net.train()
-                    device = f'cuda:{net.device_ids[0]}'
+                    # device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
 
                     output = net.forward(img1, img2)
@@ -932,7 +932,7 @@ class ModelMethods:
 
                 if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
                     net.eval()
-                    device = f'cuda:{net.device_ids[0]}'
+                    # device = f'cuda:{net.device_ids[0]}'
                     val_acc_unknwn, val_acc_knwn = -1, -1
 
                     if args.eval_mode == 'fewshot':
@@ -1005,7 +1005,7 @@ class ModelMethods:
 
     def test_simple(self, args, net, data_loader, loss_fn, val=False, epoch=0):
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         if val:
             prompt_text = f'VAL SIMPLE epoch {epoch}: \tcorrect:\t%d\terror:\t%d\tval_loss:%f\tval_acc:%f\tval_rec:%f\tval_negacc:%f\t'
             prompt_text_tb = 'Val'
@@ -1052,7 +1052,7 @@ class ModelMethods:
 
     def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment=''):
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         if val:
             prompt_text = comment + f' VAL METRIC LEARNING epoch {epoch}:\tcorrect:\t%d\terror:\t%d\tval_acc:%f\tval_loss:%f\t'
             prompt_text_tb = comment + '_Val'
@@ -1127,7 +1127,7 @@ class ModelMethods:
 
     def test_fewshot(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         if val:
             prompt_text = comment + f' VAL FEW SHOT epoch {epoch}:\tcorrect:\t%d\terror:\t%d\tval_acc:%f\tval_loss:%f\t'
             prompt_text_tb = comment + '_Val'
@@ -1166,7 +1166,7 @@ class ModelMethods:
 
         if newly_trained:
             net.eval()
-            device = f'cuda:{net.device_ids[0]}'
+            # device = f'cuda:{net.device_ids[0]}'
             if batch_size is None:
                 batch_size = args.batch_size
 
@@ -1356,7 +1356,7 @@ class ModelMethods:
     def get_embeddings(self, args, net, data_loader, batch_size=None):
 
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         if batch_size is None:
             batch_size = args.batch_size
 
@@ -1389,7 +1389,7 @@ class ModelMethods:
 
         right, error = 0, 0
         net.eval()
-        device = f'cuda:{net.device_ids[0]}'
+        # device = f'cuda:{net.device_ids[0]}'
         label = np.ones(shape=args.way, dtype=np.float32)
         label[0] = 0
         label = torch.from_numpy(label)
