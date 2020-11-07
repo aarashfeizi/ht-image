@@ -925,11 +925,12 @@ def get_heatmap(activations, shape, save_path=None, label=None):
 
     heatmap = heatmap.data.cpu().numpy()
 
-    heatmap = np.maximum(heatmap, 0)
+    # heatmap = np.maximum(heatmap, 0)
+    abs_heatmap = np.abs(heatmap)
 
     # normalize the heatmap
-    if np.max(heatmap) != 0:
-        heatmap /= np.max(heatmap)
+    if np.max(abs_heatmap) != 0:
+        heatmap /= np.max(abs_heatmap)
 
     heatmap = __post_create_heatmap(heatmap, shape)
     plt.close()
@@ -947,10 +948,17 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
     # heatmap = heatmap
     final_heatmaps = []
 
-    heatmaps = np.maximum(activations, 0)
+    # import pdb
+    # pdb.set_trace()
+
+    # # heatmaps = np.maximum(activations, 0)
+    # activations[0][0] *= -1
+    # heatmaps = activations
+
+    abs_heatmap = np.abs(activations)
 
     # normalize the heatmap
-    heatmaps /= np.max(heatmaps)
+    heatmaps = activations / np.max(abs_heatmap)
 
     for heatmap in heatmaps:
         final_heatmaps.append(__post_create_heatmap(heatmap, shape))
