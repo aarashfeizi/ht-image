@@ -477,15 +477,28 @@ class ModelMethods:
         train_db_loader = db_loaders[0]
         val_db_loader = db_loaders[1]
 
-        if net.module.aug_mask:
-            opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
-                                    {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                    {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
-                                   lr=args.lr_siamese)
+        multiple_gpu = len(args.gpu_ids.split(",")) > 1
+
+        if multiple_gpu:
+            if net.module.aug_mask:
+                opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
+                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
+                                       lr=args.lr_siamese)
+            else:
+                opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
+                                        {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}],
+                                       lr=args.lr_siamese)
         else:
-            opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
-                                    {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}],
-                                   lr=args.lr_siamese)
+            if net.aug_mask:
+                opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
+                                        {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                        {'params': net.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
+                                       lr=args.lr_siamese)
+            else:
+                opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
+                                        {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}],
+                                       lr=args.lr_siamese)
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt.zero_grad()
 
@@ -504,8 +517,6 @@ class ModelMethods:
         val_rgt = 0
         val_err = 0
         best_model = ''
-
-        multiple_gpu = len(args.gpu_ids.split(",")) > 1
 
         drew_graph = multiple_gpu
 
