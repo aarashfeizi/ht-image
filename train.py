@@ -164,7 +164,7 @@ def main():
     if args.find_best_workers:
         workers, pin_memory = utils.get_best_workers_pinmemory(args, train_set,
                                                                pin_memories=[True],
-                                                               starting_from=0,
+                                                               starting_from=4,
                                                                logger=logger)
     else:
         workers = args.workers
