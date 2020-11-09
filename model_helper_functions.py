@@ -75,8 +75,8 @@ class ModelMethods:
                 os.mkdir(f'{self.save_path}/heatmap/')
 
             self.cam_all = 0
-            self.cam_neg = np.array([0 for _ in range(17)])
-            self.cam_pos = np.array([0 for _ in range(17)])
+            self.cam_neg = np.array([0 for _ in range(20)])
+            self.cam_pos = np.array([0 for _ in range(20)])
 
         self.class_diffs = {'train':
                                 {'between_class_average': [],
