@@ -289,13 +289,27 @@ class ModelMethods:
         if not os.path.exists(heatmap_path_perepoch):
             os.mkdir(heatmap_path_perepoch)
         self.cam_all += 1
+        length = len(cam_loader)
+        anch_batch = []
+        pos_batch = []
+        neg_batch = []
+
+        anch_org_batch = []
+        pos_org_batch = []
+        neg_org_batch = []
+        batch_id = []
+        heatmap_path_perepoch_id_batch = []
+
         for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
 
             self.logger.info(f'Anch path: {anch_path}')
             self.logger.info(f'Pos path: {pos_path}')
             self.logger.info(f'Neg path: {neg_path}')
 
+            batch_id.append(id)
+
             heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
+            heatmap_path_perepoch_id_batch.append(heatmap_path_perepoch_id)
 
             if not os.path.exists(heatmap_path_perepoch_id):
                 os.mkdir(heatmap_path_perepoch_id)
@@ -334,9 +348,9 @@ class ModelMethods:
             pos = tl.transform_normalize(transform_for_model(pos))
             neg = tl.transform_normalize(transform_for_model(neg))
 
-            anch = anch.reshape(shape=(1, anch.shape[0], anch.shape[1], anch.shape[2]))
-            pos = pos.reshape(shape=(1, pos.shape[0], pos.shape[1], pos.shape[2]))
-            neg = neg.reshape(shape=(1, neg.shape[0], neg.shape[1], neg.shape[2]))
+            # anch = anch.reshape(shape=(1, anch.shape[0], anch.shape[1], anch.shape[2]))
+            # pos = pos.reshape(shape=(1, pos.shape[0], pos.shape[1], pos.shape[2]))
+            # neg = neg.reshape(shape=(1, neg.shape[0], neg.shape[1], neg.shape[2]))
 
             if self.aug_mask:
                 anch_org = np.asarray(transform_for_heatmap(masked_anch))
@@ -346,6 +360,21 @@ class ModelMethods:
                 anch_org = np.asarray(transform_for_heatmap(Image.open(anch_path)))
                 pos_org = np.asarray(transform_for_heatmap(Image.open(pos_path)))
                 neg_org = np.asarray(transform_for_heatmap(Image.open(neg_path)))
+
+            anch_batch.append(anch)
+            pos_batch.append(pos)
+            neg_batch.append(neg)
+
+            anch_org_batch.append(anch_org)
+            pos_org_batch.append(pos_org)
+            neg_org_batch.append(neg_org)
+
+            if not (len(batch_id) % args.cam_bs == 0 or id == length):
+                continue
+
+            anch = torch.stack(anch_batch, dim=0)
+            pos = torch.stack(pos_batch, dim=0)
+            neg = torch.stack(neg_batch, dim=0)
 
             zero_labels = torch.tensor([0], dtype=float)
             one_labels = torch.tensor([1], dtype=float)
@@ -365,135 +394,189 @@ class ModelMethods:
 
             class_loss = 0
             ext_loss = 0
-            pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos = net.forward(anch, pos, feats=True, hook=True)
-
+            pos_preds, pos_dists, anch_feats, pos_feats, acts_anch_poss = net.forward(anch, pos, feats=True, hook=True)
+            pos_texts = []
             # print(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
-            pos_pred_int = int(torch.sigmoid(pos_pred).item() < 0.5)
-            self.cam_pos[id - 1] += pos_pred_int
+            for i, id, anch_org, pos_org, pos_pred, heatmap_path_perepoch_id in \
+                    zip([l for l in range(len(batch_id))],
+                        batch_id,
+                        anch_org_batch,
+                        pos_org_batch,
+                        pos_preds,
+                        heatmap_path_perepoch_id_batch):
 
-            pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
+                pos_pred_int = int(torch.sigmoid(pos_pred).item() < 0.5)
+                self.cam_pos[id - 1] += pos_pred_int
 
-            pos_class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
-            pos_class_loss.backward(retain_graph=True)
-            class_loss = pos_class_loss
+                pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
+                pos_texts.append(pos_text)
 
-            plot_title = f'Backward BCE heatmaps Anch Pos\nAnch-Pos: {pos_text}'
+                pos_class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
+                pos_class_loss.backward(retain_graph=True)
+                class_loss = pos_class_loss
 
-            utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                      net.get_activations().detach(),
-                                      {'anch': anch_org,
-                                       'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
-                                      plot_title)
+                plot_title = f'Backward BCE heatmaps Anch Pos\nAnch-Pos: {pos_text}'
 
-            neg_pred, neg_dist, _, neg_feat, acts_anch_neg = net.forward(anch, neg, feats=True, hook=True)
+                grad_shape = net.get_activations_gradient().shape
+                utils.apply_grad_heatmaps(net.get_activations_gradient()[i].reshape(shape=(1,
+                                                                                           grad_shape[1],
+                                                                                           grad_shape[2],
+                                                                                           grad_shape[3])),
+                                          net.get_activations().detach()[i].reshape(shape=(1,
+                                                                                           grad_shape[1],
+                                                                                           grad_shape[2],
+                                                                                           grad_shape[3])),
+                                          {'anch': anch_org,
+                                           'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
+                                          plot_title)
+
+            neg_preds, neg_dists, _, neg_feats, acts_anch_negs = net.forward(anch, neg, feats=True, hook=True)
             # print(f'cam neg {id - 1}: ', torch.sigmoid(neg_pred).item())
-            neg_pred_int = int(torch.sigmoid(neg_pred).item() >= 0.5)
-            self.cam_neg[id - 1] += neg_pred_int
+            neg_texts = []
+            for i, id, anch_org, neg_org, neg_pred, heatmap_path_perepoch_id in \
+                    zip([l for l in range(len(batch_id))],
+                        batch_id,
+                        anch_org_batch,
+                        neg_org_batch,
+                        neg_preds,
+                        heatmap_path_perepoch_id_batch):
 
-            neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
+                neg_pred_int = int(torch.sigmoid(neg_pred).item() >= 0.5)
+                self.cam_neg[id - 1] += neg_pred_int
 
-            neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
-            neg_class_loss.backward(retain_graph=True)
-            class_loss += neg_class_loss
+                neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
+                neg_texts.append(neg_text)
 
-            plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
+                neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+                neg_class_loss.backward(retain_graph=True)
+                class_loss += neg_class_loss
 
-            utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                      net.get_activations().detach(),
-                                      {'anch': anch_org,
-                                       'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
-                                      plot_title)
+                plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
+                grad_shape = net.get_activations_gradient().shape
+                utils.apply_grad_heatmaps(net.get_activations_gradient()[i].reshape(shape=(1,
+                                                                                           grad_shape[1],
+                                                                                           grad_shape[2],
+                                                                                           grad_shape[3])),
+                                          net.get_activations().detach()[i].reshape(shape=(1,
+                                                                                           grad_shape[1],
+                                                                                           grad_shape[2],
+                                                                                           grad_shape[3])),
+                                          {'anch': anch_org,
+                                           'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
+                                          plot_title)
 
             # print('neg_pred', torch.sigmoid(neg_pred))
-
-            result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
+            result_texts = []
+            for pos_text, neg_text in zip(pos_texts, neg_texts):
+                result_texts.append(f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}')
 
             ks = list(map(lambda x: int(x), args.k_best_maps))
+            for pos_dist, neg_dist, acts_anch_pos, acts_anch_neg, result_text, heatmap_path_perepoch_id in \
+                zip(pos_dists,
+                    neg_dists,
+                    acts_anch_poss,
+                    acts_anch_negs,
+                    result_texts,
+                    heatmap_path_perepoch_id_batch):
 
-            for k in ks:
-                acts_tmp = []
+                for k in ks:
+                    acts_tmp = []
 
-                pos_max_indices = torch.topk(pos_dist, k=k).indices
+                    pos_max_indices = torch.topk(pos_dist, k=k).indices
 
-                acts_tmp.append(acts_anch_pos[0][:, pos_max_indices, :, :].squeeze(dim=0))
-                acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
-                acts_tmp.append(acts_anch_neg[1][:, pos_max_indices, :, :].squeeze(dim=0))
+                    import pdb
+                    pdb.set_trace()
 
-                all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchpos.png')
-                histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchpos.png')
+                    acts_tmp.append(acts_anch_pos[0][pos_max_indices, :, :])
+                    acts_tmp.append(acts_anch_pos[1][pos_max_indices, :, :])
+                    acts_tmp.append(acts_anch_neg[1][pos_max_indices, :, :])
 
-                plot_title = f"{k} most important different channels for Anch Pos" + result_text
+                    all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchpos.png')
+                    histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchpos.png')
 
-                utils.apply_forward_heatmap(acts_tmp,
-                                            [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
-                                            id,
-                                            all_heatmap_path,
-                                            overall_title=plot_title,
-                                            # individual_paths=[anch_hm_file_path,
-                                            #                   pos_hm_file_path],
-                                            # pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path],
-                                            titles=['Anch', 'Pos', 'Neg'],
-                                            histogram_path=histogram_path)
-                # import pdb
-                # pdb.set_trace()
+                    plot_title = f"{k} most important different channels for Anch Pos" + result_text
 
-                acts_tmp = []
+                    utils.apply_forward_heatmap(acts_tmp,
+                                                [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
+                                                id,
+                                                all_heatmap_path,
+                                                overall_title=plot_title,
+                                                # individual_paths=[anch_hm_file_path,
+                                                #                   pos_hm_file_path],
+                                                # pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path],
+                                                titles=['Anch', 'Pos', 'Neg'],
+                                                histogram_path=histogram_path)
+                    # import pdb
+                    # pdb.set_trace()
 
-                neg_max_indices = torch.topk(neg_dist, k=k).indices
+                    acts_tmp = []
 
-                all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchneg.png')
-                histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchneg.png')
+                    neg_max_indices = torch.topk(neg_dist, k=k).indices
 
-                acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
-                acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
-                acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
+                    all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchneg.png')
+                    histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchneg.png')
 
-                plot_title = f"{k} most important different channels for Anch Neg" + result_text
+                    acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
+                    acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
+                    acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
 
-                utils.apply_forward_heatmap(acts_tmp,
-                                            [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
-                                            id,
-                                            all_heatmap_path,
-                                            overall_title=plot_title,
-                                            # individual_paths=[anch_hm_file_path,
-                                            #                   neg_hm_file_path],
-                                            # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
-                                            titles=['Anch', 'Pos', 'Neg'],
-                                            histogram_path=histogram_path)
+                    plot_title = f"{k} most important different channels for Anch Neg" + result_text
 
-            if loss_fn is not None:
-                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
-                ext_loss = ext_batch_loss
+                    utils.apply_forward_heatmap(acts_tmp,
+                                                [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
+                                                id,
+                                                all_heatmap_path,
+                                                overall_title=plot_title,
+                                                # individual_paths=[anch_hm_file_path,
+                                                #                   neg_hm_file_path],
+                                                # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+                                                titles=['Anch', 'Pos', 'Neg'],
+                                                histogram_path=histogram_path)
 
-                ext_loss.backward(retain_graph=True)
-                ext_loss /= self.no_negative
+            for pos_dist, neg_dist, result_text, id, heatmap_path_perepoch_id, anch_org, pos_org, neg_org in \
+                    zip(pos_dists,
+                        neg_dists,
+                        result_texts,
+                        batch_id,
+                        heatmap_path_perepoch_id_batch,
+                        anch_org_batch,
+                        pos_org_batch,
+                        neg_org_batch):
 
-                plot_title = f"Backward Triplet Loss" + result_text
+                if loss_fn is not None:
 
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+                    ext_loss = ext_batch_loss
+
+                    ext_loss.backward(retain_graph=True)
+                    ext_loss /= self.no_negative
+
+                    plot_title = f"Backward Triplet Loss" + result_text
+
+                    utils.apply_grad_heatmaps(net.get_activations_gradient(),
+                                              net.get_activations().detach(),
+                                              {'anch': anch_org,
+                                               'pos': pos_org,
+                                               'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
+                                              plot_title)
+
+                    class_loss /= (self.no_negative + 1)
+
+                    loss = ext_loss + self.bce_weight * class_loss
+
+                else:
+
+                    loss = self.bce_weight * class_loss
+
+                plot_title = f"Backward Total Loss" + result_text
+
+                loss.backward(retain_graph=True)
                 utils.apply_grad_heatmaps(net.get_activations_gradient(),
                                           net.get_activations().detach(),
                                           {'anch': anch_org,
                                            'pos': pos_org,
-                                           'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
+                                           'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
                                           plot_title)
-
-                class_loss /= (self.no_negative + 1)
-
-                loss = ext_loss + self.bce_weight * class_loss
-
-            else:
-
-                loss = self.bce_weight * class_loss
-
-            plot_title = f"Backward Total Loss" + result_text
-
-            loss.backward()
-            utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                      net.get_activations().detach(),
-                                      {'anch': anch_org,
-                                       'pos': pos_org,
-                                       'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
-                                      plot_title)
 
         self.created_image_heatmap_path = True
 
@@ -562,6 +645,18 @@ class ModelMethods:
             neg_parts = []
 
             metric_ACC.reset_acc()
+
+            if args.cam:
+                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                self.draw_heatmaps(net=net,
+                                   loss_fn=loss_fn,
+                                   bce_loss=bce_loss,
+                                   args=args,
+                                   cam_loader=cam_args[0],
+                                   transform_for_model=cam_args[1],
+                                   transform_for_heatmap=cam_args[2],
+                                   epoch=epoch,
+                                   count=1)
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:

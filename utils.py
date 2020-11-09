@@ -127,6 +127,7 @@ def get_args():
     parser.add_argument('-pim', '--pin_memory', default=False, action='store_true')
     parser.add_argument('-fbw', '--find_best_workers', default=False, action='store_true')
     parser.add_argument('-bs', '--batch_size', default=128, type=int, help="number of batch size")
+    parser.add_argument('-cambs', '--cam_bs', default=4, type=int, help="number of batch size for cam")
     parser.add_argument('-dbb', '--db_batch', default=128, type=int, help="number of batch size for db")
     parser.add_argument('-lrs', '--lr_siamese', default=1e-3, type=float, help="siamese learning rate")
     parser.add_argument('-lrr', '--lr_resnet', default=1e-6, type=float, help="resnet learning rate")
