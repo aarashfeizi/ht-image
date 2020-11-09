@@ -725,6 +725,7 @@ class ModelMethods:
                     plt.title(f'Losses Epoch {epoch}')
                     plt.legend(loc='upper right')
                     plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
+                    plt.close()
 
                 if bce_loss is None:
                     bce_loss = loss_fn
@@ -1300,6 +1301,7 @@ class ModelMethods:
 
         plt.title(method + " " + title)
         plt.savefig(path)
+        plt.close()
 
     def save_model(self, args, net, epoch, val_acc):
         best_model = 'model-epoch-' + str(epoch + 1) + '-val-acc-' + str(val_acc) + '.pt'
