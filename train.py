@@ -98,6 +98,8 @@ def main():
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
     if args.cam:
         cam_img_paths = utils.read_img_paths(args.cam_path)
+    else:
+        cam_img_paths = None
 
         # cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
         #                                      overfit=True, return_paths=True)
