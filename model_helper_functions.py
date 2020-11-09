@@ -130,7 +130,8 @@ class ModelMethods:
                              'debug_grad': 'dg',
                              'aug_mask': 'am',
                              'from_scratch': 'fs',
-                             'fourth_dim': 'fd'}
+                             'fourth_dim': 'fd',
+                             'image_size': 'igsz'}
 
         if args.loss == 'bce':
             important_args = ['dataset_name',
@@ -148,6 +149,7 @@ class ModelMethods:
                               'debug_grad',
                               'aug_mask',
                               'from_scratch',
+                              'image_size',
                               'fourth_dim']
 
         else:
@@ -168,6 +170,7 @@ class ModelMethods:
                               'debug_grad',
                               'aug_mask',
                               'from_scratch',
+                              'image_size',
                               'fourth_dim']
 
         for arg in vars(args):
