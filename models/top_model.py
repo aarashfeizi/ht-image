@@ -77,7 +77,7 @@ class TopModel(nn.Module):
         #     return output
 
 
-def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False):
+def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False, fourth_dim=False):
     if trained_sm_net is None:
         sm_net = LiSiamese(args)
     else:
@@ -94,7 +94,7 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
 
     if trained_feat_net is None:
         print('Using pretrained model')
-        ft_net = model_dict[args.feat_extractor](pretrained=use_pretrained, num_classes=num_classes, mask=mask)
+        ft_net = model_dict[args.feat_extractor](pretrained=use_pretrained, num_classes=num_classes, mask=mask, fourth_dim=fourth_dim)
     else:
         print('Using recently trained model')
         ft_net = trained_feat_net
@@ -108,4 +108,4 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         for param in ft_net.parameters():
             param.requires_grad = False
 
-    return TopModel(ft_net=ft_net, sm_net=sm_net, aug_mask=mask)
+    return TopModel(ft_net=ft_net, sm_net=sm_net, aug_mask=(mask and fourth_dim))

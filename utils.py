@@ -155,6 +155,7 @@ def get_args():
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
     parser.add_argument('-am', '--aug_mask', default=False, action='store_true')
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
+    parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
 
     args = parser.parse_args()

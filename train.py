@@ -220,7 +220,7 @@ def main():
     logger.info(f'Num classes in train: {num_classes}')
 
     model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top')
-    tm_net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask)
+    tm_net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
     print(model_methods_top.save_path)
 

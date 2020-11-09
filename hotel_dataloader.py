@@ -14,6 +14,7 @@ import utils
 class HotelTrain_Metric(Dataset):
     def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False):
         super(HotelTrain_Metric, self).__init__()
+        self.fourth_dim = args.fourth_dim
         np.random.seed(args.seed)
         self.transform = transform
         self.save_pictures = save_pictures
@@ -129,6 +130,9 @@ class HotelTrain_Metric(Dataset):
                 anch, masked_anch, anch_mask, _ = utils.add_mask(anch, anch_mask)
                 pos, masked_pos, pos_mask, _ = utils.add_mask(pos, pos_mask)
 
+                if not self.fourth_dim:
+                    anch = masked_anch
+                    pos = masked_pos
 
                 masked_negs = []
                 neg_masks = []
@@ -136,6 +140,9 @@ class HotelTrain_Metric(Dataset):
                 for neg in negs:
                     neg_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
                     neg, masked_neg, neg_mask, _ = utils.add_mask(neg, neg_mask)
+
+                    if not self.fourth_dim:
+                        neg = masked_neg
 
                     masked_negs.append(neg)
                     neg_masks.append(neg_mask)
@@ -178,6 +185,7 @@ class HotelTrain_FewShot(Dataset):
     def __init__(self, args, transform=None, mode='train', save_pictures=False):
         super(HotelTrain_FewShot, self).__init__()
         np.random.seed(args.seed)
+        self.fourth_dim = args.fourth_dim
         self.transform = transform
         self.save_pictures = save_pictures
         self.class1 = 0
@@ -252,10 +260,12 @@ class HotelTrain_FewShot(Dataset):
 
                 image2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                image1, _, image1_mask, _ = utils.add_mask(image1, image1_mask)
-                image2, _, image2_mask, _ = utils.add_mask(image2, image2_mask)
+                image1, masked_img1, image1_mask, _ = utils.add_mask(image1, image1_mask)
+                image2, masked_img2, image2_mask, _ = utils.add_mask(image2, image2_mask)
 
-
+                if not self.fourth_dim:
+                    image1 = masked_img1
+                    image2 = masked_img2
 
             image1 = self.do_transform(image1)
             image2 = self.do_transform(image2)
@@ -307,6 +317,7 @@ class HotelTest_FewShot(Dataset):
         self.c1 = None
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.fourth_dim = args.fourth_dim
 
         self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
                                                                                     args.dataset_name,
@@ -363,8 +374,13 @@ class HotelTest_FewShot(Dataset):
 
                 img2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                img1, _, img1_mask, _ = utils.add_mask(img1, img1_mask)
-                img2, _, img2_mask, _ = utils.add_mask(img2, img2_mask)
+                img1, masked_img1, img1_mask, _ = utils.add_mask(img1, img1_mask)
+                img2, masked_img2, img2_mask, _ = utils.add_mask(img2, img2_mask)
+
+                if not self.fourth_dim:
+                    img1 = masked_img1
+                    img2 = masked_img2
+
 
             img1 = self.do_transform(img1)
             img2 = self.do_transform(img2)
@@ -387,6 +403,7 @@ class Hotel_DB(Dataset):
         np.random.seed(args.seed)
         super(Hotel_DB, self).__init__()
         self.transform = transform
+        self.fourth_dim = args.fourth_dim
 
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
@@ -444,7 +461,11 @@ class Hotel_DB(Dataset):
         if self.transform:
             if self.aug_mask:
                 img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                img, _, img_mask, _ = utils.add_mask(img, img_mask)
+                img, masked_img, img_mask, _ = utils.add_mask(img, img_mask)
+
+                if not self.fourth_dim:
+                    img = masked_img
+
 
             img = self.do_transform(img)
 

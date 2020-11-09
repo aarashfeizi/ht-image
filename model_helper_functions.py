@@ -113,6 +113,25 @@ class ModelMethods:
         # name = 'model-betteraug-distmlp-' + self.model
         name = 'model-' + self.model
 
+        name_replace_dict = {'dataset_name': 'dsn',
+                             'batch_size': 'bs',
+                             'lr_siamese': 'lrs',
+                             'lr_resnet': 'lrr',
+                             # 'early_stopping',
+                             'feat_extractor': 'fe',
+                             'extra_layer': 'el',
+                             # 'normalize',
+                             'number_of_runs': 'nor',
+                             'no_negative': 'nn',
+                             'margin': 'm',
+                             'loss': 'loss',
+                             'overfit_num': 'on',
+                             'bcecoefficient': 'bco',
+                             'debug_grad': 'dg',
+                             'aug_mask': 'am',
+                             'from_scratch': 'fs',
+                             'fourth_dim': 'fd'}
+
         if args.loss == 'bce':
             important_args = ['dataset_name',
                               'batch_size',
@@ -128,7 +147,8 @@ class ModelMethods:
                               'overfit_num',
                               'debug_grad',
                               'aug_mask',
-                              'from_scratch']
+                              'from_scratch',
+                              'fourth_dim']
 
         else:
             important_args = ['dataset_name',
@@ -147,7 +167,8 @@ class ModelMethods:
                               'bcecoefficient',
                               'debug_grad',
                               'aug_mask',
-                              'from_scratch']
+                              'from_scratch',
+                              'fourth_dim']
 
         for arg in vars(args):
             if str(arg) in important_args:
@@ -159,8 +180,10 @@ class ModelMethods:
                     continue
                 elif str(arg) == 'from_scratch' and getattr(args, arg) == 0:
                     continue
+                elif str(arg) == 'fourth_dim' and getattr(args, arg) == 0:
+                    continue
 
-                name += '-' + str(arg) + '_' + str(getattr(args, arg))
+                name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
 
         return name
 
@@ -286,6 +309,11 @@ class ModelMethods:
                                                                       resize_factors=self.pos_resizefactors)
                 neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
                                                                       resize_factors=self.neg_resizefactors)
+
+                if not args.fourth_dim:
+                    anch = masked_anch
+                    pos = masked_pos
+                    neg = masked_neg
 
                 if self.anch_offsets is None:
                     self.anch_offsets = param_anch['offsets']
