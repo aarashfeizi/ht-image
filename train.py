@@ -155,9 +155,9 @@ def main():
 
     if args.test:
         test_loaders.append(
-            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers))
+            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=True))
         test_loaders.append(
-            DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers))
+            DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=True))
 
     # workers = 4
     # pin_memory = False
@@ -171,10 +171,10 @@ def main():
         pin_memory = args.pin_memory
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=False, num_workers=workers,
-                              pin_memory=pin_memory)
+                              pin_memory=pin_memory, drop_last=True)
 
     train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
-                                      pin_memory=pin_memory)
+                                      pin_memory=pin_memory, drop_last=True)
 
     val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
@@ -200,10 +200,10 @@ def main():
 
     if args.cbir:
         val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                               pin_memory=pin_memory)
+                               pin_memory=pin_memory, drop_last=True)
 
         train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                     pin_memory=pin_memory)
+                                     pin_memory=pin_memory, drop_last=True)
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')

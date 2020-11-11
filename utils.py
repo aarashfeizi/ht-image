@@ -225,10 +225,10 @@ def get_val_loaders(args, val_set, val_set_known, val_set_unknown, workers, pin_
 
         val_loaders.append(
             DataLoader(val_set_known, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory))
+                       pin_memory=pin_memory, drop_last=True))
         val_loaders.append(
             DataLoader(val_set_unknown, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory))
+                       pin_memory=pin_memory, drop_last=True))
     else:
         raise Exception('No validation data is set!')
 
