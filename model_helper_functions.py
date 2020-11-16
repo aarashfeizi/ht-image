@@ -549,6 +549,8 @@ class ModelMethods:
         val_err = 0
         best_model = ''
 
+        max_val_between_epochs = -1
+
         drew_graph = multiple_gpu
 
         val_counter = 0
@@ -861,19 +863,21 @@ class ModelMethods:
                              epoch=epoch,
                              k_at_n=False)
 
-            if args.cam:
-                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_heatmaps(net=net,
-                                   loss_fn=loss_fn,
-                                   bce_loss=bce_loss,
-                                   args=args,
-                                   cam_loader=cam_args[0],
-                                   transform_for_model=cam_args[1],
-                                   transform_for_heatmap=cam_args[2],
-                                   epoch=epoch,
-                                   count=1)
+            if max_val_between_epochs < max_val_acc:
+                max_val_between_epochs = max_val_acc
+                if args.cam:
+                    self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                    self.draw_heatmaps(net=net,
+                                       loss_fn=loss_fn,
+                                       bce_loss=bce_loss,
+                                       args=args,
+                                       cam_loader=cam_args[0],
+                                       transform_for_model=cam_args[1],
+                                       transform_for_heatmap=cam_args[2],
+                                       epoch=epoch,
+                                       count=1)
 
-                self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
+                    self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
 
             self._tb_draw_histograms(args, net, epoch)
 
