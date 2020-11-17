@@ -1,3 +1,4 @@
+import collections
 import datetime
 import os
 import pickle
@@ -1299,9 +1300,22 @@ class ModelMethods:
             self.logger.info('results at: ' + self.save_path)
 
     def load_model(self, args, net, best_model):
-        checkpoint = torch.load(os.path.join(self.save_path, best_model))
+        if args.cuda:
+            checkpoint = torch.load(os.path.join(self.save_path, best_model))
+        else:
+            checkpoint = torch.load(os.path.join(self.save_path, best_model), map_location=torch.device('cpu'))
         self.logger.info('Loading model %s from epoch [%d]' % (best_model, checkpoint['epoch']))
-        net.load_state_dict(checkpoint['model_state_dict'])
+        o_dic = checkpoint['model_state_dict']
+        exp = True
+        while exp:
+            try:
+                net.load_state_dict(o_dic)
+                exp = False
+            except:
+                new_o_dic = collections.OrderedDict()
+                for k, v in o_dic.items():
+                    new_o_dic[k[7:]] = v
+                o_dic = new_o_dic
         return net
 
     def draw_dim_reduced(self, features, labels, title, path, method='pca'):
