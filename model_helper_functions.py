@@ -573,7 +573,7 @@ class ModelMethods:
                     os.makedirs(grad_save_path)
 
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
-
+                    start = time.time()
                     # print('input: ', img1.size())
 
                     debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
@@ -745,6 +745,8 @@ class ModelMethods:
                     train_losses.append(train_loss)
 
                     t.update()
+                    end = time.time()
+                    self.logger.info(f'one batch time: {end - start}')
 
                 #
                 # svm = SVC()

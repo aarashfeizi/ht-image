@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import Parameter
 from torchvision.models import ResNet as tResNet
 from torch.hub import load_state_dict_from_url
+import utils
 import os
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -144,6 +145,7 @@ class ResNet(tResNet):
     def activations_hook(self, grad):
         self.gradients = grad.clone()
 
+    @utils.time_it
     def forward(self, x, is_feat=False, hook=False):
 
         x = self.conv1(x)

@@ -28,6 +28,19 @@ except ImportError:
     from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
 
+def time_it(fn):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        ret = fn(*args, **kwargs)
+        end = time.time()
+        print(f"Function {str(fn.__name__)}, time: ", (end - start))
+        return ret
+
+    return wrapper
+
+
+
+
 class TransformLoader:
 
     def __init__(self, image_size, rotate=0,

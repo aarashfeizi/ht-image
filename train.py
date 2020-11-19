@@ -12,7 +12,7 @@ from cub_dataloader import *
 from hotel_dataloader import *
 from losses import TripletLoss, MaxMarginLoss
 from models.top_model import *
-
+import time
 
 ###
 # todo for next week

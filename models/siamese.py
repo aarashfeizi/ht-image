@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import utils
 
 class Siamese(nn.Module):
 
@@ -93,6 +93,7 @@ class Siamese(nn.Module):
         x = self.linear(x)
         return x
 
+    @utils.time_it
     def forward(self, x1, x2):
         out1 = self.forward_one(x1)
         out2 = self.forward_one(x2)

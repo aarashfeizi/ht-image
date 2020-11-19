@@ -52,6 +52,7 @@ class HotelTrain_Metric(Dataset):
     def __len__(self):
         return self.length
 
+    @utils.time_it
     def __getitem__(self, index):
 
         paths = []
