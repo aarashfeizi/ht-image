@@ -29,7 +29,7 @@ import utils
 
 class ModelMethods:
 
-    def __init__(self, args, logger, model='top'):  # res or top
+    def __init__(self, args, logger, model='top', cam_images_len=-1):  # res or top
 
         id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
         id_str = '-time_' + id_str.replace('.', '-')
@@ -76,8 +76,8 @@ class ModelMethods:
                 os.mkdir(f'{self.save_path}/heatmap/')
 
             self.cam_all = 0
-            self.cam_neg = np.array([0 for _ in range(20)])
-            self.cam_pos = np.array([0 for _ in range(20)])
+            self.cam_neg = np.array([0 for _ in range(cam_images_len)])
+            self.cam_pos = np.array([0 for _ in range(cam_images_len)])
 
         self.class_diffs = {'train':
                                 {'between_class_average': [],
@@ -279,6 +279,7 @@ class ModelMethods:
 
         return net
 
+    @utils.time_it
     def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
                       transform_for_heatmap=None, epoch=0, count=1):
 
@@ -773,8 +774,11 @@ class ModelMethods:
                 if bce_loss is None:
                     bce_loss = loss_fn
 
+                start = time.time()
                 train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                     args, net, train_loader_fewshot, bce_loss)
+                end = time.time()
+                self.logger.info(f'apply_fewshot_eval TRAIN time: {end - start}')
 
                 self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
                                  f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
@@ -1204,6 +1208,7 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc
 
+    @utils.time_it
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
         """
@@ -1316,15 +1321,22 @@ class ModelMethods:
         self.logger.info('Loading model %s from epoch [%d]' % (best_model, checkpoint['epoch']))
         o_dic = checkpoint['model_state_dict']
         exp = True
-        while exp:
+        counter = 1
+        exp_msg = ''
+        while exp and counter < 4:
             try:
                 net.load_state_dict(o_dic)
                 exp = False
-            except:
+            except Exception as e:
+                exp_msg = e
+                counter += 1
+                print(exp)
                 new_o_dic = collections.OrderedDict()
                 for k, v in o_dic.items():
                     new_o_dic[k[7:]] = v
                 o_dic = new_o_dic
+        if exp:
+            raise Exception(exp_msg)
         return net
 
     def draw_dim_reduced(self, features, labels, title, path, method='pca'):

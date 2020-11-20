@@ -930,7 +930,7 @@ def __post_create_heatmap(heatmap, shape):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     return heatmap
 
-
+@time_it
 def get_heatmap(activations, shape, save_path=None, label=None):
     heatmap = torch.mean(activations, dim=1).squeeze()
 
@@ -1015,7 +1015,7 @@ def vector_merge_function(v1, v2):
     merged = torch.pow((v1 - v2), 2)
     return merged
 
-
+@time_it
 def add_mask(org_img, mask, offsets=None, resize_factors=None):
     img = org_img.copy()
 
@@ -1129,7 +1129,7 @@ def draw_act_histograms(ax, acts, titles, plot_title):
     ax.legend(lines, legends)
     ax.set_title(plot_title)
 
-
+@time_it
 def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title):
     pooled_gradients = torch.mean(grads, dim=[0, 2, 3])
 
@@ -1163,7 +1163,7 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
     # for pic, path in zip(pics, paths):
     #     cv2.imwrite(path, pic)
 
-
+@time_it
 def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, titles=[''], histogram_path=''):
     """
 
@@ -1277,6 +1277,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     # pics = np.concatenate(new_pics, axis=1)
     # cv2.imwrite(path, pic)
 
+@time_it
 def get_euc_distances(img_feats, img_classes):
     dists = euclidean_distances(img_feats)
     diff_average_dist = np.zeros_like(dists[0])

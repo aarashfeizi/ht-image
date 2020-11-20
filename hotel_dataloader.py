@@ -5,7 +5,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
-
+import time
 
 from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
 import utils
@@ -23,11 +23,14 @@ class HotelTrain_Metric(Dataset):
         self.return_paths = return_paths
         self.normalize = utils.TransformLoader(-1).transform_normalize
 
+        start = time.time()
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
                                                                                   split_file_path=args.splits_file_path,
                                                                                   portion=args.portion,
                                                                                   dataset_folder=args.dataset_folder)
+        end = time.time()
+        print(f'HotelTrain_Metric loadDataToMem time: {end - start}')
 
         if overfit and args.overfit_num > 0:
             self.overfit = True
@@ -56,7 +59,7 @@ class HotelTrain_Metric(Dataset):
     def __getitem__(self, index):
 
         paths = []
-
+        start = time.time()
         if self.overfit:
             overfit_triplet = np.random.choice(self.overfit_samples, 1)[0]
             paths.append(overfit_triplet['anch'])
@@ -114,8 +117,10 @@ class HotelTrain_Metric(Dataset):
             pos = pos.convert('RGB')
 
         save = False
-
+        end = time.time()
+        print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
         if self.transform:
+            start = time.time()
             if self.save_pictures and random.random() < 0.0001:
                 save = True
                 img1_random = random.randint(0, 1000)
@@ -166,6 +171,9 @@ class HotelTrain_Metric(Dataset):
                 negs[i] = self.do_transform(neg)
 
             neg = torch.stack(negs)
+
+            end = time.time()
+            print(f'HotelTrain_Metric Dataloader, transform images time: {end - start}')
 
             if save:
                 save_image(anch, f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_after.png')

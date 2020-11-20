@@ -221,7 +221,7 @@ def main():
     num_classes = train_set.num_classes
     logger.info(f'Num classes in train: {num_classes}')
 
-    model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top')
+    model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=len(cam_img_paths))
     tm_net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
     print(model_methods_top.save_path)
