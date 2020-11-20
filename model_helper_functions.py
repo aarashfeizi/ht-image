@@ -602,16 +602,23 @@ class ModelMethods:
                     net.train()
                     # device = f'cuda:{net.device_ids[0]}'
                     opt.zero_grad()
-
+                    forward_start = time.time()
                     pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                    forward_end = time.time()
+
+                    self.logger.info(f'anch pos forward time: {forward_end - forward_start}')
+
                     if args.verbose:
                         print(f'norm pos: {pos_dist}')
                     class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
                     metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
                     for neg_iter in range(self.no_negative):
+                        forward_start = time.time()
                         neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                                       feats=True)
+                        forward_end = time.time()
+                        self.logger.info(f'anch-neg forward time: {forward_end - forward_start}')
                         # neg_dist.register_hook(lambda x: print(f'neg_dist grad:{x}'))
                         # neg_pred.register_hook(lambda x: print(f'neg_pred grad:{x}'))
 
