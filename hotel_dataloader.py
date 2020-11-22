@@ -30,7 +30,8 @@ class HotelTrain_Metric(Dataset):
                                                                                   portion=args.portion,
                                                                                   dataset_folder=args.dataset_folder)
         end = time.time()
-        print(f'HotelTrain_Metric loadDataToMem time: {end - start}')
+        if utils.MY_DEC.enabled:
+            print(f'HotelTrain_Metric loadDataToMem time: {end - start}')
 
         if overfit and args.overfit_num > 0:
             self.overfit = True
@@ -55,7 +56,7 @@ class HotelTrain_Metric(Dataset):
     def __len__(self):
         return self.length
 
-    @utils.time_it
+    @utils.MY_DEC
     def __getitem__(self, index):
 
         paths = []
@@ -118,7 +119,8 @@ class HotelTrain_Metric(Dataset):
 
         save = False
         end = time.time()
-        print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
+        if utils.MY_DEC.enabled:
+            print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
         if self.transform:
             start = time.time()
             if self.save_pictures and random.random() < 0.0001:
@@ -173,7 +175,8 @@ class HotelTrain_Metric(Dataset):
             neg = torch.stack(negs)
 
             end = time.time()
-            print(f'HotelTrain_Metric Dataloader, transform images time: {end - start}')
+            if utils.MY_DEC.enabled:
+                print(f'HotelTrain_Metric Dataloader, transform images time: {end - start}')
 
             if save:
                 save_image(anch, f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_after.png')

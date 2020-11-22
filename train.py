@@ -19,16 +19,19 @@ import time
 
 # Average per class for metrics (k@n) ???
 
-
+@utils.MY_DEC
 def _logger():
     logging.basicConfig(format='%(asctime)s - %(message)s', stream=sys.stdout, level=logging.INFO)
     return logging.getLogger()
 
 
 def main():
-    logger = _logger()
 
     args = utils.get_args()
+    print(utils.MY_DEC.enabled)
+    utils.MY_DEC.enabled=args.verbose
+    print(utils.MY_DEC.enabled)
+    logger = _logger()
 
     with open(f'./dataset_info_{args.env}.json', 'r') as d:
         dataset_info = json.load(d)

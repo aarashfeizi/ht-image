@@ -93,7 +93,7 @@ class Siamese(nn.Module):
         x = self.linear(x)
         return x
 
-    @utils.time_it
+    @utils.MY_DEC
     def forward(self, x1, x2):
         out1 = self.forward_one(x1)
         out2 = self.forward_one(x2)

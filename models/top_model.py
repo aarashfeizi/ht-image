@@ -32,7 +32,7 @@ class TopModel(nn.Module):
     def get_activations(self):
         return self.ft_net.get_activations()
 
-    @utils.time_it
+    @utils.MY_DEC
     def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False):
         # print('model input:', x1[-1].size())
 

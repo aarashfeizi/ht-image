@@ -145,7 +145,7 @@ class ResNet(tResNet):
     def activations_hook(self, grad):
         self.gradients = grad.clone()
 
-    @utils.time_it
+    @utils.MY_DEC
     def forward(self, x, is_feat=False, hook=False):
 
         x = self.conv1(x)

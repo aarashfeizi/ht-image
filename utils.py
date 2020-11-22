@@ -27,6 +27,25 @@ try:
 except ImportError:
     from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
+class SwitchedDecorator:
+    def __init__(self, enabled_func):
+        self._enabled = False
+        self._enabled_func = enabled_func
+
+    @property
+    def enabled(self):
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, new_value):
+        if not isinstance(new_value, bool):
+            raise ValueError("enabled can only be set to a boolean value")
+        self._enabled = new_value
+
+    def __call__(self, target):
+        if self._enabled:
+            return self._enabled_func(target)
+        return target
 
 def time_it(fn):
     def wrapper(*args, **kwargs):
@@ -39,6 +58,7 @@ def time_it(fn):
     return wrapper
 
 
+MY_DEC = SwitchedDecorator(time_it)
 
 
 class TransformLoader:
@@ -930,7 +950,7 @@ def __post_create_heatmap(heatmap, shape):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     return heatmap
 
-@time_it
+@MY_DEC
 def get_heatmap(activations, shape, save_path=None, label=None):
     heatmap = torch.mean(activations, dim=1).squeeze()
 
@@ -1015,7 +1035,7 @@ def vector_merge_function(v1, v2):
     merged = torch.pow((v1 - v2), 2)
     return merged
 
-@time_it
+@MY_DEC
 def add_mask(org_img, mask, offsets=None, resize_factors=None):
     img = org_img.copy()
 
@@ -1129,7 +1149,7 @@ def draw_act_histograms(ax, acts, titles, plot_title):
     ax.legend(lines, legends)
     ax.set_title(plot_title)
 
-@time_it
+@MY_DEC
 def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title):
     pooled_gradients = torch.mean(grads, dim=[0, 2, 3])
 
@@ -1163,7 +1183,7 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
     # for pic, path in zip(pics, paths):
     #     cv2.imwrite(path, pic)
 
-@time_it
+@MY_DEC
 def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, titles=[''], histogram_path=''):
     """
 
@@ -1277,7 +1297,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     # pics = np.concatenate(new_pics, axis=1)
     # cv2.imwrite(path, pic)
 
-@time_it
+@MY_DEC
 def get_euc_distances(img_feats, img_classes):
     dists = euclidean_distances(img_feats)
     diff_average_dist = np.zeros_like(dists[0])

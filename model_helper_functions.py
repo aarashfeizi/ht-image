@@ -279,7 +279,7 @@ class ModelMethods:
 
         return net
 
-    @utils.time_it
+    @utils.MY_DEC
     def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
                       transform_for_heatmap=None, epoch=0, count=1):
 
@@ -607,10 +607,11 @@ class ModelMethods:
                     pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
                     forward_end = time.time()
 
-                    self.logger.info(f'anch pos forward time: {forward_end - forward_start}')
+                    if utils.MY_DEC.enabled:
+                        self.logger.info(f'anch pos forward time: {forward_end - forward_start}')
 
-                    if args.verbose:
-                        print(f'norm pos: {pos_dist}')
+                    # if args.verbose:
+                    #     print(f'norm pos: {pos_dist}')
                     class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
                     metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
 
@@ -619,12 +620,13 @@ class ModelMethods:
                         neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                                       feats=True)
                         forward_end = time.time()
-                        self.logger.info(f'anch-neg forward time: {forward_end - forward_start}')
+                        if utils.MY_DEC.enabled:
+                            self.logger.info(f'anch-neg forward time: {forward_end - forward_start}')
                         # neg_dist.register_hook(lambda x: print(f'neg_dist grad:{x}'))
                         # neg_pred.register_hook(lambda x: print(f'neg_pred grad:{x}'))
 
-                        if args.verbose:
-                            print(f'norm neg {neg_iter}: {neg_dist}')
+                        # if args.verbose:
+                        #     print(f'norm neg {neg_iter}: {neg_dist}')
 
                         metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
 
@@ -754,7 +756,8 @@ class ModelMethods:
 
                     t.update()
                     end = time.time()
-                    self.logger.info(f'one batch time: {end - start}')
+                    if utils.MY_DEC.enabled:
+                        self.logger.info(f'one batch time: {end - start}')
 
                 #
                 # svm = SVC()
@@ -778,7 +781,8 @@ class ModelMethods:
                 train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                     args, net, train_loader_fewshot, bce_loss)
                 end = time.time()
-                self.logger.info(f'apply_fewshot_eval TRAIN time: {end - start}')
+                if utils.MY_DEC.enabled:
+                    self.logger.info(f'apply_fewshot_eval TRAIN time: {end - start}')
 
                 self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
                                  f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
@@ -1208,7 +1212,7 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc
 
-    @utils.time_it
+    @utils.MY_DEC
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
         """
