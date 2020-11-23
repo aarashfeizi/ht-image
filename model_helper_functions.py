@@ -400,6 +400,10 @@ class ModelMethods:
 
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
+            # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', 'fuckfuck1withkian.png')
+            # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', 'fuckfuck2.png')
+            # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', 'fuckfuck3.png')
+
             utils.apply_grad_heatmaps(net.get_activations_gradient(),
                                       net.get_activations().detach(),
                                       {'anch': anch_org,
@@ -559,6 +563,7 @@ class ModelMethods:
 
         for epoch in range(epochs):
 
+            epoch_start = time.time()
             train_loss = 0
             train_bce_loss = 0
             train_triplet_loss = 0
@@ -572,7 +577,7 @@ class ModelMethods:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
                     # print(grad_save_path)
                     os.makedirs(grad_save_path)
-
+                all_batches_start = time.time()
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
                     start = time.time()
                     # print('input: ', img1.size())
@@ -759,6 +764,10 @@ class ModelMethods:
                     if utils.MY_DEC.enabled:
                         self.logger.info(f'one batch time: {end - start}')
 
+                all_batches_end = time.time()
+                if utils.MY_DEC.enabled:
+                    self.logger.info(f'all batches time: {all_batches_end - all_batches_start}')
+
                 #
                 # svm = SVC()
                 # knn = KNeighborsClassifier(n_neighbors=1)
@@ -861,6 +870,10 @@ class ModelMethods:
 
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
+            epoch_end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'one epoch (after batch loop) time: {epoch_end - epoch_start}')
+
             self.logger.info('plotting train class diff plot...')
             self.make_emb_db(args, net, train_db_loader,
                              eval_sampled=args.sampled_results,
@@ -898,6 +911,11 @@ class ModelMethods:
                     self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
 
             self._tb_draw_histograms(args, net, epoch)
+
+            epoch_end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'one epoch (complete) time: {epoch_end - epoch_start}')
+
 
         with open('train_losses', 'wb') as f:
             pickle.dump(train_losses, f)

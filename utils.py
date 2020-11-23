@@ -1344,3 +1344,48 @@ def get_euc_distances(img_feats, img_classes):
             'in_class_average': same_average_dist_mean,
             'in_class_min': same_min_dist_mean,
             'in_class_max': same_max_dist_mean}
+
+def draw_all_heatmaps(acts, img, plot_title, path):
+
+    plt.rcParams.update({'font.size': 10})
+    plt.rcParams.update({'figure.figsize': (70, 20)})
+    print('fuck 2')
+
+    plt.close()
+
+
+    acts /= acts.max()
+
+    # acts = acts[0, 0:4, :, :]
+
+    rows = []
+    all = []
+    row = []
+    for i, act in enumerate(acts.squeeze()):
+
+        heatmap = __post_create_heatmap(act, (img.shape[0], img.shape[1]))
+        pic = merge_heatmap_img(img, heatmap)
+        row.append(pic)
+        if (i + 1) % 64 == 0:
+            rows.append(row)
+            row = []
+    print('fuck 3')
+
+
+    for row in rows:
+        all.append(np.concatenate(row, axis=1))
+    print('fuck 4')
+
+    all = np.concatenate(all, axis=0)
+    print('fuck 5')
+
+    print(all.shape)
+    plt.imshow(all)
+    plt.axis('off')
+    print('fuck 6')
+
+    # plt.show()
+    plt.savefig(path)
+    plt.close()
+    import pdb
+    pdb.set_trace()
