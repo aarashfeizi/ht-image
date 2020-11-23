@@ -973,7 +973,10 @@ def get_heatmap(activations, shape, save_path=None, label=None):
 
 
 def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
-    activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
+    # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
+    #                                 activations)))
+
+    activations = np.array(list(map(lambda act: torch.max(act, dim=1)[0].squeeze().data.cpu().numpy(),
                                     activations)))
 
     # relu on top of the heatmap

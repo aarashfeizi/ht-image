@@ -7,12 +7,10 @@ from argparse import Namespace
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-import utils
 from cub_dataloader import *
 from hotel_dataloader import *
 from losses import TripletLoss, MaxMarginLoss
 from models.top_model import *
-import time
 
 ###
 # todo for next week
@@ -26,10 +24,9 @@ def _logger():
 
 
 def main():
-
     args = utils.get_args()
     print(utils.MY_DEC.enabled)
-    utils.MY_DEC.enabled=args.verbose
+    utils.MY_DEC.enabled = args.verbose
     print(utils.MY_DEC.enabled)
     logger = _logger()
 
@@ -59,7 +56,7 @@ def main():
     logger.info(f'val transforms: {transform_list_val}')
 
     cam_data_transforms, cam_transform_list = utils.TransformLoader(args.image_size,
-                                                                            rotate=args.rotate).get_composed_transform(
+                                                                    rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=False, basic_aug=basic_aug, for_network=False)
 
     logger.info(f'cam transforms: {transform_list_val}')
@@ -184,12 +181,12 @@ def main():
 
     dl_cam_train = dl_cam_val_known = dl_cam_val_unknown = None
     # if args.cam:
-        # dl_cam_train = DataLoader(cam_train_set, batch_size=1, shuffle=False, num_workers=workers,
-        #                           pin_memory=pin_memory)
-        # dl_cam_val_known = DataLoader(cam_val_set_known_metric, batch_size=1, shuffle=False, num_workers=workers,
-        #                               pin_memory=pin_memory)
-        # dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
-        #                                 pin_memory=pin_memory)
+    # dl_cam_train = DataLoader(cam_train_set, batch_size=1, shuffle=False, num_workers=workers,
+    #                           pin_memory=pin_memory)
+    # dl_cam_val_known = DataLoader(cam_val_set_known_metric, batch_size=1, shuffle=False, num_workers=workers,
+    #                               pin_memory=pin_memory)
+    # dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
+    #                                 pin_memory=pin_memory)
 
     if args.metric_learning:
         val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
@@ -203,7 +200,7 @@ def main():
 
     if args.cbir:
         val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                               pin_memory=pin_memory, drop_last=True)
+                                   pin_memory=pin_memory, drop_last=True)
 
         train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                      pin_memory=pin_memory, drop_last=True)
@@ -242,7 +239,6 @@ def main():
 
         # device = f'cuda:{tm_net.device_ids[0]}'
 
-
     if args.cuda:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         tm_net = tm_net.cuda()
@@ -257,7 +253,9 @@ def main():
                                                                             val_loaders=val_loaders_metric,
                                                                             val_loaders_fewshot=val_loaders_fewshot,
                                                                             train_loader_fewshot=train_loader_fewshot,
-                                                                            cam_args=[cam_img_paths, data_transforms_val, cam_data_transforms],
+                                                                            cam_args=[cam_img_paths,
+                                                                                      data_transforms_val,
+                                                                                      cam_data_transforms],
                                                                             db_loaders=[train_db_loader, val_db_loader])
         else:
             tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
@@ -285,14 +283,14 @@ def main():
     if args.cam and args.pretrained_model_name != '':
         logger.info(f'Drawing heatmaps on epoch {-1}...')
         model_methods_top.draw_heatmaps(net=tm_net,
-                           loss_fn=loss_fn,
-                           bce_loss=loss_fn_bce,
-                           args=args,
-                           cam_loader=cam_img_paths,
-                           transform_for_model=data_transforms_val,
-                           transform_for_heatmap=cam_data_transforms,
-                           epoch=-1,
-                           count=1)
+                                        loss_fn=loss_fn,
+                                        bce_loss=loss_fn_bce,
+                                        args=args,
+                                        cam_loader=cam_img_paths,
+                                        transform_for_model=data_transforms_val,
+                                        transform_for_heatmap=cam_data_transforms,
+                                        epoch=-1,
+                                        count=1)
         logger.info(f'DONE drawing heatmaps on epoch {-1}!!!')
 
     if args.katn and args.pretrained_model_name != '':
