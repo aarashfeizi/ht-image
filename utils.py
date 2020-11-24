@@ -959,12 +959,14 @@ def get_heatmap(activations, shape, save_path=None, label=None):
 
     heatmap = heatmap.data.cpu().numpy()
 
-    # heatmap = np.maximum(heatmap, 0)
-    abs_heatmap = np.abs(heatmap)
+    max_value = np.max(np.abs(heatmap))
+
+    heatmap = np.maximum(heatmap, 0)
+    # abs_heatmap = np.abs(heatmap)
 
     # normalize the heatmap
-    if np.max(abs_heatmap) != 0:
-        heatmap /= np.max(abs_heatmap)
+    if max_value != 0:
+        heatmap /= max_value
 
     heatmap = __post_create_heatmap(heatmap, shape)
     plt.close()
@@ -988,14 +990,14 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
     # import pdb
     # pdb.set_trace()
 
-    # # heatmaps = np.maximum(activations, 0)
+    heatmaps = np.maximum(activations, 0)
     # activations[0][0] *= -1
     # heatmaps = activations
 
-    abs_heatmap = np.abs(activations)
+    # abs_heatmap = np.abs(activations)
 
     # normalize the heatmap
-    heatmaps = activations / np.max(abs_heatmap)
+    heatmaps = activations / np.max(heatmaps)
 
     for heatmap in heatmaps:
         final_heatmaps.append(__post_create_heatmap(heatmap, shape))
@@ -1161,23 +1163,32 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
 
     anch_org = img_dict['anch']
     heatmap = get_heatmap(activations, shape=(anch_org.shape[0], anch_org.shape[1]))
+    heatmap_negative = get_heatmap(-1 * activations, shape=(anch_org.shape[0], anch_org.shape[1]))
 
-    pics = []
+    pos_pics = []
+    neg_pics = []
+
     paths = []
     titles = []
 
     for l, i in img_dict.items():
-        pics.append(merge_heatmap_img(i, heatmap))
+        pos_pics.append(merge_heatmap_img(i, heatmap))
+        neg_pics.append(merge_heatmap_img(i, heatmap_negative))
         titles.append(l)
 
     path_ = os.path.join(path, f'backward_triplet{id}_{label}.png')
     plt.rcParams.update({'font.size': 19})
-    fig, axes = plt.subplots(1, len(pics), figsize=(len(pics) * 10, 10))
+    fig, axes = plt.subplots(2, len(pos_pics), figsize=(len(pos_pics) * 10, 20))
 
-    for ax, pic, title in zip(axes, pics, titles):
+    for ax, pic, title in zip(axes[0], pos_pics, titles):
         ax.imshow(pic)
         ax.axis('off')
-        ax.set_title(title)
+        ax.set_title(title + ' POSITIVE')
+
+    for ax, pic, title in zip(axes[1], neg_pics, titles):
+        ax.imshow(pic)
+        ax.axis('off')
+        ax.set_title(title + ' NEGATIVE')
 
     fig.suptitle(plot_title)
     plt.savefig(path_)

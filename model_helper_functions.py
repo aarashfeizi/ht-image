@@ -613,7 +613,7 @@ class ModelMethods:
                     forward_end = time.time()
 
                     if utils.MY_DEC.enabled:
-                        self.logger.info(f'anch pos forward time: {forward_end - forward_start}')
+                        self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
 
                     # if args.verbose:
                     #     print(f'norm pos: {pos_dist}')
@@ -626,7 +626,7 @@ class ModelMethods:
                                                                       feats=True)
                         forward_end = time.time()
                         if utils.MY_DEC.enabled:
-                            self.logger.info(f'anch-neg forward time: {forward_end - forward_start}')
+                            self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
                         # neg_dist.register_hook(lambda x: print(f'neg_dist grad:{x}'))
                         # neg_pred.register_hook(lambda x: print(f'neg_pred grad:{x}'))
 
@@ -762,11 +762,11 @@ class ModelMethods:
                     t.update()
                     end = time.time()
                     if utils.MY_DEC.enabled:
-                        self.logger.info(f'one batch time: {end - start}')
+                        self.logger.info(f'########### one batch time: {end - start}')
 
                 all_batches_end = time.time()
                 if utils.MY_DEC.enabled:
-                    self.logger.info(f'all batches time: {all_batches_end - all_batches_start}')
+                    self.logger.info(f'########### all batches time: {all_batches_end - all_batches_start}')
 
                 #
                 # svm = SVC()
@@ -791,7 +791,7 @@ class ModelMethods:
                     args, net, train_loader_fewshot, bce_loss)
                 end = time.time()
                 if utils.MY_DEC.enabled:
-                    self.logger.info(f'apply_fewshot_eval TRAIN time: {end - start}')
+                    self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
 
                 self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
                                  f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
@@ -872,7 +872,7 @@ class ModelMethods:
 
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
-                self.logger.info(f'one epoch (after batch loop) time: {epoch_end - epoch_start}')
+                self.logger.info(f'########### one epoch (after batch loop) time: {epoch_end - epoch_start}')
 
             self.logger.info('plotting train class diff plot...')
             self.make_emb_db(args, net, train_db_loader,
@@ -914,7 +914,7 @@ class ModelMethods:
 
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
-                self.logger.info(f'one epoch (complete) time: {epoch_end - epoch_start}')
+                self.logger.info(f'########### one epoch (complete) time: {epoch_end - epoch_start}')
 
 
         with open('train_losses', 'wb') as f:
