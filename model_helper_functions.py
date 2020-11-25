@@ -400,9 +400,13 @@ class ModelMethods:
 
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
-            # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', 'fuckfuck1withkian.png')
-            # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', 'fuckfuck2.png')
-            # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', 'fuckfuck3.png')
+            all_heatmap_grid_anch_path = os.path.join(heatmap_path_perepoch_id, f'anch_triplet{id}_all_heatmaps.jpg')
+            all_heatmap_grid_pos_path = os.path.join(heatmap_path_perepoch_id, f'pos_triplet{id}_all_heatmaps.jpg')
+            all_heatmap_grid_neg_path = os.path.join(heatmap_path_perepoch_id, f'neg_triplet{id}_all_heatmaps.jpg')
+
+            utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', all_heatmap_grid_anch_path)
+            utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
+            utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
 
             utils.apply_grad_heatmaps(net.get_activations_gradient(),
                                       net.get_activations().detach(),

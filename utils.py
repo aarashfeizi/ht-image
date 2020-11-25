@@ -27,6 +27,7 @@ try:
 except ImportError:
     from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
+
 class SwitchedDecorator:
     def __init__(self, enabled_func):
         self._enabled = False
@@ -46,6 +47,7 @@ class SwitchedDecorator:
         if self._enabled:
             return self._enabled_func(target)
         return target
+
 
 def time_it(fn):
     def wrapper(*args, **kwargs):
@@ -950,6 +952,7 @@ def __post_create_heatmap(heatmap, shape):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     return heatmap
 
+
 @MY_DEC
 def get_heatmap(activations, shape, save_path=None, label=None):
     heatmap = torch.mean(activations, dim=1).squeeze()
@@ -1039,6 +1042,7 @@ def read_img_paths(path):
 def vector_merge_function(v1, v2):
     merged = torch.pow((v1 - v2), 2)
     return merged
+
 
 @MY_DEC
 def add_mask(org_img, mask, offsets=None, resize_factors=None):
@@ -1135,11 +1139,11 @@ def draw_act_histograms(ax, acts, titles, plot_title):
     if len(acts) == 2:
         colors = ['b', 'r']
         lines = [Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="r", lw=4)]
+                 Line2D([0], [0], color="r", lw=4)]
     elif len(acts) == 3:
         colors = ['b', 'r', 'g']
         lines = [Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="r", lw=4),
+                 Line2D([0], [0], color="r", lw=4),
                  Line2D([0], [0], color="g", lw=4)]
 
     max = 0
@@ -1153,6 +1157,7 @@ def draw_act_histograms(ax, acts, titles, plot_title):
     ax.set_xlim(left=-0.1, right=max + 1)
     ax.legend(lines, legends)
     ax.set_title(plot_title)
+
 
 @MY_DEC
 def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title):
@@ -1197,6 +1202,7 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
     # for pic, path in zip(pics, paths):
     #     cv2.imwrite(path, pic)
 
+
 @MY_DEC
 def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, titles=[''], histogram_path=''):
     """
@@ -1233,7 +1239,6 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
 
     plt.savefig(histogram_path)
     plt.close()
-
 
     heatmaps = get_heatmaps(acts[:3], shape=shape)
     heatmaps.extend(get_heatmaps(acts[3:5], shape=shape))
@@ -1311,6 +1316,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     # pics = np.concatenate(new_pics, axis=1)
     # cv2.imwrite(path, pic)
 
+
 @MY_DEC
 def get_euc_distances(img_feats, img_classes):
     dists = euclidean_distances(img_feats)
@@ -1356,14 +1362,11 @@ def get_euc_distances(img_feats, img_classes):
             'in_class_min': same_min_dist_mean,
             'in_class_max': same_max_dist_mean}
 
+
 def draw_all_heatmaps(acts, img, plot_title, path):
-
     plt.rcParams.update({'font.size': 10})
-    plt.rcParams.update({'figure.figsize': (70, 20)})
+    # plt.rcParams.update({'figure.figsize': (10000, 1000)})
     print('fuck 2')
-
-    plt.close()
-
 
     acts /= acts.max()
 
@@ -1382,7 +1385,6 @@ def draw_all_heatmaps(acts, img, plot_title, path):
             row = []
     print('fuck 3')
 
-
     for row in rows:
         all.append(np.concatenate(row, axis=1))
     print('fuck 4')
@@ -1392,11 +1394,10 @@ def draw_all_heatmaps(acts, img, plot_title, path):
 
     print(all.shape)
     plt.imshow(all)
+    plt.title(plot_title + " all forward activations")
     plt.axis('off')
     print('fuck 6')
 
     # plt.show()
-    plt.savefig(path)
+    plt.savefig(path, dpi=5000)
     plt.close()
-    import pdb
-    pdb.set_trace()
