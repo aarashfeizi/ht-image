@@ -1363,42 +1363,41 @@ def get_euc_distances(img_feats, img_classes):
             'in_class_max': same_max_dist_mean}
 
 
-def draw_all_heatmaps(acts, img, plot_title, path):
-    acts = acts.cpu().numpy()
-    plt.rcParams.update({'font.size': 10})
-    # plt.rcParams.update({'figure.figsize': (10000, 1000)})
-    print('fuck 2')
+def draw_all_heatmaps(actss, imgs, plot_titles, path):
+    plt.rcParams.update({'font.size': 5})
+    fig, axes = plt.subplots(3, 1)
+    for acts, img, plot_title, ax in zip(actss, imgs, plot_titles, axes):
+        acts = acts.cpu().numpy()
+        # plt.rcParams.update({'figure.figsize': (20, 10)})
+        print(f'Begin drawing all activations for {plot_title}')
 
-    acts /= acts.max()
+        acts /= acts.max()
 
-    # acts = acts[0, 0:4, :, :]
+        # acts = acts[0, 0:4, :, :]
 
-    rows = []
-    all = []
-    row = []
-    for i, act in enumerate(acts.squeeze()):
+        rows = []
+        all = []
+        row = []
+        for i, act in enumerate(acts.squeeze()):
 
-        heatmap = __post_create_heatmap(act, (img.shape[0], img.shape[1]))
-        pic = merge_heatmap_img(img, heatmap)
-        row.append(pic)
-        if (i + 1) % 64 == 0:
-            rows.append(row)
-            row = []
-    print('fuck 3')
+            heatmap = __post_create_heatmap(act, (img.shape[0], img.shape[1]))
+            pic = merge_heatmap_img(img, heatmap)
+            row.append(pic)
+            if (i + 1) % 64 == 0:
+                rows.append(row)
+                row = []
 
-    for row in rows:
-        all.append(np.concatenate(row, axis=1))
-    print('fuck 4')
+        for row in rows:
+            all.append(np.concatenate(row, axis=1))
 
-    all = np.concatenate(all, axis=0)
-    print('fuck 5')
+        all = np.concatenate(all, axis=0)
 
-    print(all.shape)
-    plt.imshow(all)
-    plt.title(plot_title + " all forward activations")
-    plt.axis('off')
-    print('fuck 6')
+        print(all.shape)
+        ax.imshow(all)
+        ax.set_title(plot_title + " all forward activations")
+        plt.axis('off')
+        print(f'saving... {plot_title}')
 
-    # plt.show()
-    plt.savefig(path, dpi=5000)
+        # plt.show()
+    fig.savefig(path, dpi=5000)
     plt.close()
