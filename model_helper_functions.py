@@ -400,18 +400,18 @@ class ModelMethods:
 
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
-            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
 
             # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', all_heatmap_grid_anch_path)
             # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
             # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
 
-            utils.draw_all_heatmaps([acts_anch_pos[0],
-                                     acts_anch_pos[1],
-                                     acts_anch_neg[1]],
-                                    [anch_org, pos_org, neg_org],
-                                    ['Anch', 'Pos', 'Neg'],
-                                    all_heatmap_grid_path)
+            # all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
+            # utils.draw_all_heatmaps([acts_anch_pos[0],
+            #                          acts_anch_pos[1],
+            #                          acts_anch_neg[1]],
+            #                         [anch_org, pos_org, neg_org],
+            #                         ['Anch', 'Pos', 'Neg'],
+            #                         all_heatmap_grid_path)
 
 
             utils.apply_grad_heatmaps(net.get_activations_gradient(),
@@ -431,14 +431,24 @@ class ModelMethods:
 
                 pos_max_indices = torch.topk(pos_dist, k=k).indices
 
+                print('pos max indices: ', pos_max_indices, pos_dist[0][pos_max_indices])
+
                 acts_tmp.append(acts_anch_pos[0][:, pos_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_neg[1][:, pos_max_indices, :, :].squeeze(dim=0))
+
 
                 all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchpos.png')
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchpos.png')
 
                 plot_title = f"{k} most important different channels for Anch Pos" + result_text
+                if k < 32:
+                    all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_all_heatmaps_best_anchpos.pdf')
+                    utils.draw_all_heatmaps(acts_tmp,
+                                            [anch_org, pos_org, neg_org],
+                                            ['Anch', 'Pos', 'Neg'],
+                                            all_heatmap_grid_path,
+                                            plot_title)
 
                 utils.apply_forward_heatmap(acts_tmp,
                                             [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
@@ -465,6 +475,14 @@ class ModelMethods:
                 acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
 
                 plot_title = f"{k} most important different channels for Anch Neg" + result_text
+
+                if k < 32:
+                    all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_all_heatmaps_best_anchneg.pdf')
+                    utils.draw_all_heatmaps(acts_tmp,
+                                            [anch_org, pos_org, neg_org],
+                                            ['Anch', 'Pos', 'Neg'],
+                                            all_heatmap_grid_path,
+                                            plot_title)
 
                 utils.apply_forward_heatmap(acts_tmp,
                                             [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],

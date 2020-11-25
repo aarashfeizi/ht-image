@@ -1255,9 +1255,9 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
             merge_heatmap_img(img_list[2][1], heatmaps[4])]
 
     plt.rcParams.update({'font.size': 10})
-    plt.rcParams.update({'figure.figsize': (10, 10)})
+    # plt.rcParams.update({'figure.figsize': (10, 10)})
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10, 10))
     ax_anch = plt.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
     ax_pos = plt.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
     ax_neg = plt.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)
@@ -1363,10 +1363,10 @@ def get_euc_distances(img_feats, img_classes):
             'in_class_max': same_max_dist_mean}
 
 
-def draw_all_heatmaps(actss, imgs, plot_titles, path):
+def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     plt.rcParams.update({'font.size': 5})
-    fig, axes = plt.subplots(3, 1)
-    for acts, img, plot_title, ax in zip(actss, imgs, plot_titles, axes):
+    fig, axes = plt.subplots(1, 3)
+    for acts, img, plot_title, ax in zip(actss, imgs, subplot_titles, axes):
         acts = acts.cpu().numpy()
         # plt.rcParams.update({'figure.figsize': (20, 10)})
         print(f'Begin drawing all activations for {plot_title}')
@@ -1378,12 +1378,22 @@ def draw_all_heatmaps(actss, imgs, plot_titles, path):
         rows = []
         all = []
         row = []
-        for i, act in enumerate(acts.squeeze()):
+        channel_length = len(acts.squeeze(axis=0))
+
+        row_length = 1
+        all_length_power = 0
+
+        while np.power(2, all_length_power) <= channel_length:
+            if (all_length_power) % 2 == 0:
+                row_length = np.power(2, int((all_length_power + 1) / 2))
+            all_length_power += 1
+
+        for i, act in enumerate(acts.squeeze(axis=0)):
 
             heatmap = __post_create_heatmap(act, (img.shape[0], img.shape[1]))
             pic = merge_heatmap_img(img, heatmap)
             row.append(pic)
-            if (i + 1) % 64 == 0:
+            if (i + 1) % row_length == 0:
                 rows.append(row)
                 row = []
 
@@ -1394,10 +1404,11 @@ def draw_all_heatmaps(actss, imgs, plot_titles, path):
 
         print(all.shape)
         ax.imshow(all)
-        ax.set_title(plot_title + " all forward activations")
-        plt.axis('off')
+        ax.set_title(plot_title)
+        ax.axis('off')
         print(f'saving... {plot_title}')
 
         # plt.show()
+    fig.suptitle(supplot_title)
     fig.savefig(path, dpi=5000)
     plt.close()
