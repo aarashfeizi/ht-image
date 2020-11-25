@@ -1364,6 +1364,7 @@ def get_euc_distances(img_feats, img_classes):
 
 
 def draw_all_heatmaps(acts, img, plot_title, path):
+    acts = acts.cpu().numpy()
     plt.rcParams.update({'font.size': 10})
     # plt.rcParams.update({'figure.figsize': (10000, 1000)})
     print('fuck 2')
