@@ -63,3 +63,6 @@ class LiSiamese(nn.Module):
             return pred, out_dist, out1, out2
         else:
             return pred, out_dist
+
+    def get_classifier_weights(self):
+        return self.classifier[0].weight

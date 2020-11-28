@@ -367,7 +367,25 @@ class ModelMethods:
 
             class_loss = 0
             ext_loss = 0
+
+            classifier_weights = net.get_classifier_weights().data[0]
+
+
             pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos = net.forward(anch, pos, feats=True, hook=True)
+
+
+            map_shape = acts_anch_pos[0].shape
+
+            classifier_weights = torch.repeat_interleave(classifier_weights,
+                                                         repeats=map_shape[2] * map_shape[3],
+                                                         dim=0).view(map_shape[0], map_shape[1], map_shape[2], map_shape[3])
+
+            acts_anch_pos[0] *= classifier_weights
+            acts_anch_pos[1] *= classifier_weights
+            #
+            # acts_anch_pos[0] = np.maximum(acts_anch_pos[0], 0)
+            # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
+
 
             # print(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
             pos_pred_int = int(torch.sigmoid(pos_pred).item() < 0.5)
@@ -389,6 +407,13 @@ class ModelMethods:
 
             neg_pred, neg_dist, _, neg_feat, acts_anch_neg = net.forward(anch, neg, feats=True, hook=True)
             # print(f'cam neg {id - 1}: ', torch.sigmoid(neg_pred).item())
+
+            acts_anch_neg[0] *= classifier_weights
+            acts_anch_neg[1] *= classifier_weights
+
+            # acts_anch_neg[0] = np.maximum(acts_anch_neg[0], 0)
+            # acts_anch_neg[1] = np.maximum(acts_anch_neg[1], 0)
+
             neg_pred_int = int(torch.sigmoid(neg_pred).item() >= 0.5)
             self.cam_neg[id - 1] += neg_pred_int
 
@@ -444,11 +469,20 @@ class ModelMethods:
                 plot_title = f"{k} most important different channels for Anch Pos" + result_text
                 if k < 32:
                     all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_all_heatmaps_best_anchpos.pdf')
+                    print('before')
+                    print(acts_tmp[0].min())
+                    print(acts_tmp[1].min())
+                    print(acts_tmp[2].min())
                     utils.draw_all_heatmaps(acts_tmp,
                                             [anch_org, pos_org, neg_org],
                                             ['Anch', 'Pos', 'Neg'],
                                             all_heatmap_grid_path,
                                             plot_title)
+                    print('after')
+                    print(acts_tmp[0].min())
+                    print(acts_tmp[1].min())
+                    print(acts_tmp[2].min())
+                    print('-------------')
 
                 utils.apply_forward_heatmap(acts_tmp,
                                             [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
@@ -809,7 +843,7 @@ class ModelMethods:
                     plt.title(f'Losses Epoch {epoch}')
                     plt.legend(loc='upper right')
                     plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
-                    plt.close()
+                    plt.close('all')
 
                 if bce_loss is None:
                     bce_loss = loss_fn
@@ -1421,7 +1455,7 @@ class ModelMethods:
 
         plt.title(method + " " + title)
         plt.savefig(path)
-        plt.close()
+        plt.close('all')
 
     def save_model(self, args, net, epoch, val_acc):
         best_model = 'model-epoch-' + str(epoch + 1) + '-val-acc-' + str(val_acc) + '.pt'
@@ -1596,7 +1630,7 @@ class ModelMethods:
         plt.title(f'{mode} class diffs')
 
         plt.savefig(path)
-        plt.close()
+        plt.close('all')
 
     def plot_silhouette_score(self, X, labels, epoch, mode, path):
 
@@ -1619,7 +1653,7 @@ class ModelMethods:
         plt.title(f'Silhouette Scores for {mode} set')
 
         plt.savefig(path[0])
-        plt.close()
+        plt.close('all')
 
         plt.figure(figsize=(10, 10))
 
@@ -1633,4 +1667,4 @@ class ModelMethods:
         plt.title(f'Silhouette Scores Distribution on {mode} set')
 
         plt.savefig(path[1])
-        plt.close()
+        plt.close('all')

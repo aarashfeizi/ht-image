@@ -68,6 +68,8 @@ class TopModel(nn.Module):
             output = self.sm_net(x1_f[-1], None, single)  # single is true
             return output
 
+    def get_classifier_weights(self):
+        return self.sm_net.get_classifier_weights()
         # print('features:', x2_f[-1].size())
         # print('output:', output.size())
 

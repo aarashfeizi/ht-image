@@ -800,7 +800,7 @@ def bar_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
     plt.savefig(os.path.join(save_path, f'bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
-    plt.close()
+    plt.close('all')
 
 
 def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path):
@@ -825,7 +825,7 @@ def line_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_pat
     plt.title(f"Gradient flow for {label}_epoch{epoch}_batch{batch_id}")
     plt.grid(True)
     plt.savefig(os.path.join(save_path, f'line_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
-    plt.close()
+    plt.close('all')
 
 
 def two_line_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch, save_path):
@@ -856,7 +856,7 @@ def two_line_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoc
     plt.grid(True)
     plt.savefig(
         os.path.join(save_path, f'two_line_{args.loss}_bco{args.bcecoefficient}_{name_label}_batch{batch_id}.png'))
-    plt.close()
+    plt.close('all')
 
 
 def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch, save_path):
@@ -936,7 +936,7 @@ def two_bar_plot_grad_flow(args, triplet_np, bce_np, name_label, batch_id, epoch
     plt.grid(True)
     plt.savefig(os.path.join(save_path, f'two_bars_{args.loss}_bco{args.bcecoefficient}_{label}_batch{batch_id}.png'))
 
-    plt.close()
+    plt.close('all')
 
 
 def __post_create_heatmap(heatmap, shape):
@@ -962,7 +962,7 @@ def get_heatmap(activations, shape, save_path=None, label=None):
 
     heatmap = heatmap.data.cpu().numpy()
 
-    max_value = np.max(np.abs(heatmap))
+    max_value = np.max(np.abs(heatmap))  # to keep it normalized between positive and negative
 
     heatmap = np.maximum(heatmap, 0)
     # abs_heatmap = np.abs(heatmap)
@@ -972,7 +972,7 @@ def get_heatmap(activations, shape, save_path=None, label=None):
         heatmap /= max_value
 
     heatmap = __post_create_heatmap(heatmap, shape)
-    plt.close()
+    plt.close('all')
 
     return heatmap
 
@@ -981,7 +981,7 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
 
-    activations = np.array(list(map(lambda act: torch.max(act, dim=1)[0].squeeze().data.cpu().numpy(),
+    activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
                                     activations)))
 
     # relu on top of the heatmap
@@ -1000,7 +1000,9 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
     # abs_heatmap = np.abs(activations)
 
     # normalize the heatmap
-    heatmaps = activations / np.max(heatmaps)
+    print(f'heatmaps max: {np.max(heatmaps)}')
+
+    heatmaps = heatmaps / np.max(heatmaps)
 
     for heatmap in heatmaps:
         final_heatmaps.append(__post_create_heatmap(heatmap, shape))
@@ -1197,7 +1199,7 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
 
     fig.suptitle(plot_title)
     plt.savefig(path_)
-    plt.close()
+    plt.close('all')
 
     # for pic, path in zip(pics, paths):
     #     cv2.imwrite(path, pic)
@@ -1238,7 +1240,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     fig.suptitle(overall_title)
 
     plt.savefig(histogram_path)
-    plt.close()
+    plt.close('all')
 
     heatmaps = get_heatmaps(acts[:3], shape=shape)
     heatmaps.extend(get_heatmaps(acts[3:5], shape=shape))
@@ -1277,7 +1279,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     fig.suptitle(overall_title)
 
     plt.savefig(heatmap_path)
-    plt.close()
+    plt.close('all')
 
     # for pic, title in zip(pics, titles):
     #
@@ -1368,17 +1370,19 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     fig, axes = plt.subplots(1, 3)
     for acts, img, plot_title, ax in zip(actss, imgs, subplot_titles, axes):
         acts = acts.cpu().numpy()
+        # acts = np.maximum(acts, 0)
         # plt.rcParams.update({'figure.figsize': (20, 10)})
         print(f'Begin drawing all activations for {plot_title}')
 
-        acts /= acts.max()
+        acts_pos = np.maximum(acts, 0)
+        acts_pos /= np.max(acts_pos)
 
         # acts = acts[0, 0:4, :, :]
 
         rows = []
         all = []
         row = []
-        channel_length = len(acts.squeeze(axis=0))
+        channel_length = len(acts_pos.squeeze(axis=0))
 
         row_length = 1
         all_length_power = 0
@@ -1388,7 +1392,7 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
                 row_length = np.power(2, int((all_length_power + 1) / 2))
             all_length_power += 1
 
-        for i, act in enumerate(acts.squeeze(axis=0)):
+        for i, act in enumerate(acts_pos.squeeze(axis=0)):
 
             heatmap = __post_create_heatmap(act, (img.shape[0], img.shape[1]))
             pic = merge_heatmap_img(img, heatmap)
@@ -1411,4 +1415,4 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
         # plt.show()
     fig.suptitle(supplot_title)
     fig.savefig(path, dpi=5000)
-    plt.close()
+    plt.close('all')
