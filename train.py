@@ -30,7 +30,7 @@ def main():
     print(utils.MY_DEC.enabled)
     logger = _logger()
 
-    with open(f'./dataset_info_{args.env}.json', 'r') as d:
+    with open(os.path.join(args.project_path, f'dataset_info_{args.env}.json', 'r')) as d:
         dataset_info = json.load(d)
 
     args_dict = vars(args)

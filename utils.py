@@ -192,6 +192,9 @@ def get_args():
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
+    parser.add_argument('-ppth', '--project_path', default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
+    parser.add_argument('-lpth', '--local_path', default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
+    parser.add_argument('-jid', '--job_id', default='')
 
     args = parser.parse_args()
 
@@ -389,8 +392,8 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     k10s_u = []
     k100s_u = []
 
-    sampled_indices_all = pd.read_csv('sample_index_por' + str(args.portion) + '.csv')
-    sampled_label_all = pd.read_csv('sample_label_por' + str(args.portion) + '.csv')
+    sampled_indices_all = pd.read_csv(os.path.join(args.project_path, 'sample_index_por' + str(args.portion) + '.csv'))
+    sampled_label_all = pd.read_csv(os.path.join(args.project_path, 'sample_label_por' + str(args.portion) + '.csv'))
 
     for run in range(run_number):
         column_name = f'run{run}'

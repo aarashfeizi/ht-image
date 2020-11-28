@@ -32,7 +32,7 @@ class ModelMethods:
     def __init__(self, args, logger, model='top', cam_images_len=-1):  # res or top
 
         id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
-        id_str = '-time_' + id_str.replace('.', '-')
+        id_str = '-time_' + id_str.replace('.', '-') + '_' + args.job_id
 
         self.model = model
         self.model_name = self._parse_args(args)
@@ -40,12 +40,12 @@ class ModelMethods:
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
 
-        self.tensorboard_path = os.path.join(args.tb_path, self.model_name + id_str)
+        self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name + id_str)
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
 
         if args.pretrained_model_dir == '':
-            self.save_path = os.path.join(args.save_path, self.model_name + id_str)
+            self.save_path = os.path.join(args.local_path, args.save_path, self.model_name + id_str)
             utils.create_save_path(self.save_path, id_str, self.logger)
         else:
             self.logger.info(f"Using pretrained path... \nargs.pretrained_model_dir: {args.pretrained_model_dir}")
@@ -99,7 +99,8 @@ class ModelMethods:
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            masks = utils.get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            masks = utils.get_masks(args.dataset_path, args.dataset_folder,
+                                    os.path.join(args.project_path, args.mask_path))
             self.anch_mask = Image.open(masks[np.random.randint(len(masks))])
             self.pos_mask = Image.open(masks[np.random.randint(len(masks))])
             self.neg_mask = Image.open(masks[np.random.randint(len(masks))])
@@ -370,22 +371,20 @@ class ModelMethods:
 
             classifier_weights = net.get_classifier_weights().data[0]
 
-
             pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos = net.forward(anch, pos, feats=True, hook=True)
-
 
             map_shape = acts_anch_pos[0].shape
 
             classifier_weights = torch.repeat_interleave(classifier_weights,
                                                          repeats=map_shape[2] * map_shape[3],
-                                                         dim=0).view(map_shape[0], map_shape[1], map_shape[2], map_shape[3])
+                                                         dim=0).view(map_shape[0], map_shape[1], map_shape[2],
+                                                                     map_shape[3])
 
             acts_anch_pos[0] *= classifier_weights
             acts_anch_pos[1] *= classifier_weights
             #
             # acts_anch_pos[0] = np.maximum(acts_anch_pos[0], 0)
             # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
-
 
             # print(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
             pos_pred_int = int(torch.sigmoid(pos_pred).item() < 0.5)
@@ -425,7 +424,6 @@ class ModelMethods:
 
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
-
             # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', all_heatmap_grid_anch_path)
             # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
             # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
@@ -437,7 +435,6 @@ class ModelMethods:
             #                         [anch_org, pos_org, neg_org],
             #                         ['Anch', 'Pos', 'Neg'],
             #                         all_heatmap_grid_path)
-
 
             utils.apply_grad_heatmaps(net.get_activations_gradient(),
                                       net.get_activations().detach(),
@@ -462,13 +459,13 @@ class ModelMethods:
                 acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_neg[1][:, pos_max_indices, :, :].squeeze(dim=0))
 
-
                 all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchpos.png')
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchpos.png')
 
                 plot_title = f"{k} most important different channels for Anch Pos" + result_text
                 if k < 32:
-                    all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_all_heatmaps_best_anchpos.pdf')
+                    all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
+                                                         f'k_{k}_triplet{id}_all_heatmaps_best_anchpos.pdf')
                     print('before')
                     print(acts_tmp[0].min())
                     print(acts_tmp[1].min())
@@ -511,7 +508,8 @@ class ModelMethods:
                 plot_title = f"{k} most important different channels for Anch Neg" + result_text
 
                 if k < 32:
-                    all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_all_heatmaps_best_anchneg.pdf')
+                    all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
+                                                         f'k_{k}_triplet{id}_all_heatmaps_best_anchneg.pdf')
                     utils.draw_all_heatmaps(acts_tmp,
                                             [anch_org, pos_org, neg_org],
                                             ['Anch', 'Pos', 'Neg'],
@@ -977,7 +975,6 @@ class ModelMethods:
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (complete) time: {epoch_end - epoch_start}')
-
 
         with open('train_losses', 'wb') as f:
             pickle.dump(train_losses, f)

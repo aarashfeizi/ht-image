@@ -1,14 +1,15 @@
+import os
 import random
+import time
 
 import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
-import time
 
-from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
 import utils
+from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
 
 
 class HotelTrain_Metric(Dataset):
@@ -43,9 +44,9 @@ class HotelTrain_Metric(Dataset):
 
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
 
-
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -67,10 +68,8 @@ class HotelTrain_Metric(Dataset):
             anch = Image.open(overfit_triplet['anch'])
             anch = anch.convert('RGB')
 
-
             paths.append(overfit_triplet['pos'])
             pos = Image.open(overfit_triplet['pos'])
-
 
             negs = []
             for neg_path in overfit_triplet['neg']:
@@ -216,7 +215,8 @@ class HotelTrain_FewShot(Dataset):
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -310,6 +310,7 @@ class HotelTrain_FewShot(Dataset):
             lbls.append(lbl)
 
         return imgs, lbls
+
     def do_transform(self, img):
         img = self.transform(img)
         img = self.normalize(img)
@@ -341,7 +342,8 @@ class HotelTest_FewShot(Dataset):
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -393,7 +395,6 @@ class HotelTest_FewShot(Dataset):
                     img1 = masked_img1
                     img2 = masked_img2
 
-
             img1 = self.do_transform(img1)
             img2 = self.do_transform(img2)
 
@@ -407,7 +408,6 @@ class HotelTest_FewShot(Dataset):
         img = self.transform(img)
         img = self.normalize(img)
         return img
-
 
 
 class Hotel_DB(Dataset):
@@ -444,7 +444,8 @@ class Hotel_DB(Dataset):
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -477,7 +478,6 @@ class Hotel_DB(Dataset):
 
                 if not self.fourth_dim:
                     img = masked_img
-
 
             img = self.do_transform(img)
 
