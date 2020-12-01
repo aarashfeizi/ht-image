@@ -392,7 +392,7 @@ class ModelMethods:
 
             pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
 
-            pos_class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
+            pos_class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             pos_class_loss.backward(retain_graph=True)
             class_loss = pos_class_loss
 
@@ -418,7 +418,7 @@ class ModelMethods:
 
             neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
 
-            neg_class_loss = bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+            neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
             neg_class_loss.backward(retain_graph=True)
             class_loss += neg_class_loss
 
@@ -677,8 +677,8 @@ class ModelMethods:
 
                     # if args.verbose:
                     #     print(f'norm pos: {pos_dist}')
-                    class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
-                    metric_ACC.update_acc(pos_pred.squeeze(), zero_labels.squeeze())  # zero dist means similar
+                    class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+                    metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
                     for neg_iter in range(self.no_negative):
                         forward_start = time.time()
@@ -693,9 +693,9 @@ class ModelMethods:
                         # if args.verbose:
                         #     print(f'norm neg {neg_iter}: {neg_dist}')
 
-                        metric_ACC.update_acc(neg_pred.squeeze(), one_labels.squeeze())  # 1 dist means different
+                        metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
 
-                        class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+                        class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
                         if loss_fn is not None:
                             ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
 
@@ -1221,7 +1221,7 @@ class ModelMethods:
 
             ###
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-            class_loss = bce_loss(pos_pred.squeeze(), zero_labels.squeeze())
+            class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
 
             for neg_iter in range(self.no_negative):
                 # print(anch.shape)
@@ -1229,7 +1229,7 @@ class ModelMethods:
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
-                class_loss += bce_loss(neg_pred.squeeze(), one_labels.squeeze())
+                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
                 if loss_fn is not None:
                     ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
@@ -1554,8 +1554,8 @@ class ModelMethods:
         right, error = 0, 0
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
-        label = np.ones(shape=args.way, dtype=np.float32)
-        label[0] = 0
+        label = np.zeros(shape=args.way, dtype=np.float32)
+        label[0] = 1
         label = torch.from_numpy(label)
         loss = 0
         if args.cuda:

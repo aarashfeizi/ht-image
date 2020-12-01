@@ -232,9 +232,10 @@ class HotelTrain_FewShot(Dataset):
         label = None  # label is the distance between the two image. 0: same, 1: different
         img1 = None
         img2 = None
+
         # get image from same class
         if index % (self.no_negative + 1) == 0:
-            label = 0.0
+            label = 1.0
             idx1 = random.randint(0, self.num_classes - 1)
             self.class1 = self.labels[idx1]
             class2 = self.class1
@@ -242,7 +243,7 @@ class HotelTrain_FewShot(Dataset):
             image2 = Image.open(random.choice(self.datas[class2]))
         # get image from different class
         else:
-            label = 1.0
+            label = 0.0
             # idx1 = random.randint(0, self.num_classes - 1)
             idx2 = random.randint(0, self.num_classes - 1)
             class2 = self.labels[idx2]
