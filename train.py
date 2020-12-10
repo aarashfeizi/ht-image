@@ -234,12 +234,12 @@ def main():
     #
     # device = f'cuda:0'
 
-    if torch.cuda.device_count() > 1:
-        tm_net = nn.DataParallel(tm_net)
 
         # device = f'cuda:{tm_net.device_ids[0]}'
 
     if args.cuda:
+        if torch.cuda.device_count() > 1:
+            tm_net = nn.DataParallel(tm_net)
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         tm_net = tm_net.cuda()
 
