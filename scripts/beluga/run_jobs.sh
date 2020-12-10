@@ -1,5 +1,6 @@
 #!/bin/bash
 
+read -p "GPU: " gpu
 read -a negs -p "Negtive per positive: "
 read -a mars -p "Margins: "
 read -a lrr_list -p "ResNet lr:"
@@ -10,7 +11,7 @@ for k in "${negs[@]}"; do
 	for w in "${mars[@]}"; do
 		for lrr in "${lrr_list[@]}"; do
 			for lrs in "${lrs_list[@]}"; do
-				cp temp_cc_job_hotels_trp.sh cc_hotels.${k}_${w}_${lrr}_${lrs}.sh
+				cp temp_${gpu}gpu_cc_job_hotels_trp.sh cc_hotels.${k}_${w}_${lrr}_${lrs}.sh
 
 				sed -i "s/NN/${k}/" cc_hotels.${k}_${w}_${lrr}_${lrs}.sh
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-rrabba
-#SBATCH --job-name=hc-hotels_trainval-difficulteval-lrs3e-3-lrr1e-6-10way-randomresizedcrop300-resnet50-k@nsall-limit4-nor200-tripletloss-margin10-el0
+#SBATCH --job-name=hc-hotels_trainval-difficulteval-lrs3e-3-lrr1e-6-10way-randomresizedcrop300-resnet50-k@nsall-limit4-nor200-tripletloss-margin10-el0-nn1
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=46G
@@ -40,7 +40,9 @@ python3 train.py -cuda \
 	-fbw \
 	-mtlr \
 	-lss trpl \
-	-mg 10 
+	-mg 10 \
+       	-nn 1 \
+
 
 	#-katn \
 	#-mn model-epoch-69-val-acc-0.645.pt \

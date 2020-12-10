@@ -80,7 +80,7 @@ class TransformLoader:
         #     return method
         method = getattr(transforms, transform_type)
         if transform_type == 'RandomResizedCrop':
-            return method(self.image_size, scale=[0.5, 1], ratio=[1, 1])
+            return method(self.image_size, scale=[0.5, 1.0], ratio=[1.0, 1.0])
         elif transform_type == 'CenterCrop':
             return method(self.image_size)
         elif transform_type == 'Resize':
