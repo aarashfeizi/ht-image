@@ -120,7 +120,7 @@ class ModelMethods:
 
         imgs = torch.stack(imgs)
         # lbls = torch.stack(lbls)
-        self.logger(f'imgs.shape {imgs.shape}')
+        self.logger.info(f'imgs.shape {imgs.shape}')
         if args.cuda:
             imgs_c = Variable(imgs.cuda())
         else:
@@ -129,7 +129,7 @@ class ModelMethods:
         features, logits = net.forward(imgs_c, is_feat=True)
         feats = features[-1]
 
-        self.logger(f'feats.shape {feats.shape}')
+        self.logger.info(f'feats.shape {feats.shape}')
 
         self.writer.add_embedding(mat=feats.view(k, -1), metadata=lbls, label_img=imgs)
         self.writer.flush()
@@ -153,7 +153,7 @@ class ModelMethods:
         time_start = time.time()
         queue = deque(maxlen=20)
 
-        # self.logger('steps:', args.max_steps)
+        # self.logger.info('steps:', args.max_steps)
 
         # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
         epochs = 1
@@ -169,7 +169,7 @@ class ModelMethods:
             with tqdm(total=len(trainLoader), desc=f'Epoch {epoch + 1}/{epochs}') as t:
                 for batch_id, (img, label) in enumerate(trainLoader, 1):
 
-                    # self.logger('input: ', img1.size())
+                    # self.logger.info('input: ', img1.size())
 
                     if args.cuda:
                         img, label = Variable(img.cuda()), Variable(label.cuda())
@@ -183,7 +183,7 @@ class ModelMethods:
                     output = net.forward(img)
                     metric.update_acc(output, label)
                     loss = loss_fn(output, label)
-                    # self.logger('loss: ', loss.item())
+                    # self.logger.info('loss: ', loss.item())
                     train_loss += loss.item()
                     loss.backward()
 
@@ -303,7 +303,7 @@ class ModelMethods:
             # acts_anch_pos[0] = np.maximum(acts_anch_pos[0], 0)
             # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
 
-            # self.logger(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
+            # self.logger.info(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
             pos_pred_int = int(torch.sigmoid(pos_pred).item() < 0.5)
             self.cam_pos[id - 1] += pos_pred_int
 
@@ -322,7 +322,7 @@ class ModelMethods:
                                       plot_title)
 
             neg_pred, neg_dist, _, neg_feat, acts_anch_neg = net.forward(anch, neg, feats=True, hook=True)
-            # self.logger(f'cam neg {id - 1}: ', torch.sigmoid(neg_pred).item())
+            # self.logger.info(f'cam neg {id - 1}: ', torch.sigmoid(neg_pred).item())
 
             acts_anch_neg[0] *= classifier_weights
             acts_anch_neg[1] *= classifier_weights
@@ -359,7 +359,7 @@ class ModelMethods:
                                        'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
                                       plot_title)
 
-            # self.logger('neg_pred', torch.sigmoid(neg_pred))
+            # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
 
             result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
 
@@ -370,7 +370,7 @@ class ModelMethods:
 
                 pos_max_indices = torch.topk(pos_dist, k=k).indices
 
-                self.logger(f'pos max indices: {pos_max_indices}, {pos_dist[0][pos_max_indices]}')
+                self.logger.info(f'pos max indices: {pos_max_indices}, {pos_dist[0][pos_max_indices]}')
 
                 acts_tmp.append(acts_anch_pos[0][:, pos_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
@@ -383,20 +383,20 @@ class ModelMethods:
                 if k < 32:
                     all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
                                                          f'k_{k}_triplet{id}_all_heatmaps_best_anchpos.pdf')
-                    self.logger('before')
-                    self.logger(str(acts_tmp[0].min()))
-                    self.logger(str(acts_tmp[1].min()))
-                    self.logger(str(acts_tmp[2].min()))
+                    self.logger.info('before')
+                    self.logger.info(str(acts_tmp[0].min()))
+                    self.logger.info(str(acts_tmp[1].min()))
+                    self.logger.info(str(acts_tmp[2].min()))
                     utils.draw_all_heatmaps(acts_tmp,
                                             [anch_org, pos_org, neg_org],
                                             ['Anch', 'Pos', 'Neg'],
                                             all_heatmap_grid_path,
                                             plot_title)
-                    self.logger('after')
-                    self.logger(str(acts_tmp[0].min()))
-                    self.logger(str(acts_tmp[1].min()))
-                    self.logger(str(acts_tmp[2].min()))
-                    self.logger('-------------')
+                    self.logger.info('after')
+                    self.logger.info(str(acts_tmp[0].min()))
+                    self.logger.info(str(acts_tmp[1].min()))
+                    self.logger.info(str(acts_tmp[2].min()))
+                    self.logger.info('-------------')
 
                 utils.apply_forward_heatmap(acts_tmp,
                                             [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
@@ -552,12 +552,12 @@ class ModelMethods:
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
-                    # self.logger(grad_save_path)
+                    # self.logger.info(grad_save_path)
                     os.makedirs(grad_save_path)
                 all_batches_start = time.time()
                 for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
                     start = time.time()
-                    # self.logger('input: ', img1.size())
+                    # self.logger.info('input: ', img1.size())
 
                     debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
 
@@ -593,7 +593,7 @@ class ModelMethods:
                         self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
 
                     # if args.verbose:
-                    #     self.logger(f'norm pos: {pos_dist}')
+                    #     self.logger.info(f'norm pos: {pos_dist}')
                     class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
                     metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
@@ -604,11 +604,11 @@ class ModelMethods:
                         forward_end = time.time()
                         if utils.MY_DEC.enabled:
                             self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-                        # neg_dist.register_hook(lambda x: self.logger(f'neg_dist grad:{x}'))
-                        # neg_pred.register_hook(lambda x: self.logger(f'neg_pred grad:{x}'))
+                        # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+                        # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
 
                         # if args.verbose:
-                        #     self.logger(f'norm neg {neg_iter}: {neg_dist}')
+                        #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
 
                         metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
 
@@ -653,7 +653,7 @@ class ModelMethods:
 
                                     layers.append(n)
 
-                            self.logger('got triplet loss grads')
+                            self.logger.info('got triplet loss grads')
 
                             # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
                             #                           grad_save_path)
@@ -690,7 +690,7 @@ class ModelMethods:
                         # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
                         #                          grad_save_path)
 
-                        self.logger('got bce grads')
+                        self.logger.info('got bce grads')
 
                         if loss_fn is None:
                             utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
@@ -899,13 +899,13 @@ class ModelMethods:
         acc = 0.0
         for d in queue:
             acc += d
-        self.logger("#" * 70)
-        self.logger(f'queue len: {len(queue)}')
+        self.logger.info("#" * 70)
+        self.logger.info(f'queue len: {len(queue)}')
 
         if args.project_tb:
-            self.logger("Start projecting")
+            self.logger.info("Start projecting")
             # self._tb_project_embeddings(args, net.ft_net, train_loader, 1000)
-            self.logger("Projecting done")
+            self.logger.info("Projecting done")
 
         return net, best_model
 
@@ -922,7 +922,7 @@ class ModelMethods:
         time_start = time.time()
         queue = deque(maxlen=20)
 
-        # self.logger('steps:', args.max_steps)
+        # self.logger.info('steps:', args.max_steps)
 
         # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
         epochs = args.epochs
@@ -946,7 +946,7 @@ class ModelMethods:
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 for batch_id, (img1, img2, label) in enumerate(train_loader, 1):
 
-                    # self.logger('input: ', img1.size())
+                    # self.logger.info('input: ', img1.size())
 
                     if args.cuda:
                         img1, img2, label = Variable(img1.cuda()), Variable(img2.cuda()), Variable(label.cuda())
@@ -965,7 +965,7 @@ class ModelMethods:
                     output = net.forward(img1, img2)
                     metric.update_acc(output.squeeze(), label.squeeze())
                     loss = loss_fn(output, label)
-                    # self.logger('loss: ', loss.item())
+                    # self.logger.info('loss: ', loss.item())
                     train_loss += loss.item()
                     loss.backward()
                     # plt = self.plot_grad_flow(net.named_parameters())
@@ -1052,13 +1052,13 @@ class ModelMethods:
         acc = 0.0
         for d in queue:
             acc += d
-        self.logger("#" * 70)
-        self.logger(f'queue len: {len(queue)}')
+        self.logger.info("#" * 70)
+        self.logger.info(f'queue len: {len(queue)}')
 
         if args.project_tb:
-            self.logger("Start projecting")
+            self.logger.info("Start projecting")
             # self._tb_project_embeddings(args, net.ft_net, train_loader, 1000)
-            self.logger("Projecting done")
+            self.logger.info("Projecting done")
 
         return net, best_model
 
@@ -1141,8 +1141,8 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
 
             for neg_iter in range(self.no_negative):
-                # self.logger(anch.shape)
-                # self.logger(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                # self.logger.info(anch.shape)
+                # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
@@ -1328,7 +1328,7 @@ class ModelMethods:
             except Exception as e:
                 exp_msg = e
                 counter += 1
-                self.logger(str(exp))
+                self.logger.info(str(exp))
                 new_o_dic = collections.OrderedDict()
                 for k, v in o_dic.items():
                     new_o_dic[k[7:]] = v
@@ -1378,15 +1378,15 @@ class ModelMethods:
         return best_model
 
     def getBack(self, var_grad_fn):
-        self.logger(str(var_grad_fn))
+        self.logger.info(str(var_grad_fn))
         for n in var_grad_fn.next_functions:
             if n[0]:
                 try:
                     tensor = getattr(n[0], 'variable')
-                    self.logger(str(n[0]))
-                    self.logger(f'Tensor with grad found: {tensor}')
-                    self.logger(f' - gradient: {tensor.grad}')
-                    self.logger('\n')
+                    self.logger.info(str(n[0]))
+                    self.logger.info(f'Tensor with grad found: {tensor}')
+                    self.logger.info(f' - gradient: {tensor.grad}')
+                    self.logger.info('\n')
                 except AttributeError as e:
                     self.getBack(n[0])
 
@@ -1402,7 +1402,7 @@ class ModelMethods:
         for n, p in named_parameters:
             if (p.requires_grad) and ("bias" not in n):
                 if p.grad is None:
-                    self.logger(f'{n}, {p}')
+                    self.logger.info(f'{n}, {p}')
                     continue
                 layers.append(n)
                 ave_grads.append(p.grad.abs().mean())
