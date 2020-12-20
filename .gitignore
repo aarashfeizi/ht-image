@@ -170,3 +170,5 @@ srcdirs.txt
 !mask_paths.csv
 tensorboard_pow1pow2/
 model_shapes/
+scripts/
+plots_FUCKING_NEW/

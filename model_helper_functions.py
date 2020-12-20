@@ -29,23 +29,21 @@ import utils
 
 class ModelMethods:
 
-    def __init__(self, args, logger, model='top', cam_images_len=-1):  # res or top
-
-        id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
-        id_str = '-time_' + id_str.replace('.', '-') + '_' + args.job_id
+    def __init__(self, args, logger, model='top', cam_images_len=-1, model_name='', id_str=''):  # res or top
 
         self.model = model
-        self.model_name = self._parse_args(args)
+
+        self.model_name = model_name
 
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
 
-        self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name + id_str)
+        self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name)
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
 
         if args.pretrained_model_dir == '':
-            self.save_path = os.path.join(args.local_path, args.save_path, self.model_name + id_str)
+            self.save_path = os.path.join(args.local_path, args.save_path, self.model_name)
             utils.create_save_path(self.save_path, id_str, self.logger)
         else:
             self.logger.info(f"Using pretrained path... \nargs.pretrained_model_dir: {args.pretrained_model_dir}")
@@ -110,87 +108,6 @@ class ModelMethods:
             self.pos_resizefactors = None
             self.neg_offsets = None
             self.neg_resizefactors = None
-
-    def _parse_args(self, args):
-        # name = 'model-betteraug-distmlp-' + self.model
-        name = 'model-' + self.model
-
-        name_replace_dict = {'dataset_name': 'dsn',
-                             'batch_size': 'bs',
-                             'lr_siamese': 'lrs',
-                             'lr_resnet': 'lrr',
-                             # 'early_stopping',
-                             'feat_extractor': 'fe',
-                             'extra_layer': 'el',
-                             # 'normalize',
-                             'number_of_runs': 'nor',
-                             'no_negative': 'nn',
-                             'margin': 'm',
-                             'loss': 'loss',
-                             'overfit_num': 'on',
-                             'bcecoefficient': 'bco',
-                             'debug_grad': 'dg',
-                             'aug_mask': 'am',
-                             'from_scratch': 'fs',
-                             'fourth_dim': 'fd',
-                             'image_size': 'igsz'}
-
-        if args.loss == 'bce':
-            important_args = ['dataset_name',
-                              'batch_size',
-                              'lr_siamese',
-                              'lr_resnet',
-                              # 'early_stopping',
-                              'feat_extractor',
-                              'extra_layer',
-                              # 'normalize',
-                              'number_of_runs',
-                              'no_negative',
-                              'loss',
-                              'overfit_num',
-                              'debug_grad',
-                              'aug_mask',
-                              'from_scratch',
-                              'image_size',
-                              'fourth_dim']
-
-        else:
-            important_args = ['dataset_name',
-                              'batch_size',
-                              'lr_siamese',
-                              'lr_resnet',
-                              # 'early_stopping',
-                              'feat_extractor',
-                              'extra_layer',
-                              # 'normalize',
-                              'number_of_runs',
-                              'no_negative',
-                              'margin',
-                              'loss',
-                              'overfit_num',
-                              'bcecoefficient',
-                              'debug_grad',
-                              'aug_mask',
-                              'from_scratch',
-                              'image_size',
-                              'fourth_dim']
-
-        for arg in vars(args):
-            if str(arg) in important_args:
-                if str(arg) == 'debug_grad' and not getattr(args, arg):
-                    continue
-                elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
-                    continue
-                elif str(arg) == 'aug_mask' and getattr(args, arg) == 0:
-                    continue
-                elif str(arg) == 'from_scratch' and getattr(args, arg) == 0:
-                    continue
-                elif str(arg) == 'fourth_dim' and getattr(args, arg) == 0:
-                    continue
-
-                name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
-
-        return name
 
     def _tb_project_embeddings(self, args, net, loader, k):
 

@@ -1,7 +1,5 @@
 import json
 import logging
-import os
-import sys
 from argparse import Namespace
 
 from torch.utils.data import DataLoader
@@ -12,14 +10,16 @@ from hotel_dataloader import *
 from losses import TripletLoss, MaxMarginLoss
 from models.top_model import *
 
+
 ###
 # todo for next week
 
 # Average per class for metrics (k@n) ???
 
 @utils.MY_DEC
-def _logger():
-    logging.basicConfig(format='%(asctime)s - %(message)s', stream=sys.stdout, level=logging.INFO)
+def _logger(logname):
+    logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
+                        filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
     return logging.getLogger()
 
 
@@ -28,7 +28,6 @@ def main():
     print(utils.MY_DEC.enabled)
     utils.MY_DEC.enabled = args.verbose
     print(utils.MY_DEC.enabled)
-    logger = _logger()
 
     with open(os.path.join(args.project_path, f'dataset_info_{args.env}.json'), 'r') as d:
         dataset_info = json.load(d)
@@ -41,6 +40,9 @@ def main():
     torch.manual_seed(args.seed)
 
     # args.dataset_folder = dataset_info[args.dataset_name][]
+    model_name, id_str = utils.get_logname(args, 'top')
+
+    logger = _logger(model_name)
 
     basic_aug = (args.overfit_num == 0)
 
@@ -223,7 +225,8 @@ def main():
 
     cam_images_len = len(cam_img_paths) if cam_img_paths is not None else 0
 
-    model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=cam_images_len)
+    model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=cam_images_len,
+                                                            model_name=model_name, id_str=id_str)
     tm_net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
     print(model_methods_top.save_path)
@@ -234,8 +237,7 @@ def main():
     #
     # device = f'cuda:0'
 
-
-        # device = f'cuda:{tm_net.device_ids[0]}'
+    # device = f'cuda:{tm_net.device_ids[0]}'
 
     if args.cuda:
         if torch.cuda.device_count() > 1:

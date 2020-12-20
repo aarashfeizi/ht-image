@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import multiprocessing
 import os
@@ -192,8 +193,10 @@ def get_args():
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
-    parser.add_argument('-ppth', '--project_path', default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
-    parser.add_argument('-lpth', '--local_path', default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
+    parser.add_argument('-ppth', '--project_path',
+                        default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
+    parser.add_argument('-lpth', '--local_path',
+                        default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
     parser.add_argument('-jid', '--job_id', default='')
 
     args = parser.parse_args()
@@ -1419,3 +1422,95 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     fig.suptitle(supplot_title)
     fig.savefig(path, dpi=5000)
     plt.close('all')
+
+def get_logname(args, model):
+    id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
+    id_str = '-time_' + id_str.replace('.', '-')
+
+    if args.job_id != '':
+        id_str += '_' + args.job_id
+
+    # name = 'model-betteraug-distmlp-' + self.model
+    name = 'model-' + model
+
+    name_replace_dict = {'dataset_name': 'dsn',
+                         'batch_size': 'bs',
+                         'lr_siamese': 'lrs',
+                         'lr_resnet': 'lrr',
+                         # 'early_stopping',
+                         'feat_extractor': 'fe',
+                         'extra_layer': 'el',
+                         # 'normalize',
+                         'number_of_runs': 'nor',
+                         'no_negative': 'nn',
+                         'margin': 'm',
+                         'loss': 'loss',
+                         'overfit_num': 'on',
+                         'bcecoefficient': 'bco',
+                         'debug_grad': 'dg',
+                         'aug_mask': 'am',
+                         'from_scratch': 'fs',
+                         'fourth_dim': 'fd',
+                         'image_size': 'igsz'}
+
+    if args.loss == 'bce':
+        important_args = ['dataset_name',
+                          'batch_size',
+                          'lr_siamese',
+                          'lr_resnet',
+                          # 'early_stopping',
+                          'feat_extractor',
+                          'extra_layer',
+                          # 'normalize',
+                          'number_of_runs',
+                          'no_negative',
+                          'loss',
+                          'overfit_num',
+                          'debug_grad',
+                          'aug_mask',
+                          'from_scratch',
+                          'image_size',
+                          'fourth_dim']
+
+    else:
+        important_args = ['dataset_name',
+                          'batch_size',
+                          'lr_siamese',
+                          'lr_resnet',
+                          # 'early_stopping',
+                          'feat_extractor',
+                          'extra_layer',
+                          # 'normalize',
+                          'number_of_runs',
+                          'no_negative',
+                          'margin',
+                          'loss',
+                          'overfit_num',
+                          'bcecoefficient',
+                          'debug_grad',
+                          'aug_mask',
+                          'from_scratch',
+                          'image_size',
+                          'fourth_dim']
+
+    for arg in vars(args):
+        if str(arg) in important_args:
+            if str(arg) == 'debug_grad' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
+                continue
+            elif str(arg) == 'aug_mask' and getattr(args, arg) == 0:
+                continue
+            elif str(arg) == 'from_scratch' and getattr(args, arg) == 0:
+                continue
+            elif str(arg) == 'fourth_dim' and getattr(args, arg) == 0:
+                continue
+
+            name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
+
+    if args.pretrained_model_dir != '':
+        name += '_pretrained_' + args.pretrained_model_dir
+
+    name += id_str
+
+    return name, id_str
