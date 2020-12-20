@@ -33,7 +33,7 @@ class ModelMethods:
 
         self.model = model
 
-        self.model_nameself.model_name = model_name
+        self.model_name = model_name
 
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
