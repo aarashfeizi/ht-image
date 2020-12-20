@@ -25,9 +25,7 @@ def _logger(logname):
 
 def main():
     args = utils.get_args()
-    print(utils.MY_DEC.enabled)
     utils.MY_DEC.enabled = args.verbose
-    print(utils.MY_DEC.enabled)
 
     with open(os.path.join(args.project_path, f'dataset_info_{args.env}.json'), 'r') as d:
         dataset_info = json.load(d)
@@ -43,6 +41,8 @@ def main():
     model_name, id_str = utils.get_logname(args, 'top')
 
     logger = _logger(model_name)
+
+    logger.info(f'Verbose: {args.verbose}')
 
     basic_aug = (args.overfit_num == 0)
 
@@ -68,7 +68,7 @@ def main():
 
     if args.gpu_ids != '':
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
-        print("use gpu:", args.gpu_ids, "to train.")
+        logger.info(f"use gpu: {args.gpu_ids} to train.")
 
     train_set = None
     test_set = None
@@ -96,7 +96,7 @@ def main():
 
     # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
 
-    print('*' * 10)
+    logger.info('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
     if args.cam:
         cam_img_paths = utils.read_img_paths(args.cam_path)
@@ -105,42 +105,42 @@ def main():
 
         # cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
         #                                      overfit=True, return_paths=True)
-        # print('*' * 10)
+        # logger.info('*' * 10)
         # cam_val_set_known_metric = train_metric_dataset(args, transform=cam_data_transforms, mode='val_seen',
         #                                                 save_pictures=False, overfit=False, return_paths=True)
-        # print('*' * 10)
+        # logger.info('*' * 10)
         # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
         #                                                   save_pictures=False, overfit=False, return_paths=True)
 
-    print('*' * 10)
+    logger.info('*' * 10)
     if args.metric_learning:
         train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False,
                                          overfit=True)
-        print('*' * 10)
+        logger.info('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
                                                     save_pictures=False, overfit=False)
-        print('*' * 10)
+        logger.info('*' * 10)
         val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
                                                       save_pictures=False, overfit=False)
 
 
     else:
         train_set = train_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
-        print('*' * 10)
+        logger.info('*' * 10)
 
     train_set_fewshot = test_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
 
     val_set_known_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_seen',
                                                   save_pictures=False)
-    print('*' * 10)
+    logger.info('*' * 10)
     val_set_unknown_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_unseen',
                                                     save_pictures=False)
 
     if args.test:
         test_set_known = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_seen')
-        print('*' * 10)
+        logger.info('*' * 10)
         test_set_unknown = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_unseen')
-        print('*' * 10)
+        logger.info('*' * 10)
 
         # todo test not supported for metric learning
 
@@ -229,7 +229,7 @@ def main():
                                                             model_name=model_name, id_str=id_str)
     tm_net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
-    print(model_methods_top.save_path)
+    logger.info(model_methods_top.save_path)
 
     # multi gpu
     # if len(args.gpu_ids.split(",")) > 1:
@@ -241,8 +241,9 @@ def main():
 
     if args.cuda:
         if torch.cuda.device_count() > 1:
+            logger.info(f'torch.cuda.device_count() = {torch.cuda.device_count()}')
             tm_net = nn.DataParallel(tm_net)
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        logger.info(f'Let\'s use {torch.cuda.device_count()} GPUs!')
         tm_net = tm_net.cuda()
 
     logger.info('Training Top')
