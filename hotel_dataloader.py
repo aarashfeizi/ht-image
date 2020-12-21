@@ -229,7 +229,7 @@ class HotelTrain_FewShot(Dataset):
 
     def __getitem__(self, index):
         # image1 = random.choice(self.dataset.imgs)
-        label = None  # label is the distance between the two image. 0: same, 1: different
+        label = None  # label is the distance between the two image. 1: same, 0: different
         img1 = None
         img2 = None
 

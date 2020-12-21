@@ -1286,11 +1286,12 @@ class ModelMethods:
         # self.draw_dim_reduced(test_feats, test_classes, method='tsne', title=f"{mode}, epoch: " + str(epoch),
         #                       path=tsne_path)
 
-        diff_class_path = os.path.join(self.gen_plot_path, f'{mode}/class_diff_plot.png')
-        self.plot_class_diff_plots(test_feats, test_classes,
-                                   epoch=epoch,
-                                   mode=mode,
-                                   path=diff_class_path)
+        if epoch != -1:
+            diff_class_path = os.path.join(self.gen_plot_path, f'{mode}/class_diff_plot.png')
+            self.plot_class_diff_plots(test_feats, test_classes,
+                                       epoch=epoch,
+                                       mode=mode,
+                                       path=diff_class_path)
 
         silhouette_path = ['', '']
         silhouette_path[0] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_plot.png')
@@ -1487,7 +1488,7 @@ class ModelMethods:
             pred_vector, dist = net.forward(img1, img2)
             loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
             pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
-            pred = np.argmin(pred_vector)
+            pred = np.argmax(pred_vector)
             if pred == 0:
                 right += 1
             else:
