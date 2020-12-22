@@ -541,6 +541,8 @@ class ModelMethods:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
                     # self.logger.info(grad_save_path)
                     os.makedirs(grad_save_path)
+                else:
+                    grad_save_path = None
                 all_batches_start = time.time()
                 net, t, (train_loss, train_bce_loss, train_triplet_loss), (
                     pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss, metric_ACC,
