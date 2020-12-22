@@ -55,7 +55,7 @@ def time_it(fn):
         start = time.time()
         ret = fn(*args, **kwargs)
         end = time.time()
-        print(f"Function {str(fn.__name__)}, time: ", (end - start))
+        print(f'Function {str(fn.__name__)}, time:  {end - start}')
         return ret
 
     return wrapper
@@ -1422,6 +1422,7 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     fig.suptitle(supplot_title)
     fig.savefig(path, dpi=5000)
     plt.close('all')
+
 
 def get_logname(args, model):
     id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')

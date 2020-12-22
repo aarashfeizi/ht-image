@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 from argparse import Namespace
 
 from torch.utils.data import DataLoader
@@ -17,9 +18,13 @@ from models.top_model import *
 # Average per class for metrics (k@n) ???
 
 @utils.MY_DEC
-def _logger(logname):
-    logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
+def _logger(logname, env):
+    if env == 'hlr':
+        logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
                         filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
+    else:
+        logging.basicConfig(stream=sys.stdout,
+                            filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
     return logging.getLogger()
 
 
@@ -40,7 +45,7 @@ def main():
     # args.dataset_folder = dataset_info[args.dataset_name][]
     model_name, id_str = utils.get_logname(args, 'top')
 
-    logger = _logger(model_name)
+    logger = _logger(model_name, args.env)
 
     logger.info(f'Verbose: {args.verbose}')
 
