@@ -96,7 +96,7 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
 
     if trained_feat_net is None:
         print('Using pretrained model')
-        ft_net = model_dict[args.feat_extractor](pretrained=use_pretrained, num_classes=num_classes, mask=mask, fourth_dim=fourth_dim)
+        ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask, fourth_dim=fourth_dim)
     else:
         print('Using recently trained model')
         ft_net = trained_feat_net

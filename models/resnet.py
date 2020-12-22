@@ -210,10 +210,10 @@ class ResNet(tResNet):
             own_state[name].copy_(param)
 
 
-def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, **kwargs):
+def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, local_path='.', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), **kwargs)
     if pretrained:
-        if os.path.exists(os.path.join(args.local_path, f'models/pretrained_{arch}.pt')):
+        if os.path.exists(os.path.join(local_path, f'models/pretrained_{arch}.pt')):
             print(f'loading {arch} from pretrained')
             state_dict = torch.load(f'models/pretrained_{arch}.pt')['model_state_dict']
         else:
@@ -227,7 +227,7 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, 
     return model
 
 
-def resnet18(pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, **kwargs):
+def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, **kwargs):
     r"""ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
@@ -235,10 +235,10 @@ def resnet18(pretrained=False, progress=True, num_classes=1, mask=False, fourth_
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                    mask, fourth_dim, **kwargs)
+                    mask, fourth_dim, local_path=args.local_path, **kwargs)
 
 
-def resnet34(pretrained=False, progress=True, num_classes=1, **kwargs):
+def resnet34(args, pretrained=False, progress=True, num_classes=1, **kwargs):
     r"""ResNet-34 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
@@ -249,14 +249,14 @@ def resnet34(pretrained=False, progress=True, num_classes=1, **kwargs):
                    **kwargs)
 
 
-def resnet50(pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, **kwargs):
+def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, **kwargs):
     r"""ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes,
+    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, local_path=args.local_path,
                    mask=mask, fourth_dim=fourth_dim, **kwargs)
 
 
