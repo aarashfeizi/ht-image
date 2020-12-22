@@ -745,107 +745,102 @@ class ModelMethods:
                 if utils.MY_DEC.enabled:
                     self.logger.info(f'########### all batches time: {all_batches_end - all_batches_start}')
 
-                #
-                # svm = SVC()
-                # knn = KNeighborsClassifier(n_neighbors=1)
-                #
-                # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
-                # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
+                with torch.no_grad():  # for evaluations
+                    if args.loss == 'maxmargin':
+                        plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3,
+                                 label=['pos', 'neg'])
+                        plt.title(f'Losses Epoch {epoch}')
+                        plt.legend(loc='upper right')
+                        plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
+                        plt.close('all')
 
-                if args.loss == 'maxmargin':
-                    plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3,
-                             label=['pos', 'neg'])
-                    plt.title(f'Losses Epoch {epoch}')
-                    plt.legend(loc='upper right')
-                    plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
-                    plt.close('all')
+                    if bce_loss is None:
+                        bce_loss = loss_fn
 
-                if bce_loss is None:
-                    bce_loss = loss_fn
 
-                start = time.time()
-                train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
-                    args, net, train_loader_fewshot, bce_loss)
-                end = time.time()
-                if utils.MY_DEC.enabled:
-                    self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
+                    start = time.time()
+                    train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
+                        args, net, train_loader_fewshot, bce_loss)
+                    end = time.time()
+                    if utils.MY_DEC.enabled:
+                        self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
 
-                self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
-                                 f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
+                    self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
+                                     f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
 
-                self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
-                if loss_fn is not None:
-                    self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
-                self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
-                self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
+                    self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
+                    if loss_fn is not None:
+                        self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
+                    self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
+                    self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
 
-                self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
-                self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
-                self.writer.flush()
-
-                if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
-                    net.eval()
-                    # device = f'cuda:{net.device_ids[0]}'
-                    val_acc_unknwn, val_acc_knwn = -1, -1
-
-                    if args.eval_mode == 'fewshot':
-
-                        val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
-                                                                                     val_loaders_fewshot[0],
-                                                                                     bce_loss, val=True,
-                                                                                     epoch=epoch, comment='known')
-                        self.test_metric(args, net, val_loaders[0],
-                                         loss_fn, bce_loss, val=True,
-                                         epoch=epoch, comment='known')
-
-                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
-                                                                                           val_loaders_fewshot[1],
-                                                                                           bce_loss,
-                                                                                           val=True,
-                                                                                           epoch=epoch,
-                                                                                           comment='unknown')
-                        self.test_metric(args, net, val_loaders[1],
-                                         loss_fn, bce_loss, val=True,
-                                         epoch=epoch, comment='unknown')
-
-                    elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
-                        val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
-                                                                     epoch=epoch)
-                    else:
-                        raise Exception('Unsupporeted eval mode')
-
-                    self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
-                    self.logger.info('*' * 30)
-                    if val_acc_knwn > max_val_acc_knwn:
-                        self.logger.info(
-                            'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
-                        self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
-                        max_val_acc_knwn = val_acc_knwn
-
-                    if val_acc_unknwn > max_val_acc_unknwn:
-                        self.logger.info(
-                            'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
-                        self.logger.info(
-                            'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
-                        max_val_acc_unknwn = val_acc_unknwn
-
-                    val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
-                            val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
-
-                    self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                    self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
+                    self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
                     self.writer.flush()
 
-                    val_rgt = (val_rgt_knwn + val_rgt_unknwn)
-                    val_err = (val_err_knwn + val_err_unknwn)
+                    if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
+                        net.eval()
+                        # device = f'cuda:{net.device_ids[0]}'
+                        val_acc_unknwn, val_acc_knwn = -1, -1
 
-                if val_acc > max_val_acc:
-                    val_counter = 0
-                    self.logger.info(
-                        'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
-                    best_model = self.save_model(args, net, epoch, val_acc)
-                    max_val_acc = val_acc
+                        if args.eval_mode == 'fewshot':
 
-                    queue.append(val_rgt * 1.0 / (val_rgt + val_err))
+                            val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
+                                                                                         val_loaders_fewshot[0],
+                                                                                         bce_loss, val=True,
+                                                                                         epoch=epoch, comment='known')
+                            self.test_metric(args, net, val_loaders[0],
+                                             loss_fn, bce_loss, val=True,
+                                             epoch=epoch, comment='known')
+
+                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
+                                                                                               val_loaders_fewshot[1],
+                                                                                               bce_loss,
+                                                                                               val=True,
+                                                                                               epoch=epoch,
+                                                                                               comment='unknown')
+                            self.test_metric(args, net, val_loaders[1],
+                                             loss_fn, bce_loss, val=True,
+                                             epoch=epoch, comment='unknown')
+
+                        elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
+                            val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
+                                                                         epoch=epoch)
+                        else:
+                            raise Exception('Unsupporeted eval mode')
+
+                        self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
+                        self.logger.info('*' * 30)
+                        if val_acc_knwn > max_val_acc_knwn:
+                            self.logger.info(
+                                'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
+                            self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
+                            max_val_acc_knwn = val_acc_knwn
+
+                        if val_acc_unknwn > max_val_acc_unknwn:
+                            self.logger.info(
+                                'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
+                            self.logger.info(
+                                'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
+                            max_val_acc_unknwn = val_acc_unknwn
+
+                        val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
+                                val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
+
+                        self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                        self.writer.flush()
+
+                        val_rgt = (val_rgt_knwn + val_rgt_unknwn)
+                        val_err = (val_err_knwn + val_err_unknwn)
+
+                    if val_acc > max_val_acc:
+                        val_counter = 0
+                        self.logger.info(
+                            'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
+                        best_model = self.save_model(args, net, epoch, val_acc)
+                        max_val_acc = val_acc
+
+                        queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
