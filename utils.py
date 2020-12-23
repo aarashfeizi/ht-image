@@ -1525,4 +1525,4 @@ def print_gpu_stuff(state):
     print(f'current memory cached {state}: ', torch.cuda.memory_cached() / (2 ** 30), ' GB')
     print(f'current cached free memory {state}: ', (torch.cuda.memory_cached() - torch.cuda.memory_allocated()) / (2 ** 30), ' GB')
 
-    pdb.set_trace()
+    # pdb.set_trace()

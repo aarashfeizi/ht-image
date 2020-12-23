@@ -489,8 +489,6 @@ class ModelMethods:
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
 
         print('current_device: ', torch.cuda.current_device())
-        import pdb
-        pdb.set_trace()
 
         if multiple_gpu:
             if net.module.aug_mask:
@@ -549,20 +547,13 @@ class ModelMethods:
                     grad_save_path = None
                 all_batches_start = time.time()
 
-                print('current memory allocated before once epoch train: ', torch.cuda.memory_allocated() / (2**30))
-                print('current memory cached before once epoch train: ', torch.cuda.memory_cached() / (2 ** 30))
-
-                pdb.set_trace()
+                utils.print_gpu_stuff('before train epoch')
 
                 t, (train_loss, train_bce_loss, train_triplet_loss), (
                     pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss, metric_ACC,
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
-                print('****************************')
-
-                print('current memory allocated after once epoch train: ', torch.cuda.memory_allocated() / (2 ** 30))
-                print('current memory cached after once epoch train: ', torch.cuda.memory_cached() / (2 ** 30))
-                pdb.set_trace()
+                utils.print_gpu_stuff('after train epoch')
 
                 all_batches_end = time.time()
                 if utils.MY_DEC.enabled:
