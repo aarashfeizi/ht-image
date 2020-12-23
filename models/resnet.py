@@ -210,14 +210,14 @@ class ResNet(tResNet):
             own_state[name].copy_(param)
 
 
-def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, local_path='.', **kwargs):
+def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, project_path='.', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), **kwargs)
     if pretrained:
-        if os.path.exists(os.path.join(local_path, f'models/pretrained_{arch}.pt')):
+        if os.path.exists(os.path.join(project_path, f'models/pretrained_{arch}.pt')):
             print(f'loading {arch} from pretrained')
             state_dict = torch.load(f'models/pretrained_{arch}.pt')['model_state_dict']
         else:
-            Exception(f'Model {arch} not found in models/...')
+            raise Exception(f'Model {arch} not found in models/...')
             # state_dict = load_state_dict_from_url(model_urls[arch],
             #                                             progress=progress)
             # state_dict = torch.load('/Users/aarash/Downloads/resnet50-19c8e357.pth', map_location=None)
@@ -235,7 +235,7 @@ def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                    mask, fourth_dim, local_path=args.local_path, **kwargs)
+                   mask, fourth_dim, project_path=args.project_path, **kwargs)
 
 
 def resnet34(args, pretrained=False, progress=True, num_classes=1, **kwargs):
@@ -256,7 +256,7 @@ def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, local_path=args.local_path,
+    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, project_path=args.project_path,
                    mask=mask, fourth_dim=fourth_dim, **kwargs)
 
 
