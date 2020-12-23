@@ -672,13 +672,14 @@ class ModelMethods:
 
                         val_rgt = (val_rgt_knwn + val_rgt_unknwn)
                         val_err = (val_err_knwn + val_err_unknwn)
-
                     if val_acc > max_val_acc:
+                        utils.print_gpu_stuff('Before saving model')
                         val_counter = 0
                         self.logger.info(
                             'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
                         best_model = self.save_model(args, net, epoch, val_acc)
                         max_val_acc = val_acc
+                        utils.print_gpu_stuff('Before saving model')
 
                         queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
