@@ -213,11 +213,12 @@ class ResNet(tResNet):
 def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, project_path='.', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), **kwargs)
     if pretrained:
-        if os.path.exists(os.path.join(project_path, f'models/pretrained_{arch}.pt')):
+        pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
+        if os.path.exists(pretrained_path):
             print(f'loading {arch} from pretrained')
-            state_dict = torch.load(f'models/pretrained_{arch}.pt')['model_state_dict']
+            state_dict = torch.load(pretrained_path)['model_state_dict']
         else:
-            raise Exception(f'Model {arch} not found in models/...')
+            raise Exception(f'Model {arch} not found in {pretrained_path}')
             # state_dict = load_state_dict_from_url(model_urls[arch],
             #                                             progress=progress)
             # state_dict = torch.load('/Users/aarash/Downloads/resnet50-19c8e357.pth', map_location=None)
