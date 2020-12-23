@@ -488,6 +488,10 @@ class ModelMethods:
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
 
+        print('current_device: ', torch.cuda.current_device())
+        import pdb
+        pdb.set_trace()
+
         if multiple_gpu:
             if net.module.aug_mask:
                 opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
@@ -544,10 +548,21 @@ class ModelMethods:
                 else:
                     grad_save_path = None
                 all_batches_start = time.time()
-                net, t, (train_loss, train_bce_loss, train_triplet_loss), (
+
+                print('current memory allocated before once epoch train: ', torch.cuda.memory_allocated() / (2**30))
+                print('current memory cached before once epoch train: ', torch.cuda.memory_cached() / (2 ** 30))
+
+                pdb.set_trace()
+
+                t, (train_loss, train_bce_loss, train_triplet_loss), (
                     pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss, metric_ACC,
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
+                print('****************************')
+
+                print('current memory allocated after once epoch train: ', torch.cuda.memory_allocated() / (2 ** 30))
+                print('current memory cached after once epoch train: ', torch.cuda.memory_cached() / (2 ** 30))
+                pdb.set_trace()
 
                 all_batches_end = time.time()
                 if utils.MY_DEC.enabled:
@@ -565,10 +580,15 @@ class ModelMethods:
                     if bce_loss is None:
                         bce_loss = loss_fn
 
+                    utils.print_gpu_stuff('before train few_shot')
+
                     start = time.time()
                     train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                         args, net, train_loader_fewshot, bce_loss)
                     end = time.time()
+
+                    utils.print_gpu_stuff('after train few_shot')
+
                     if utils.MY_DEC.enabled:
                         self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
 
@@ -594,14 +614,19 @@ class ModelMethods:
                         if args.eval_mode == 'fewshot':
 
 
-
+                            utils.print_gpu_stuff('before test few_shot 1')
                             val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
                                                                                          val_loaders_fewshot[0],
                                                                                          bce_loss, val=True,
                                                                                          epoch=epoch, comment='known')
+
+                            utils.print_gpu_stuff('after test few_shot 1 and before test_metric')
+
                             self.test_metric(args, net, val_loaders[0],
                                              loss_fn, bce_loss, val=True,
                                              epoch=epoch, comment='known')
+
+                            utils.print_gpu_stuff('after test_metric 1 and before test_fewshot 2')
 
                             val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
                                                                                                val_loaders_fewshot[1],
@@ -609,9 +634,14 @@ class ModelMethods:
                                                                                                val=True,
                                                                                                epoch=epoch,
                                                                                                comment='unknown')
+                            utils.print_gpu_stuff('after test_fewshot 2 and before test_metric 2')
+
+
                             self.test_metric(args, net, val_loaders[1],
                                              loss_fn, bce_loss, val=True,
                                              epoch=epoch, comment='unknown')
+
+                            utils.print_gpu_stuff('after all validation')
 
                         elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                             val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -1574,4 +1604,4 @@ class ModelMethods:
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one batch time: {end - start}')
 
-        return net, t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
+        return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)

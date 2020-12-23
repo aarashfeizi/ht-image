@@ -3,6 +3,7 @@ import datetime
 import json
 import multiprocessing
 import os
+import pdb
 import time
 
 import cv2
@@ -1515,3 +1516,13 @@ def get_logname(args, model):
     name += id_str
 
     return name, id_str
+
+def print_gpu_stuff(state):
+    print('****************************')
+    print(f'GPU: {torch.cuda.current_device()}')
+    print(f'Total memory {state}: {torch.cuda.get_device_properties(0).total_memory / (2 ** 30)} GB')
+    print(f'current memory allocated {state}: ', torch.cuda.memory_allocated() / (2 ** 30), ' GB')
+    print(f'current memory cached {state}: ', torch.cuda.memory_cached() / (2 ** 30), ' GB')
+    print(f'current cached free memory {state}: ', (torch.cuda.memory_cached() - torch.cuda.memory_allocated()) / (2 ** 30), ' GB')
+
+    pdb.set_trace()

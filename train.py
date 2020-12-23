@@ -249,7 +249,9 @@ def main():
             logger.info(f'torch.cuda.device_count() = {torch.cuda.device_count()}')
             tm_net = nn.DataParallel(tm_net)
         logger.info(f'Let\'s use {torch.cuda.device_count()} GPUs!')
+        utils.print_gpu_stuff('before model to gpu')
         tm_net = tm_net.cuda()
+        utils.print_gpu_stuff('after model to gpu')
 
     logger.info('Training Top')
     if args.pretrained_model_name == '':
