@@ -172,3 +172,4 @@ tensorboard_pow1pow2/
 model_shapes/
 scripts/
 plots_FUCKING_NEW/
+models/*.pt

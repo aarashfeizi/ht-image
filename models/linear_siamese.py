@@ -9,6 +9,8 @@ class LiSiamese(nn.Module):
 
         if args.feat_extractor == 'resnet50':
             self.input_shape = 2048
+        elif args.feat_extractor == 'vgg16':
+            self.input_shape = 4096
         else:
             self.input_shape = 512
 
