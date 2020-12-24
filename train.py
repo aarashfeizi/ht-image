@@ -19,7 +19,7 @@ from models.top_model import *
 
 @utils.MY_DEC
 def _logger(logname, env):
-    if env == 'hlr':
+    if env == 'hlr' or env == 'local':
         logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
                         filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
     else:

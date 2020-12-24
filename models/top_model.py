@@ -1,5 +1,6 @@
 from models.linear_siamese import *
 from models.resnet import *
+from models.vgg import *
 
 
 class TopModel(nn.Module):
@@ -53,7 +54,7 @@ class TopModel(nn.Module):
             else:
                 other_pass_act = None
 
-            ret = self.sm_net(x1_f[-1], x2_f[-1], feats=feats)
+            ret = self.sm_net(x1_f, x2_f, feats=feats)
 
             if feats:
                 pred, pdist, out1, out2 = ret
@@ -65,7 +66,7 @@ class TopModel(nn.Module):
                 pred, pdist = ret
                 return pred, pdist
         else:
-            output = self.sm_net(x1_f[-1], None, single)  # single is true
+            output = self.sm_net(x1_f, None, single)  # single is true
             return output
 
     def get_classifier_weights(self):
@@ -89,6 +90,7 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         'resnet18': resnet18,
         'resnet34': resnet34,
         'resnet50': resnet50,
+        'vgg16': vgg16,
         'resnet101': resnet101,
     }
 

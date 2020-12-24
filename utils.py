@@ -150,11 +150,12 @@ def get_args():
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
-                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101'])
+                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16'])
     parser.add_argument('-fr', '--freeze_ext', default=False, action='store_true')
     parser.add_argument('-el', '--extra_layer', default=0, type=int,
                         help="Number of 512 extra layers in the Li-Siamese")
     parser.add_argument('-nn', '--no_negative', default=1, type=int)
+    parser.add_argument('-en', '--extra_name', default='')
 
     parser.add_argument('-s', '--seed', default=402, type=int, help="random seed")
     parser.add_argument('-w', '--way', default=20, type=int, help="how much way one-shot learning")
@@ -1432,7 +1433,17 @@ def get_logname(args, model):
         id_str += '_' + args.job_id
 
     # name = 'model-betteraug-distmlp-' + self.model
-    name = 'model-' + model
+
+    name = f'model-bs{args.batch_size}'
+
+    if args.cuda and args.gpu_ids != '':
+        gpus_num = len(args.gpu_ids.split(','))
+        name += f'-{gpus_num}gpus'
+    else:
+        name += f'-cpu'
+
+    if args.extra_name != '':
+        name += '-' + args.extra_name
 
     name_replace_dict = {'dataset_name': 'dsn',
                          'batch_size': 'bs',

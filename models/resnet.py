@@ -174,7 +174,7 @@ class ResNet(tResNet):
         # print('is_feat', is_feat)
         # print('type is_feat', type(is_feat))
         if is_feat:
-            return [f0, f1, f2, f3, feat], x
+            return feat, x
         else:
             return x
 
