@@ -1,7 +1,5 @@
 import collections
-import datetime
 import os
-import pickle
 import time
 from collections import deque
 
@@ -149,7 +147,6 @@ class ModelMethods:
         opt = torch.optim.Adam(net.parameters(), lr=args.lr_siamese)
         opt.zero_grad()
 
-        train_losses = []
         time_start = time.time()
         queue = deque(maxlen=20)
 
@@ -190,8 +187,6 @@ class ModelMethods:
                     opt.step()
                     total_batch_id += 1
                     t.set_postfix(loss=f'{train_loss / batch_id:.4f}', train_acc=f'{metric.get_acc():.4f}')
-
-                    train_losses.append(train_loss)
 
                     t.update()
 
@@ -493,6 +488,8 @@ class ModelMethods:
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
 
+        print('current_device: ', torch.cuda.current_device())
+
         if multiple_gpu:
             if net.module.aug_mask:
                 opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
@@ -516,7 +513,6 @@ class ModelMethods:
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt.zero_grad()
 
-        train_losses = []
         time_start = time.time()
         queue = deque(maxlen=20)
 
@@ -541,311 +537,142 @@ class ModelMethods:
         for epoch in range(epochs):
 
             epoch_start = time.time()
-            train_loss = 0
-            train_bce_loss = 0
-            train_triplet_loss = 0
-            pos_parts = []
-            neg_parts = []
-
-            metric_ACC.reset_acc()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
                     # self.logger.info(grad_save_path)
                     os.makedirs(grad_save_path)
+                else:
+                    grad_save_path = None
                 all_batches_start = time.time()
-                for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
-                    start = time.time()
-                    # self.logger.info('input: ', img1.size())
 
-                    debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+                utils.print_gpu_stuff('before train epoch')
 
-                    one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
-                    zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
-
-                    if args.cuda:
-                        anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
-                                                                  Variable(pos.cuda()), \
-                                                                  Variable(neg.cuda()), \
-                                                                  Variable(one_labels.cuda()), \
-                                                                  Variable(zero_labels.cuda())
-                    else:
-                        anch, pos, neg, one_labels, zero_labels = Variable(anch), \
-                                                                  Variable(pos), \
-                                                                  Variable(neg), \
-                                                                  Variable(one_labels), \
-                                                                  Variable(zero_labels)
-
-                    if not drew_graph:
-                        self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
-                        self.writer.flush()
-                        drew_graph = True
-
-                    net.train()
-                    # device = f'cuda:{net.device_ids[0]}'
-                    opt.zero_grad()
-                    forward_start = time.time()
-                    pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                    forward_end = time.time()
-
-                    if utils.MY_DEC.enabled:
-                        self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
-
-                    # if args.verbose:
-                    #     self.logger.info(f'norm pos: {pos_dist}')
-                    class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
-                    metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
-
-                    for neg_iter in range(self.no_negative):
-                        forward_start = time.time()
-                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                                      feats=True)
-                        forward_end = time.time()
-                        if utils.MY_DEC.enabled:
-                            self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-                        # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
-                        # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
-
-                        # if args.verbose:
-                        #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
-
-                        metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
-
-                        class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-                        if loss_fn is not None:
-                            ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
-
-                            if neg_iter == 0:
-                                ext_loss = ext_batch_loss
-                            else:
-                                ext_loss += ext_batch_loss
-
-                            if args.loss == 'maxmargin':
-                                if neg_iter == 0:
-                                    pos_parts.extend(parts[0].tolist())
-                                neg_parts.extend(parts[1].tolist())
-
-                    class_loss /= (self.no_negative + 1)
-
-                    if loss_fn is not None:
-                        ext_loss /= self.no_negative
-                        loss = ext_loss + self.bce_weight * class_loss
-                        train_triplet_loss += ext_loss.item()
-
-                        if debug_grad:
-                            ext_loss.backward(retain_graph=True)
-                            triplet_loss_named_parameters = net.named_parameters()
-
-                            trpl_ave_grads = []
-                            trpl_max_grads = []
-                            layers = []
-                            for n, p in net.named_parameters():
-                                if (p.requires_grad) and ("bias" not in n):
-                                    if n == 'ft_net.fc.weight':
-                                        continue
-                                    if p.grad is None:
-                                        trpl_ave_grads.append(torch.Tensor([0.0]))
-                                        trpl_max_grads.append(torch.Tensor([0.0]))
-                                    else:
-                                        trpl_ave_grads.append(p.grad.abs().mean())
-                                        trpl_max_grads.append(p.grad.abs().max())
-
-                                    layers.append(n)
-
-                            self.logger.info('got triplet loss grads')
-
-                            # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
-                            #                           grad_save_path)
-                            opt.zero_grad()
-
-                    else:
-                        loss = self.bce_weight * class_loss
-
-                    train_loss += loss.item()
-                    train_bce_loss += class_loss.item()
-
-                    if debug_grad:
-                        lambda_class_loss = self.bce_weight * class_loss
-                        lambda_class_loss.backward(retain_graph=True)
-
-                        bce_named_parameters = net.named_parameters()
-                        bce_named_parameters = {k: v for k, v in bce_named_parameters}
-
-                        bce_ave_grads = []
-                        bce_max_grads = []
-                        for n, p in net.named_parameters():
-                            if (p.requires_grad) and ("bias" not in n):
-                                if n == 'ft_net.fc.weight':
-                                    continue
-                                if p.grad is None:
-                                    continue
-
-                                bce_ave_grads.append(p.grad.abs().mean())
-                                bce_max_grads.append(p.grad.abs().max())
-
-                        # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
-                        #                          epoch, grad_save_path)
-                        #
-                        # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
-                        #                          grad_save_path)
-
-                        self.logger.info('got bce grads')
-
-                        if loss_fn is None:
-                            utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                                                     grad_save_path)
-                            utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                                                      grad_save_path)
-                        else:
-                            # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
-                            #                          'TRIPLET', batch_id, epoch, grad_save_path)
-                            # utils.bar_plot_grad_flow(args, bce_named_parameters,
-                            #                          'BCE', batch_id, epoch, grad_save_path)
-                            utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
-                                                          [bce_ave_grads, bce_max_grads, layers],
-                                                          'BOTH', batch_id, epoch, grad_save_path)
-                            # import pdb
-                            # pdb.set_trace()
-                            utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
-                                                         [bce_ave_grads, bce_max_grads, layers],
-                                                         'BOTH', batch_id, epoch, grad_save_path)
-
-                        opt.zero_grad()
-
-                    loss.backward()  # training with triplet loss
-
-                    # if debug_grad:
-                    #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
-                    #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
-                    #                               grad_save_path)
-
-                    opt.step()
-
-                    if loss_fn is not None:
-                        t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
-                                      bce_loss=f'{train_bce_loss / batch_id:.4f}',
-                                      triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
-                                      train_acc=f'{metric_ACC.get_acc():.4f}'
-                                      )
-                    else:
-                        t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
-                                      bce_loss=f'{train_bce_loss / batch_id:.4f}',
-                                      train_acc=f'{metric_ACC.get_acc():.4f}'
-                                      )
-
-                    train_losses.append(train_loss)
-
-                    t.update()
-                    end = time.time()
-                    if utils.MY_DEC.enabled:
-                        self.logger.info(f'########### one batch time: {end - start}')
+                t, (train_loss, train_bce_loss, train_triplet_loss), (
+                    pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss, metric_ACC,
+                                                                                loss_fn, train_loader, epoch,
+                                                                                grad_save_path, drew_graph)
+                utils.print_gpu_stuff('after train epoch')
 
                 all_batches_end = time.time()
                 if utils.MY_DEC.enabled:
                     self.logger.info(f'########### all batches time: {all_batches_end - all_batches_start}')
 
-                #
-                # svm = SVC()
-                # knn = KNeighborsClassifier(n_neighbors=1)
-                #
-                # metric_SVC = self.linear_classifier(train_embeddings, svm, metric_SVC)
-                # metric_KNN = self.linear_classifier(train_embeddings, knn, metric_KNN)
+                with torch.no_grad():  # for evaluations
+                    if args.loss == 'maxmargin':
+                        plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3,
+                                 label=['pos', 'neg'])
+                        plt.title(f'Losses Epoch {epoch}')
+                        plt.legend(loc='upper right')
+                        plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
+                        plt.close('all')
 
-                if args.loss == 'maxmargin':
-                    plt.hist([np.array(pos_parts).flatten(), np.array(neg_parts).flatten()], bins=30, alpha=0.3,
-                             label=['pos', 'neg'])
-                    plt.title(f'Losses Epoch {epoch}')
-                    plt.legend(loc='upper right')
-                    plt.savefig(f'{self.plt_save_path}/pos_part_{epoch}.png')
-                    plt.close('all')
+                    if bce_loss is None:
+                        bce_loss = loss_fn
 
-                if bce_loss is None:
-                    bce_loss = loss_fn
+                    utils.print_gpu_stuff('before train few_shot')
 
-                start = time.time()
-                train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
-                    args, net, train_loader_fewshot, bce_loss)
-                end = time.time()
-                if utils.MY_DEC.enabled:
-                    self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
+                    start = time.time()
+                    train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
+                        args, net, train_loader_fewshot, bce_loss)
+                    end = time.time()
 
-                self.logger.info(f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
-                                 f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
+                    utils.print_gpu_stuff('after train few_shot')
 
-                self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
-                if loss_fn is not None:
-                    self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
-                self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
-                self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
+                    if utils.MY_DEC.enabled:
+                        self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
 
-                self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
-                self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
-                self.writer.flush()
+                    self.logger.info(
+                        f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
+                        f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
 
-                if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
-                    net.eval()
-                    # device = f'cuda:{net.device_ids[0]}'
-                    val_acc_unknwn, val_acc_knwn = -1, -1
+                    self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
+                    if loss_fn is not None:
+                        self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
+                    self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
+                    self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
 
-                    if args.eval_mode == 'fewshot':
-
-                        val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
-                                                                                     val_loaders_fewshot[0],
-                                                                                     bce_loss, val=True,
-                                                                                     epoch=epoch, comment='known')
-                        self.test_metric(args, net, val_loaders[0],
-                                         loss_fn, bce_loss, val=True,
-                                         epoch=epoch, comment='known')
-
-                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
-                                                                                           val_loaders_fewshot[1],
-                                                                                           bce_loss,
-                                                                                           val=True,
-                                                                                           epoch=epoch,
-                                                                                           comment='unknown')
-                        self.test_metric(args, net, val_loaders[1],
-                                         loss_fn, bce_loss, val=True,
-                                         epoch=epoch, comment='unknown')
-
-                    elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
-                        val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
-                                                                     epoch=epoch)
-                    else:
-                        raise Exception('Unsupporeted eval mode')
-
-                    self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
-                    self.logger.info('*' * 30)
-                    if val_acc_knwn > max_val_acc_knwn:
-                        self.logger.info(
-                            'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
-                        self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
-                        max_val_acc_knwn = val_acc_knwn
-
-                    if val_acc_unknwn > max_val_acc_unknwn:
-                        self.logger.info(
-                            'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
-                        self.logger.info(
-                            'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
-                        max_val_acc_unknwn = val_acc_unknwn
-
-                    val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
-                            val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
-
-                    self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                    self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
+                    self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
                     self.writer.flush()
 
-                    val_rgt = (val_rgt_knwn + val_rgt_unknwn)
-                    val_err = (val_err_knwn + val_err_unknwn)
+                    if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
+                        net.eval()
+                        # device = f'cuda:{net.device_ids[0]}'
+                        val_acc_unknwn, val_acc_knwn = -1, -1
 
-                if val_acc > max_val_acc:
-                    val_counter = 0
-                    self.logger.info(
-                        'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
-                    best_model = self.save_model(args, net, epoch, val_acc)
-                    max_val_acc = val_acc
+                        if args.eval_mode == 'fewshot':
 
-                    queue.append(val_rgt * 1.0 / (val_rgt + val_err))
+
+                            utils.print_gpu_stuff('before test few_shot 1')
+                            val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
+                                                                                         val_loaders_fewshot[0],
+                                                                                         bce_loss, val=True,
+                                                                                         epoch=epoch, comment='known')
+
+                            utils.print_gpu_stuff('after test few_shot 1 and before test_metric')
+
+                            self.test_metric(args, net, val_loaders[0],
+                                             loss_fn, bce_loss, val=True,
+                                             epoch=epoch, comment='known')
+
+                            utils.print_gpu_stuff('after test_metric 1 and before test_fewshot 2')
+
+                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
+                                                                                               val_loaders_fewshot[1],
+                                                                                               bce_loss,
+                                                                                               val=True,
+                                                                                               epoch=epoch,
+                                                                                               comment='unknown')
+                            utils.print_gpu_stuff('after test_fewshot 2 and before test_metric 2')
+
+
+                            self.test_metric(args, net, val_loaders[1],
+                                             loss_fn, bce_loss, val=True,
+                                             epoch=epoch, comment='unknown')
+
+                            utils.print_gpu_stuff('after all validation')
+
+                        elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
+                            val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
+                                                                         epoch=epoch)
+                        else:
+                            raise Exception('Unsupporeted eval mode')
+
+                        self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
+                        self.logger.info('*' * 30)
+                        if val_acc_knwn > max_val_acc_knwn:
+                            self.logger.info(
+                                'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
+                            self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
+                            max_val_acc_knwn = val_acc_knwn
+
+                        if val_acc_unknwn > max_val_acc_unknwn:
+                            self.logger.info(
+                                'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
+                            self.logger.info(
+                                'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
+                            max_val_acc_unknwn = val_acc_unknwn
+
+                        val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
+                                val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
+
+                        self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                        self.writer.flush()
+
+                        val_rgt = (val_rgt_knwn + val_rgt_unknwn)
+                        val_err = (val_err_knwn + val_err_unknwn)
+                    if val_acc > max_val_acc:
+                        utils.print_gpu_stuff('Before saving model')
+                        val_counter = 0
+                        self.logger.info(
+                            'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
+                        best_model = self.save_model(args, net, epoch, val_acc)
+                        max_val_acc = val_acc
+                        utils.print_gpu_stuff('Before saving model')
+
+                        queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
@@ -893,9 +720,6 @@ class ModelMethods:
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (complete) time: {epoch_end - epoch_start}')
 
-        with open('train_losses', 'wb') as f:
-            pickle.dump(train_losses, f)
-
         acc = 0.0
         for d in queue:
             acc += d
@@ -918,7 +742,6 @@ class ModelMethods:
 
         opt.zero_grad()
 
-        train_losses = []
         time_start = time.time()
         queue = deque(maxlen=20)
 
@@ -980,8 +803,6 @@ class ModelMethods:
                     #     train_loss = 0
                     #     metric.reset_acc()
                     #     time_start = time.time()
-
-                    train_losses.append(train_loss)
 
                     t.update()
 
@@ -1045,9 +866,6 @@ class ModelMethods:
                     queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
             self._tb_draw_histograms(args, net, epoch)
-
-        with open('train_losses', 'wb') as f:
-            pickle.dump(train_losses, f)
 
         acc = 0.0
         for d in queue:
@@ -1583,3 +1401,199 @@ class ModelMethods:
 
         plt.savefig(path[1])
         plt.close('all')
+
+    def train_metriclearning_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
+                                       grad_save_path, drew_graph):
+        train_loss = 0
+        train_bce_loss = 0
+        train_triplet_loss = 0
+        pos_parts = []
+        neg_parts = []
+
+        metric_ACC.reset_acc()
+
+        for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+
+            if args.cuda:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                          Variable(pos.cuda()), \
+                                                          Variable(neg.cuda()), \
+                                                          Variable(one_labels.cuda()), \
+                                                          Variable(zero_labels.cuda())
+            else:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), \
+                                                          Variable(pos), \
+                                                          Variable(neg), \
+                                                          Variable(one_labels), \
+                                                          Variable(zero_labels)
+
+            if not drew_graph:
+                self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
+                self.writer.flush()
+                drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+            opt.zero_grad()
+            forward_start = time.time()
+            pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            forward_end = time.time()
+
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+
+            # if args.verbose:
+            #     self.logger.info(f'norm pos: {pos_dist}')
+            class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
+
+            for neg_iter in range(self.no_negative):
+                forward_start = time.time()
+                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                                                              feats=True)
+                forward_end = time.time()
+                if utils.MY_DEC.enabled:
+                    self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+                # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+                # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+
+                # if args.verbose:
+                #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+
+                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+
+                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+                if loss_fn is not None:
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+
+                    if neg_iter == 0:
+                        ext_loss = ext_batch_loss
+                    else:
+                        ext_loss += ext_batch_loss
+
+                    if args.loss == 'maxmargin':
+                        if neg_iter == 0:
+                            pos_parts.extend(parts[0].tolist())
+                        neg_parts.extend(parts[1].tolist())
+
+            class_loss /= (self.no_negative + 1)
+
+            if loss_fn is not None:
+                ext_loss /= self.no_negative
+                loss = ext_loss + self.bce_weight * class_loss
+                train_triplet_loss += ext_loss.item()
+
+                if debug_grad:
+                    ext_loss.backward(retain_graph=True)
+                    triplet_loss_named_parameters = net.named_parameters()
+
+                    trpl_ave_grads = []
+                    trpl_max_grads = []
+                    layers = []
+                    for n, p in net.named_parameters():
+                        if (p.requires_grad) and ("bias" not in n):
+                            if n == 'ft_net.fc.weight':
+                                continue
+                            if p.grad is None:
+                                trpl_ave_grads.append(torch.Tensor([0.0]))
+                                trpl_max_grads.append(torch.Tensor([0.0]))
+                            else:
+                                trpl_ave_grads.append(p.grad.abs().mean())
+                                trpl_max_grads.append(p.grad.abs().max())
+
+                            layers.append(n)
+
+                    self.logger.info('got triplet loss grads')
+
+                    # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                    #                           grad_save_path)
+                    opt.zero_grad()
+
+            else:
+                loss = self.bce_weight * class_loss
+
+            train_loss += loss.item()
+            train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                lambda_class_loss = self.bce_weight * class_loss
+                lambda_class_loss.backward(retain_graph=True)
+
+                bce_named_parameters = net.named_parameters()
+                bce_named_parameters = {k: v for k, v in bce_named_parameters}
+
+                bce_ave_grads = []
+                bce_max_grads = []
+                for n, p in net.named_parameters():
+                    if (p.requires_grad) and ("bias" not in n):
+                        if n == 'ft_net.fc.weight':
+                            continue
+                        if p.grad is None:
+                            continue
+
+                        bce_ave_grads.append(p.grad.abs().mean())
+                        bce_max_grads.append(p.grad.abs().max())
+
+                # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
+                #                          epoch, grad_save_path)
+                #
+                # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
+                #                          grad_save_path)
+
+                self.logger.info('got bce grads')
+
+                if loss_fn is None:
+                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                             grad_save_path)
+                    utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                              grad_save_path)
+                else:
+                    # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
+                    #                          'TRIPLET', batch_id, epoch, grad_save_path)
+                    # utils.bar_plot_grad_flow(args, bce_named_parameters,
+                    #                          'BCE', batch_id, epoch, grad_save_path)
+                    utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                  [bce_ave_grads, bce_max_grads, layers],
+                                                  'BOTH', batch_id, epoch, grad_save_path)
+                    # import pdb
+                    # pdb.set_trace()
+                    utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                 [bce_ave_grads, bce_max_grads, layers],
+                                                 'BOTH', batch_id, epoch, grad_save_path)
+
+                opt.zero_grad()
+
+            loss.backward()  # training with triplet loss
+
+            # if debug_grad:
+            #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+            #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
+            #                               grad_save_path)
+
+            opt.step()
+
+            if loss_fn is not None:
+                t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                              bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                              triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
+                              train_acc=f'{metric_ACC.get_acc():.4f}'
+                              )
+            else:
+                t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                              bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                              train_acc=f'{metric_ACC.get_acc():.4f}'
+                              )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)

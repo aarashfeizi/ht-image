@@ -210,11 +210,13 @@ class ResNet(tResNet):
             own_state[name].copy_(param)
 
 
+
 def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, project_path='.', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), **kwargs)
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
         if os.path.exists(pretrained_path):
+
             print(f'loading {arch} from pretrained')
             state_dict = torch.load(pretrained_path)['model_state_dict']
         else:
@@ -239,6 +241,7 @@ def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, f
                    mask, fourth_dim, project_path=args.project_path, **kwargs)
 
 
+
 def resnet34(args, pretrained=False, progress=True, num_classes=1, **kwargs):
     r"""ResNet-34 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
@@ -257,6 +260,7 @@ def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
+
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, project_path=args.project_path,
                    mask=mask, fourth_dim=fourth_dim, **kwargs)
 
