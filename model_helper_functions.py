@@ -1060,6 +1060,8 @@ class ModelMethods:
                 test_feats = np.zeros((len(data_loader.dataset), 2048))
             elif args.feat_extractor == 'resnet18':
                 test_feats = np.zeros((len(data_loader.dataset), 512))
+            elif args.feat_extractor == 'vgg16':
+                test_feats = np.zeros((len(data_loader.dataset), 4096))
             else:
                 raise Exception('Not handled feature extractor')
 
