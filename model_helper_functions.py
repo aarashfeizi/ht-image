@@ -36,6 +36,9 @@ class ModelMethods:
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
 
+        if not os.path.exists(os.path.join(args.local_path, args.tb_path)):
+            os.makedirs(os.path.join(args.local_path, args.tb_path))
+
         self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name)
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
