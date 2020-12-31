@@ -1028,14 +1028,14 @@ def merge_heatmap_img(img, heatmap):
     return pic
 
 
-def read_img_paths(path):
+def read_img_paths(path, local_path='.'):
     import re
     final_lines = []
     with open(path, 'r') as file:
         cam_path = file.readline().strip()
         lines = list(map(lambda x:
                          tuple(map(lambda y:
-                                   os.path.join(cam_path, y) if len(y) != 0 else '',
+                                   os.path.join(local_path, cam_path, y) if len(y) != 0 else '',
                                    re.split(" +", x.strip()))),
                          file.readlines()))
 

@@ -104,9 +104,11 @@ def main():
     logger.info('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
     if args.cam:
-        cam_img_paths = utils.read_img_paths(args.cam_path)
+        cam_img_paths = utils.read_img_paths(os.path.join(args.project_path, args.cam_path), local_path=args.local_path)
     else:
         cam_img_paths = None
+
+    logger.info(str(cam_img_paths))
 
         # cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
         #                                      overfit=True, return_paths=True)
