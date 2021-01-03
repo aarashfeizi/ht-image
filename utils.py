@@ -1529,12 +1529,13 @@ def get_logname(args, model):
 
     return name, id_str
 
-def print_gpu_stuff(state):
-    print('****************************')
-    print(f'GPU: {torch.cuda.current_device()}')
-    print(f'Total memory {state}: {torch.cuda.get_device_properties(0).total_memory / (2 ** 30)} GB')
-    print(f'current memory allocated {state}: ', torch.cuda.memory_allocated() / (2 ** 30), ' GB')
-    print(f'current memory cached {state}: ', torch.cuda.memory_cached() / (2 ** 30), ' GB')
-    print(f'current cached free memory {state}: ', (torch.cuda.memory_cached() - torch.cuda.memory_allocated()) / (2 ** 30), ' GB')
+def print_gpu_stuff(cuda, state):
+    if cuda:
+        print('****************************')
+        print(f'GPU: {torch.cuda.current_device()}')
+        print(f'Total memory {state}: {torch.cuda.get_device_properties(0).total_memory / (2 ** 30)} GB')
+        print(f'current memory allocated {state}: ', torch.cuda.memory_allocated() / (2 ** 30), ' GB')
+        print(f'current memory cached {state}: ', torch.cuda.memory_cached() / (2 ** 30), ' GB')
+        print(f'current cached free memory {state}: ', (torch.cuda.memory_cached() - torch.cuda.memory_allocated()) / (2 ** 30), ' GB')
 
     # pdb.set_trace()

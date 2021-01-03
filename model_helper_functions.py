@@ -443,7 +443,7 @@ class ModelMethods:
                                             histogram_path=histogram_path)
 
             if loss_fn is not None:
-                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
                 ext_loss = ext_batch_loss
 
                 ext_loss.backward(retain_graph=True)
@@ -491,7 +491,8 @@ class ModelMethods:
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
 
-        print('current_device: ', torch.cuda.current_device())
+        if args.cuda:
+            print('current_device: ', torch.cuda.current_device())
 
         if multiple_gpu:
             if net.module.aug_mask:
@@ -539,6 +540,17 @@ class ModelMethods:
 
         for epoch in range(epochs):
 
+            if args.cam:
+                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                self.draw_heatmaps(net=net,
+                                   loss_fn=loss_fn,
+                                   bce_loss=bce_loss,
+                                   args=args,
+                                   cam_loader=cam_args[0],
+                                   transform_for_model=cam_args[1],
+                                   transform_for_heatmap=cam_args[2],
+                                   epoch=epoch,
+                                   count=1)
             epoch_start = time.time()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
@@ -550,13 +562,13 @@ class ModelMethods:
                     grad_save_path = None
                 all_batches_start = time.time()
 
-                utils.print_gpu_stuff('before train epoch')
+                utils.print_gpu_stuff(args.cuda, 'before train epoch')
 
                 t, (train_loss, train_bce_loss, train_triplet_loss), (
                     pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss, metric_ACC,
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
-                utils.print_gpu_stuff('after train epoch')
+                utils.print_gpu_stuff(args.cuda, 'after train epoch')
 
                 all_batches_end = time.time()
                 if utils.MY_DEC.enabled:
@@ -574,14 +586,14 @@ class ModelMethods:
                     if bce_loss is None:
                         bce_loss = loss_fn
 
-                    utils.print_gpu_stuff('before train few_shot')
+                    utils.print_gpu_stuff(args.cuda, 'before train few_shot')
 
                     start = time.time()
                     train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
                         args, net, train_loader_fewshot, bce_loss)
                     end = time.time()
 
-                    utils.print_gpu_stuff('after train few_shot')
+                    utils.print_gpu_stuff(args.cuda, 'after train few_shot')
 
                     if utils.MY_DEC.enabled:
                         self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
@@ -608,19 +620,19 @@ class ModelMethods:
                         if args.eval_mode == 'fewshot':
 
 
-                            utils.print_gpu_stuff('before test few_shot 1')
+                            utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
                             val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
                                                                                          val_loaders_fewshot[0],
                                                                                          bce_loss, val=True,
                                                                                          epoch=epoch, comment='known')
 
-                            utils.print_gpu_stuff('after test few_shot 1 and before test_metric')
+                            utils.print_gpu_stuff(args.cuda, 'after test few_shot 1 and before test_metric')
 
                             self.test_metric(args, net, val_loaders[0],
                                              loss_fn, bce_loss, val=True,
                                              epoch=epoch, comment='known')
 
-                            utils.print_gpu_stuff('after test_metric 1 and before test_fewshot 2')
+                            utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
 
                             val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
                                                                                                val_loaders_fewshot[1],
@@ -628,14 +640,14 @@ class ModelMethods:
                                                                                                val=True,
                                                                                                epoch=epoch,
                                                                                                comment='unknown')
-                            utils.print_gpu_stuff('after test_fewshot 2 and before test_metric 2')
+                            utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
 
 
                             self.test_metric(args, net, val_loaders[1],
                                              loss_fn, bce_loss, val=True,
                                              epoch=epoch, comment='unknown')
 
-                            utils.print_gpu_stuff('after all validation')
+                            utils.print_gpu_stuff(args.cuda, 'after all validation')
 
                         elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                             val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -667,13 +679,13 @@ class ModelMethods:
                         val_rgt = (val_rgt_knwn + val_rgt_unknwn)
                         val_err = (val_err_knwn + val_err_unknwn)
                     if val_acc > max_val_acc:
-                        utils.print_gpu_stuff('Before saving model')
+                        utils.print_gpu_stuff(args.cuda, 'Before saving model')
                         val_counter = 0
                         self.logger.info(
                             'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
                         best_model = self.save_model(args, net, epoch, val_acc)
                         max_val_acc = val_acc
-                        utils.print_gpu_stuff('Before saving model')
+                        utils.print_gpu_stuff(args.cuda, 'Before saving model')
 
                         queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
@@ -970,7 +982,7 @@ class ModelMethods:
                 class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
                 if loss_fn is not None:
-                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
                     if neg_iter == 0:
                         ext_loss = ext_batch_loss
@@ -1321,7 +1333,11 @@ class ModelMethods:
 
         return acc, loss, right, error
 
-    def get_loss_value(self, args, loss_fn, pos_dist, neg_dist):
+    def get_loss_value(self, args, loss_fn, anch_feat, pos_feat, neg_feat):
+
+        pos_dist = torch.pow((anch_feat - pos_feat), 2)
+        neg_dist = torch.pow((anch_feat - neg_feat), 2)
+
         if args.loss == 'trpl':
             loss = loss_fn(pos_dist, neg_dist)
             parts = []
@@ -1476,7 +1492,7 @@ class ModelMethods:
 
                 class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
                 if loss_fn is not None:
-                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, pos_dist, neg_dist)
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
                     if neg_iter == 0:
                         ext_loss = ext_batch_loss
