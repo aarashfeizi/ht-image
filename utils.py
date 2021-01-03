@@ -1050,7 +1050,8 @@ def read_img_paths(path, local_path='.'):
 
 
 def vector_merge_function(v1, v2):
-    merged = torch.pow((v1 - v2), 2)
+    # merged = torch.pow((v1 - v2), 2)
+    merged = v1 * v2
     return merged
 
 
