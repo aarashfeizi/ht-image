@@ -287,7 +287,7 @@ def main():
                                       batch_size=args.db_batch,
                                       mode='val')
     else:  # test
-        logger.info('Testing')
+        logger.info('Testing without training')
         best_model_top = args.pretrained_model_name
         logger.info(f"Not training, loading {best_model_top} model...")
         tm_net = model_methods_top.load_model(args, tm_net, best_model_top)

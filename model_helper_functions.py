@@ -1380,22 +1380,25 @@ class ModelMethods:
         self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='euclidean'))
         samples_silhouette = silhouette_samples(X, labels)
 
-        epochs = [i for i in range(epoch + 1)]
 
-        plt.figure(figsize=(10, 10))
-        if len(self.silhouette_scores[mode]) > 1:
-            plt.plot(epochs, self.silhouette_scores[mode], linewidth=2, markersize=12)
-        else:
-            plt.scatter(epochs, self.silhouette_scores[mode])
+        if epoch != -1:
+            epochs = [i for i in range(epoch + 1)]
 
-        plt.grid(True)
-        plt.xlabel('Epoch')
-        plt.ylabel(f'Silhouette Score')
-        plt.xlim(left=-1, right=epoch + 5)
+            plt.figure(figsize=(10, 10))
+            if len(self.silhouette_scores[mode]) > 1:
+                plt.plot(epochs, self.silhouette_scores[mode], linewidth=2, markersize=12)
+            else:
+                plt.scatter(epochs, self.silhouette_scores[mode])
 
-        plt.title(f'Silhouette Scores for {mode} set')
+            plt.grid(True)
+            plt.xlabel('Epoch')
+            plt.ylabel(f'Silhouette Score')
+            plt.xlim(left=-1, right=epoch + 5)
 
-        plt.savefig(path[0])
+            plt.title(f'Silhouette Scores for {mode} set')
+
+            plt.savefig(path[0])
+
         plt.close('all')
 
         plt.figure(figsize=(10, 10))
