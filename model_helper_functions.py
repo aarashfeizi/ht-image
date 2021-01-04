@@ -540,17 +540,6 @@ class ModelMethods:
 
         for epoch in range(epochs):
 
-            if args.cam:
-                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_heatmaps(net=net,
-                                   loss_fn=loss_fn,
-                                   bce_loss=bce_loss,
-                                   args=args,
-                                   cam_loader=cam_args[0],
-                                   transform_for_model=cam_args[1],
-                                   transform_for_heatmap=cam_args[2],
-                                   epoch=epoch,
-                                   count=1)
             epoch_start = time.time()
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
