@@ -1,13 +1,13 @@
 {
   "cub": {
     "dataset_folder": "CUB/images",
-    "splits_file_path": "../../dataset/CUB/final_newsplits0_1",
-    "image_size": 300
+    "splits_file_path": "../../dataset/CUB/splits_cub",
+    "image_size": 224
   },
   "hotels": {
     "splits_file_path": "../../dataset/hotels_trainval/dummy_splits_50k",
     "dataset_folder": "hotels_trainval/",
-    "image_size": 300,
+    "image_size": 224,
     "mask_path": "mask_paths.csv"
   },
   "omniglot": {

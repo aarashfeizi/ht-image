@@ -1,4 +1,6 @@
+import os
 import random
+import time
 
 import numpy as np
 import torch
@@ -6,8 +8,9 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
 
-from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
 import utils
+from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
+
 
 class CUBTrain_Metric(Dataset):
     def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False):
@@ -20,11 +23,15 @@ class CUBTrain_Metric(Dataset):
         self.return_paths = return_paths
         self.normalize = utils.TransformLoader(-1).transform_normalize
 
+        start = time.time()
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
                                                                                   split_file_path=args.splits_file_path,
                                                                                   portion=args.portion,
                                                                                   dataset_folder=args.dataset_folder)
+        end = time.time()
+        if utils.MY_DEC.enabled:
+            print(f'CUBTrain_Metric loadDataToMem time: {end - start}')
 
         if overfit and args.overfit_num > 0:
             self.overfit = True
@@ -37,7 +44,8 @@ class CUBTrain_Metric(Dataset):
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -116,7 +124,6 @@ class CUBTrain_Metric(Dataset):
                 # anch.save(f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_before.png')
                 # negs[0].save(f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_before.png')
 
-
             if self.aug_mask:
                 anch_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
@@ -181,7 +188,7 @@ class CUBTrain_FewShot(Dataset):
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder, os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -271,7 +278,6 @@ class CUBTrain_FewShot(Dataset):
 
         return imgs, lbls
 
-
     def do_transform(self, img):
         img = self.transform(img)
         img = self.normalize(img)
@@ -299,11 +305,10 @@ class CUBTest_FewShot(Dataset):
                                                                                     portion=args.portion,
                                                                                     dataset_folder=args.dataset_folder)
 
-
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder, os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -334,12 +339,13 @@ class CUBTest_FewShot(Dataset):
                 img2 = Image.open(random.choice(self.datas_bg[c2])[0]).convert('RGB')
 
         save = False
+        img1 = self.img1
         if self.transform:
             if self.save_pictures and random.random() < 0.001:
                 save = True
                 img1_random = random.randint(0, 1000)
                 img2_random = random.randint(0, 1000)
-                self.img1.save(f'hotel_imagesamples/val/val_{self.c1}_{img1_random}_before.png')
+                img1.save(f'hotel_imagesamples/val/val_{self.c1}_{img1_random}_before.png')
                 img2.save(f'hotel_imagesamples/val/val_{c2}_{img2_random}_before.png')
 
             if self.aug_mask:
@@ -347,10 +353,10 @@ class CUBTest_FewShot(Dataset):
 
                 img2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                img1, _, img1_mask, _ = utils.add_mask(self.img1, img1_mask)
+                img1, _, img1_mask, _ = utils.add_mask(img1, img1_mask)
                 img2, _, img2_mask, _ = utils.add_mask(img2, img2_mask)
 
-            img1 = self.do_transform(self.img1)
+            img1 = self.do_transform(img1)
             img2 = self.do_transform(img2)
 
             if save:
@@ -358,7 +364,6 @@ class CUBTest_FewShot(Dataset):
                 save_image(img2, f'hotel_imagesamples/val/val_{c2}_{img2_random}_after.png')
 
         return img1, img2
-
 
     def do_transform(self, img):
         img = self.transform(img)
@@ -379,7 +384,7 @@ class CUB_DB(Dataset):
             mode_tmp = mode + '_seen'
             total = True
         else:
-            mode_tmp = mode
+            mode_tmp = self.mode
             total = False
 
         self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
@@ -398,7 +403,8 @@ class CUB_DB(Dataset):
         self.aug_mask = args.aug_mask
 
         if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder, args.mask_path)
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
 
         else:
             self.masks = []
@@ -431,7 +437,6 @@ class CUB_DB(Dataset):
                 img, _, img2_mask, _ = utils.add_mask(img, img_mask)
 
             img = self.do_transform(img)
-
 
         if self.mode != 'train':
             return img, lbl, bl, id
