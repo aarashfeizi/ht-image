@@ -444,6 +444,6 @@ class CUB_DB(Dataset):
             return img, lbl, id
 
     def do_transform(self, img):
-        img = self.do_transform(img)
+        img = self.transform(img)
         img = self.normalize(img)
         return img
