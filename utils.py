@@ -981,15 +981,22 @@ def __post_create_heatmap(heatmap, shape):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     return heatmap
 
+def activation_reduction(activations):
+    act = torch.mean(activations, dim=1).squeeze().data.cpu().numpy()
+    # act = torch.max(activations, dim=1)[0].squeeze().data.cpu().numpy()
+    return act
+
 
 @MY_DEC
 def get_heatmap(activations, shape, save_path=None, label=None):
-    heatmap = torch.mean(activations, dim=1).squeeze()
+    # heatmap = torch.mean(activations, dim=1).squeeze()
+    # heatmap = torch.max(activations, dim=1)[0].squeeze()
+
+    heatmap = activation_reduction(activations)
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
 
-    heatmap = heatmap.data.cpu().numpy()
 
     max_value = np.max(np.abs(heatmap))  # to keep it normalized between positive and negative
 
@@ -1010,7 +1017,11 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
 
-    activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
+    # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
+    #                                 activations)))
+
+
+    activations = np.array(list(map(activation_reduction,
                                     activations)))
 
     # relu on top of the heatmap
@@ -1550,6 +1561,11 @@ def print_gpu_stuff(cuda, state):
 
 def mac(x):
     return F.max_pool2d(x, (x.size(-2), x.size(-1)))
+
+
+def gem(x, p=3, eps=1e-6):
+    return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
+    # return F.lp_pool2d(F.threshold(x, eps, eps), p, (x.size(-2), x.size(-1))) # alternative
 
 
 def rmac(x, L=3, eps=1e-6):
