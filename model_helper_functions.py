@@ -302,7 +302,7 @@ class ModelMethods:
             # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
 
             # self.logger.info(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
-            pos_pred_int = int(torch.sigmoid(pos_pred).item() < 0.5)
+            pos_pred_int = int(torch.sigmoid(pos_pred).item() >= 0.5)
             self.cam_pos[id - 1] += pos_pred_int
 
             pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
@@ -328,7 +328,7 @@ class ModelMethods:
             # acts_anch_neg[0] = np.maximum(acts_anch_neg[0], 0)
             # acts_anch_neg[1] = np.maximum(acts_anch_neg[1], 0)
 
-            neg_pred_int = int(torch.sigmoid(neg_pred).item() >= 0.5)
+            neg_pred_int = int(torch.sigmoid(neg_pred).item() < 0.5)
             self.cam_neg[id - 1] += neg_pred_int
 
             neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
@@ -502,7 +502,8 @@ class ModelMethods:
                                        lr=args.lr_siamese)
             else:
                 opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
-                                        {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}],
+                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}],
                                        lr=args.lr_siamese)
         else:
             if net.aug_mask:
@@ -512,7 +513,8 @@ class ModelMethods:
                                        lr=args.lr_siamese)
             else:
                 opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
-                                        {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}],
+                                        {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                        {'params': net.ft_net.pool.parameters(), 'lr': args.lr_siamese}],
                                        lr=args.lr_siamese)
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt.zero_grad()
@@ -1046,7 +1048,8 @@ class ModelMethods:
         :return: None
         """
 
-        if newly_trained:
+        if newly_trained or\
+                (not os.path.exists(os.path.join(self.save_path, f'{mode}Feats.h5'))):
             net.eval()
             # device = f'cuda:{net.device_ids[0]}'
             if batch_size is None:

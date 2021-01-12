@@ -1,9 +1,9 @@
 import argparse
 import datetime
 import json
+import math
 import multiprocessing
 import os
-import pdb
 import time
 
 import cv2
@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from PIL import Image, ImageOps
 from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
@@ -152,6 +153,8 @@ def get_args():
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
                         choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16'])
+    parser.add_argument('-pool', '--pooling', default='spoc',
+                        choices=['spoc', 'gem', 'mac', 'rmac'])
     parser.add_argument('-fr', '--freeze_ext', default=False, action='store_true')
     parser.add_argument('-el', '--extra_layer', default=0, type=int,
                         help="Number of 512 extra layers in the Li-Siamese")
@@ -294,12 +297,14 @@ def load_h5(data_description, path):
 def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True,
                      per_class=False, save_path='', mode=''):
     if per_class:
+        logger.info('K@N per class')
         total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode)
         total.to_csv(os.path.join(save_path, f'{mode}_per_class_total_avg_k@n.csv'), header=True, index=False)
         seen.to_csv(os.path.join(save_path, f'{mode}_per_class_seen_avg_k@n.csv'), header=True, index=False)
         unseen.to_csv(os.path.join(save_path, f'{mode}_per_class_unseen_avg_k@n.csv'), header=True, index=False)
 
     if sampled:
+        logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
                                                                  run_number, mode)
         kavg.to_csv(os.path.join(save_path, f'{mode}_sampled_avg_k@n.csv'), header=True, index=False)
@@ -327,11 +332,8 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
         ret_lbls = np.delete(img_lbls, idx)
         ret_seens = np.delete(seen_list, idx)
 
-        ret_lbls = [x for _, x in sorted(zip(ret_scores, ret_lbls), reverse=True)]
-        ret_seens = [x for _, x in sorted(zip(ret_scores, ret_seens), reverse=True)]
-
-        ret_lbls = np.array(ret_lbls)
-        ret_seens = np.array(ret_seens)
+        ret_lbls = _sort_according_to(ret_lbls, ret_scores)
+        ret_seens = _sort_according_to(ret_seens, ret_scores)
 
         metric_total.update(lbl, ret_lbls)
 
@@ -368,6 +370,14 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
     return total, seen, unseen
 
 
+def _sort_according_to(arr1, arr2):
+    arr1 = [x for _, x in sorted(zip(arr2, arr1), reverse=True)]
+
+    arr1 = np.array(arr1)
+
+    return arr1
+
+
 def _log_per_class(logger, df, split_kind=''):
     logger.info(f'Per class {split_kind}: {np.array(df["n"]).sum()}')
     logger.info(f'Average per class {split_kind}: {np.array(df["n"]).mean()}')
@@ -397,21 +407,32 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     k10s_u = []
     k100s_u = []
 
-    sampled_indices_all = pd.read_csv(os.path.join(args.project_path, 'sample_index_por' + str(args.portion) + '.csv'))
-    sampled_label_all = pd.read_csv(os.path.join(args.project_path, 'sample_label_por' + str(args.portion) + '.csv'))
+    if args.dataset_name != 'cub':
+        sampled_indices_all = pd.read_csv(
+            os.path.join(args.project_path, 'sample_index_por' + str(args.portion) + '.csv'))
+        sampled_label_all = pd.read_csv(
+            os.path.join(args.project_path, 'sample_label_por' + str(args.portion) + '.csv'))
 
     for run in range(run_number):
         column_name = f'run{run}'
-        sampled_indices = np.array(sampled_indices_all[column_name]).astype(int)
-        sampled_labels = np.array(sampled_label_all[column_name]).astype(int)
+        if args.dataset_name != 'cub':
+            sampled_indices = np.array(sampled_indices_all[column_name]).astype(int)
+            sampled_labels = np.array(sampled_label_all[column_name]).astype(int)
 
-        logger.info(f'{mode}')
-        logger.info('### Run ' + str(run) + "...")
-        chosen_img_feats = img_feats[sampled_indices]
-        chosen_img_lbls = img_lbls[sampled_indices]
-        chosen_seen_list = seen_list[sampled_indices]
+            logger.info(f'{mode}')
+            logger.info('### Run ' + str(run) + "...")
+            chosen_img_feats = img_feats[sampled_indices]
+            chosen_img_lbls = img_lbls[sampled_indices]
+            chosen_seen_list = seen_list[sampled_indices]
 
-        assert np.array_equal(sampled_labels, chosen_img_lbls)
+            assert np.array_equal(sampled_labels, chosen_img_lbls)
+
+        else:  # dataset os cub
+            logger.info(f'### Run {run} on cub...')
+
+            chosen_img_feats = img_feats
+            chosen_img_lbls = img_lbls
+            chosen_seen_list = seen_list
 
         sim_mat = cosine_similarity(chosen_img_feats)
         metric_total = metrics.Accuracy_At_K(classes=all_lbls)
@@ -423,8 +444,8 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
             ret_lbls = np.delete(chosen_img_lbls, idx)
             ret_seens = np.delete(chosen_seen_list, idx)
 
-            ret_lbls = [x for _, x in sorted(zip(ret_scores, ret_lbls), reverse=True)]
-            ret_lbls = np.array(ret_lbls)
+            ret_lbls = _sort_according_to(ret_lbls, ret_scores)
+            ret_seens = _sort_according_to(ret_seens, ret_scores)
 
             metric_total.update(lbl, ret_lbls)
 
@@ -1465,47 +1486,31 @@ def get_logname(args, model):
                          'aug_mask': 'am',
                          'from_scratch': 'fs',
                          'fourth_dim': 'fd',
-                         'image_size': 'igsz'}
+                         'image_size': 'igsz',
+                         'pooling': 'pool'}
 
-    if args.loss == 'bce':
-        important_args = ['dataset_name',
-                          'batch_size',
-                          'lr_siamese',
-                          'lr_resnet',
-                          # 'early_stopping',
-                          'feat_extractor',
-                          'extra_layer',
-                          # 'normalize',
-                          'number_of_runs',
-                          'no_negative',
-                          'loss',
-                          'overfit_num',
-                          'debug_grad',
-                          'aug_mask',
-                          'from_scratch',
-                          'image_size',
-                          'fourth_dim']
+    important_args = ['dataset_name',
+                      'batch_size',
+                      'lr_siamese',
+                      'lr_resnet',
+                      # 'early_stopping',
+                      'feat_extractor',
+                      'extra_layer',
+                      # 'normalize',
+                      'number_of_runs',
+                      'no_negative',
+                      'loss',
+                      'overfit_num',
+                      'debug_grad',
+                      'aug_mask',
+                      'from_scratch',
+                      'image_size',
+                      'fourth_dim',
+                      'pooling']
 
-    else:
-        important_args = ['dataset_name',
-                          'batch_size',
-                          'lr_siamese',
-                          'lr_resnet',
-                          # 'early_stopping',
-                          'feat_extractor',
-                          'extra_layer',
-                          # 'normalize',
-                          'number_of_runs',
-                          'no_negative',
-                          'margin',
-                          'loss',
-                          'overfit_num',
-                          'bcecoefficient',
-                          'debug_grad',
-                          'aug_mask',
-                          'from_scratch',
-                          'image_size',
-                          'fourth_dim']
+    if args.loss != 'bce':
+        important_args.extend(['bcecoefficient',
+                               'margin'])
 
     for arg in vars(args):
         if str(arg) in important_args:
@@ -1523,11 +1528,12 @@ def get_logname(args, model):
             name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
 
     if args.pretrained_model_dir != '':
-        name += '_pretrained_' + args.pretrained_model_dir
+        name = args.pretrained_model_dir + '_pretrained'
 
     name += id_str
 
     return name, id_str
+
 
 def print_gpu_stuff(cuda, state):
     if cuda:
@@ -1536,6 +1542,63 @@ def print_gpu_stuff(cuda, state):
         print(f'Total memory {state}: {torch.cuda.get_device_properties(0).total_memory / (2 ** 30)} GB')
         print(f'current memory allocated {state}: ', torch.cuda.memory_allocated() / (2 ** 30), ' GB')
         print(f'current memory cached {state}: ', torch.cuda.memory_cached() / (2 ** 30), ' GB')
-        print(f'current cached free memory {state}: ', (torch.cuda.memory_cached() - torch.cuda.memory_allocated()) / (2 ** 30), ' GB')
+        print(f'current cached free memory {state}: ',
+              (torch.cuda.memory_cached() - torch.cuda.memory_allocated()) / (2 ** 30), ' GB')
 
     # pdb.set_trace()
+
+
+def mac(x):
+    return F.max_pool2d(x, (x.size(-2), x.size(-1)))
+
+
+def rmac(x, L=3, eps=1e-6):
+    ovr = 0.4  # desired overlap of neighboring regions
+    steps = torch.Tensor([2, 3, 4, 5, 6, 7])  # possible regions for the long dimension
+
+    W = x.size(3)
+    H = x.size(2)
+
+    w = min(W, H)
+    w2 = math.floor(w / 2.0 - 1)
+
+    b = (max(H, W) - w) / (steps - 1)
+    (tmp, idx) = torch.min(torch.abs(((w ** 2 - w * b) / w ** 2) - ovr), 0)  # steps(idx) regions for long dimension
+
+    # region overplus per dimension
+    Wd = 0
+    Hd = 0
+    if H < W:
+        Wd = idx.item() + 1
+    elif H > W:
+        Hd = idx.item() + 1
+
+    v = F.max_pool2d(x, (x.size(-2), x.size(-1)))
+    v = v / (torch.norm(v, p=2, dim=1, keepdim=True) + eps).expand_as(v)
+
+    for l in range(1, L + 1):
+        wl = math.floor(2 * w / (l + 1))
+        wl2 = math.floor(wl / 2 - 1)
+
+        if l + Wd == 1:
+            b = 0
+        else:
+            b = (W - wl) / (l + Wd - 1)
+        cenW = torch.floor(wl2 + torch.Tensor(range(l - 1 + Wd + 1)) * b) - wl2  # center coordinates
+        if l + Hd == 1:
+            b = 0
+        else:
+            b = (H - wl) / (l + Hd - 1)
+        cenH = torch.floor(wl2 + torch.Tensor(range(l - 1 + Hd + 1)) * b) - wl2  # center coordinates
+
+        for i_ in cenH.tolist():
+            for j_ in cenW.tolist():
+                if wl == 0:
+                    continue
+                R = x[:, :, (int(i_) + torch.Tensor(range(wl)).long()).tolist(), :]
+                R = R[:, :, :, (int(j_) + torch.Tensor(range(wl)).long()).tolist()]
+                vt = F.max_pool2d(R, (R.size(-2), R.size(-1)))
+                vt = vt / (torch.norm(vt, p=2, dim=1, keepdim=True) + eps).expand_as(vt)
+                v += vt
+
+    return v

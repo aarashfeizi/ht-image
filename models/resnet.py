@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
+import torch.nn.functional as F
 from torchvision.models import ResNet as tResNet
+import models.pooling as pooling
 from torch.hub import load_state_dict_from_url
 import utils
 import os
@@ -125,10 +127,24 @@ class Bottleneck(nn.Module):
 
 class ResNet(tResNet):
 
-    def __init__(self, block, layers, num_classes, four_dim=False):
+    def __init__(self, block, layers, num_classes, four_dim=False, pooling_method='spoc'):
         super(ResNet, self).__init__(block, layers)
         self.gradients = None
         self.activations = None
+
+        print(f'Pooling method: {pooling_method}')
+        if pooling_method == 'spoc':
+            self.pool = self.avgpool
+        elif pooling_method == 'gem':
+            self.pool = pooling.GeM()
+        elif pooling_method == 'mac':
+            self.pool = pooling.MAC()
+        elif pooling_method == 'rmac':
+            self.pool = pooling.RMAC()
+        else:
+            raise Exception(f'Pooling method {pooling_method} not implemented... :(')
+
+
         if four_dim:
             self.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3,
                                    bias=False)
@@ -138,8 +154,16 @@ class ResNet(tResNet):
                                       self.layer1,
                                       self.layer2,
                                       self.layer3,
-                                      self.layer4,
-                                      self.avgpool)
+                                      self.layer4)
+        else:
+            self.rest = nn.Sequential(self.conv1,
+                                      self.bn1,
+                                      self.relu,
+                                      self.maxpool,
+                                      self.layer1,
+                                      self.layer2,
+                                      self.layer3,
+                                      self.layer4)
         # self.new_fc = nn.Linear(512, num_classes)
 
     def activations_hook(self, grad):
@@ -167,7 +191,8 @@ class ResNet(tResNet):
             x.register_hook(self.activations_hook)
             self.activations = x.clone()
 
-        x = self.avgpool(x)
+        x = self.pool(x)
+
         feat = x
         x = torch.flatten(x, 1)
         # x = self.new_fc(x)
@@ -211,8 +236,8 @@ class ResNet(tResNet):
 
 
 
-def _resnet(arch, block, layers, pretrained, progress, num_classes, mask=False, fourth_dim=False, project_path='.', **kwargs):
-    model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), **kwargs)
+def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', **kwargs):
+    model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), pooling_method=pooling_method, **kwargs)
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
         if os.path.exists(pretrained_path):
@@ -238,7 +263,7 @@ def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                   mask, fourth_dim, project_path=args.project_path, **kwargs)
+                   mask=mask, fourth_dim=fourth_dim, project_path=args.project_path, pooling_method=args.pooling, **kwargs)
 
 
 
@@ -262,7 +287,7 @@ def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, f
     """
 
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, project_path=args.project_path,
-                   mask=mask, fourth_dim=fourth_dim, **kwargs)
+                   mask=mask, fourth_dim=fourth_dim, pooling_method=args.pooling, **kwargs)
 
 
 def resnet101(pretrained=False, progress=True, **kwargs):
