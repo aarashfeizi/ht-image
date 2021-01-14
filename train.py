@@ -21,7 +21,7 @@ from models.top_model import *
 def _logger(logname, env):
     if env == 'hlr' or env == 'local':
         logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
-                        filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
+                            filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
     else:
         logging.basicConfig(stream=sys.stdout,
                             filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
@@ -53,18 +53,18 @@ def main():
 
     data_transforms_train, transform_list_train = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=basic_aug, basic_aug=basic_aug)
+        aug=args.aug, random_crop=basic_aug)
 
     logger.info(f'train transforms: {transform_list_train}')
 
     data_transforms_val, transform_list_val = utils.TransformLoader(args.image_size,
                                                                     rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=False, basic_aug=basic_aug)
+        aug=args.aug, random_crop=False)
     logger.info(f'val transforms: {transform_list_val}')
 
     cam_data_transforms, cam_transform_list = utils.TransformLoader(args.image_size,
                                                                     rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=False, basic_aug=basic_aug, for_network=False)
+        aug=args.aug, random_crop=False, for_network=False)
 
     logger.info(f'cam transforms: {transform_list_val}')
 
@@ -110,14 +110,14 @@ def main():
 
     logger.info(str(cam_img_paths))
 
-        # cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
-        #                                      overfit=True, return_paths=True)
-        # logger.info('*' * 10)
-        # cam_val_set_known_metric = train_metric_dataset(args, transform=cam_data_transforms, mode='val_seen',
-        #                                                 save_pictures=False, overfit=False, return_paths=True)
-        # logger.info('*' * 10)
-        # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
-        #                                                   save_pictures=False, overfit=False, return_paths=True)
+    # cam_train_set = train_metric_dataset(args, transform=data_transforms_val, mode='train', save_pictures=False,
+    #                                      overfit=True, return_paths=True)
+    # logger.info('*' * 10)
+    # cam_val_set_known_metric = train_metric_dataset(args, transform=cam_data_transforms, mode='val_seen',
+    #                                                 save_pictures=False, overfit=False, return_paths=True)
+    # logger.info('*' * 10)
+    # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
+    #                                                   save_pictures=False, overfit=False, return_paths=True)
 
     logger.info('*' * 10)
     if args.metric_learning:

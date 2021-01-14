@@ -374,7 +374,10 @@ class ModelMethods:
                 acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_neg[1][:, pos_max_indices, :, :].squeeze(dim=0))
 
-                all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchpos.png')
+                all_heatmap_path = {
+                    'max': os.path.join(heatmap_path_perepoch_id, f'max_k_{k}_triplet{id}_best_anchpos.png'),
+                    'avg': os.path.join(heatmap_path_perepoch_id, f'avg_k_{k}_triplet{id}_best_anchpos.png')}
+
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchpos.png')
 
                 plot_title = f"{k} most important different channels for Anch Pos" + result_text
@@ -413,7 +416,9 @@ class ModelMethods:
 
                 neg_max_indices = torch.topk(neg_dist, k=k).indices
 
-                all_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_triplet{id}_best_anchneg.png')
+                all_heatmap_path = {
+                    'max': os.path.join(heatmap_path_perepoch_id, f'max_k_{k}_triplet{id}_best_anchneg.png'),
+                    'avg': os.path.join(heatmap_path_perepoch_id, f'avg_k_{k}_triplet{id}_best_anchneg.png')}
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchneg.png')
 
                 acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
@@ -610,7 +615,6 @@ class ModelMethods:
 
                         if args.eval_mode == 'fewshot':
 
-
                             utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
                             val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
                                                                                          val_loaders_fewshot[0],
@@ -632,7 +636,6 @@ class ModelMethods:
                                                                                                epoch=epoch,
                                                                                                comment='unknown')
                             utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
-
 
                             self.test_metric(args, net, val_loaders[1],
                                              loss_fn, bce_loss, val=True,
@@ -1048,7 +1051,7 @@ class ModelMethods:
         :return: None
         """
 
-        if newly_trained or\
+        if newly_trained or \
                 (not os.path.exists(os.path.join(self.save_path, f'{mode}Feats.h5'))):
             net.eval()
             # device = f'cuda:{net.device_ids[0]}'
@@ -1382,7 +1385,6 @@ class ModelMethods:
 
         self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='euclidean'))
         samples_silhouette = silhouette_samples(X, labels)
-
 
         if epoch != -1:
             epochs = [i for i in range(epoch + 1)]

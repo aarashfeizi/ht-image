@@ -95,15 +95,15 @@ class TransformLoader:
         else:
             return method()
 
-    def get_composed_transform(self, aug=False, random_crop=False, basic_aug=True, for_network=True):
+    def get_composed_transform(self, aug=False, random_crop=False, for_network=True):
         transform_list = []
-        if basic_aug:
-            if aug:
-                transform_list = ['RandomResizedCrop', 'ImageJitter', 'RandomHorizontalFlip']
-            elif not aug and self.rotate == 0:
-                transform_list = ['Resize']
-            elif not aug and self.rotate != 0:
-                transform_list = ['Resize', 'RandomRotation']
+
+        if aug:
+            transform_list = ['RandomResizedCrop', 'ImageJitter', 'RandomHorizontalFlip']
+        elif not aug and self.rotate == 0:
+            transform_list = ['Resize']
+        elif not aug and self.rotate != 0:
+            transform_list = ['Resize', 'RandomRotation']
 
         if random_crop:
             transform_list.extend(['RandomResizedCrop'])
@@ -146,7 +146,7 @@ def get_args():
     parser.add_argument('-lp', '--log_path', default='logs/', help="path to log")
     parser.add_argument('-tbp', '--tb_path', default='tensorboard/', help="path for tensorboard")
     parser.add_argument('-a', '--aug', default=False, action='store_true')
-    parser.add_argument('-m', '--mask', default=False, action='store_true')
+    # parser.add_argument('-m', '--mask', default=False, action='store_true')
     parser.add_argument('-r', '--rotate', default=0.0, type=float)
     parser.add_argument('-mn', '--pretrained_model_name', default='')
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
@@ -194,7 +194,7 @@ def get_args():
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
-    parser.add_argument('-am', '--aug_mask', default=False, action='store_true')
+    parser.add_argument('-m', '--aug_mask', default=False, action='store_true')
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
@@ -981,18 +981,23 @@ def __post_create_heatmap(heatmap, shape):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     return heatmap
 
-def activation_reduction(activations):
-    act = torch.mean(activations, dim=1).squeeze().data.cpu().numpy()
-    # act = torch.max(activations, dim=1)[0].squeeze().data.cpu().numpy()
+def activation_reduction(activations, method='avg'): # avg or max
+    if method == 'avg':
+        act = torch.mean(activations, dim=1).squeeze().data.cpu().numpy()
+    elif method == 'max':
+        act = torch.max(activations, dim=1)[0].squeeze().data.cpu().numpy()
+    else:
+        raise Exception(f'Heatmap method {method} not defined')
+
     return act
 
 
 @MY_DEC
-def get_heatmap(activations, shape, save_path=None, label=None):
+def get_heatmap(activations, shape, save_path=None, label=None, method='avg'):
     # heatmap = torch.mean(activations, dim=1).squeeze()
     # heatmap = torch.max(activations, dim=1)[0].squeeze()
 
-    heatmap = activation_reduction(activations)
+    heatmap = activation_reduction(activations, method=method)
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
@@ -1013,16 +1018,16 @@ def get_heatmap(activations, shape, save_path=None, label=None):
     return heatmap
 
 
-def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[]):
+def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], method='avg'):
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
 
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
 
-
+    method_list = [method for _ in range(len(activations))]
     activations = np.array(list(map(activation_reduction,
-                                    activations)))
+                                    activations, method_list)))
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
@@ -1210,37 +1215,39 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
         activations[:, i, :, :] *= pooled_gradients[i]
 
     anch_org = img_dict['anch']
-    heatmap = get_heatmap(activations, shape=(anch_org.shape[0], anch_org.shape[1]))
-    heatmap_negative = get_heatmap(-1 * activations, shape=(anch_org.shape[0], anch_org.shape[1]))
 
-    pos_pics = []
-    neg_pics = []
+    for method in ['avg', 'max']:
+        heatmap = get_heatmap(activations, shape=(anch_org.shape[0], anch_org.shape[1]), method=method)
+        heatmap_negative = get_heatmap(-1 * activations, shape=(anch_org.shape[0], anch_org.shape[1]), method=method)
 
-    paths = []
-    titles = []
+        pos_pics = []
+        neg_pics = []
 
-    for l, i in img_dict.items():
-        pos_pics.append(merge_heatmap_img(i, heatmap))
-        neg_pics.append(merge_heatmap_img(i, heatmap_negative))
-        titles.append(l)
+        paths = []
+        titles = []
 
-    path_ = os.path.join(path, f'backward_triplet{id}_{label}.png')
-    plt.rcParams.update({'font.size': 19})
-    fig, axes = plt.subplots(2, len(pos_pics), figsize=(len(pos_pics) * 10, 20))
+        for l, i in img_dict.items():
+            pos_pics.append(merge_heatmap_img(i, heatmap))
+            neg_pics.append(merge_heatmap_img(i, heatmap_negative))
+            titles.append(l)
 
-    for ax, pic, title in zip(axes[0], pos_pics, titles):
-        ax.imshow(pic)
-        ax.axis('off')
-        ax.set_title(title + ' POSITIVE')
+        path_ = os.path.join(path, f'{method}_backward_triplet{id}_{label}.png')
+        plt.rcParams.update({'font.size': 19})
+        fig, axes = plt.subplots(2, len(pos_pics), figsize=(len(pos_pics) * 10, 20))
 
-    for ax, pic, title in zip(axes[1], neg_pics, titles):
-        ax.imshow(pic)
-        ax.axis('off')
-        ax.set_title(title + ' NEGATIVE')
+        for ax, pic, title in zip(axes[0], pos_pics, titles):
+            ax.imshow(pic)
+            ax.axis('off')
+            ax.set_title(title + ' POSITIVE')
 
-    fig.suptitle(plot_title)
-    plt.savefig(path_)
-    plt.close('all')
+        for ax, pic, title in zip(axes[1], neg_pics, titles):
+            ax.imshow(pic)
+            ax.axis('off')
+            ax.set_title(title + ' NEGATIVE')
+
+        fig.suptitle(plot_title + ' (' + method + ')')
+        plt.savefig(path_)
+        plt.close('all')
 
     # for pic, path in zip(pics, paths):
     #     cv2.imwrite(path, pic)
@@ -1283,44 +1290,46 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     plt.savefig(histogram_path)
     plt.close('all')
 
-    heatmaps = get_heatmaps(acts[:3], shape=shape)
-    heatmaps.extend(get_heatmaps(acts[3:5], shape=shape))
+    for method in ['avg', 'max']:
 
-    # path_ = os.path.join(path, f'cam_{id}_{l}.png')
-    # merge_heatmap_img(i, heatmap, path=path_)
+        heatmaps = get_heatmaps(acts[:3], shape=shape, method=method)
+        heatmaps.extend(get_heatmaps(acts[3:5], shape=shape, method=method))
 
-    pics = [merge_heatmap_img(img_list[0][1], heatmaps[0]),
-            merge_heatmap_img(img_list[1][1], heatmaps[1]),
-            merge_heatmap_img(img_list[2][1], heatmaps[2]),
-            merge_heatmap_img(img_list[0][1], heatmaps[3]),
-            merge_heatmap_img(img_list[1][1], heatmaps[3]),
-            merge_heatmap_img(img_list[0][1], heatmaps[4]),
-            merge_heatmap_img(img_list[2][1], heatmaps[4])]
+        # path_ = os.path.join(path, f'cam_{id}_{l}.png')
+        # merge_heatmap_img(i, heatmap, path=path_)
 
-    plt.rcParams.update({'font.size': 10})
-    # plt.rcParams.update({'figure.figsize': (10, 10)})
+        pics = [merge_heatmap_img(img_list[0][1], heatmaps[0]),
+                merge_heatmap_img(img_list[1][1], heatmaps[1]),
+                merge_heatmap_img(img_list[2][1], heatmaps[2]),
+                merge_heatmap_img(img_list[0][1], heatmaps[3]),
+                merge_heatmap_img(img_list[1][1], heatmaps[3]),
+                merge_heatmap_img(img_list[0][1], heatmaps[4]),
+                merge_heatmap_img(img_list[2][1], heatmaps[4])]
 
-    fig = plt.figure(figsize=(10, 10))
-    ax_anch = plt.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
-    ax_pos = plt.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
-    ax_neg = plt.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)
-    ax_anchpos_anch = plt.subplot2grid((6, 6), (1, 2), rowspan=2, colspan=2)
-    ax_anchneg_anch = plt.subplot2grid((6, 6), (3, 2), rowspan=2, colspan=2)
-    ax_anchpos_pos = plt.subplot2grid((6, 6), (1, 4), rowspan=2, colspan=2)
-    ax_anchneg_neg = plt.subplot2grid((6, 6), (3, 4), rowspan=2, colspan=2)
+        plt.rcParams.update({'font.size': 10})
+        # plt.rcParams.update({'figure.figsize': (10, 10)})
 
-    create_subplot(ax_anch, titles[0], pics[0])
-    create_subplot(ax_pos, titles[1], pics[1])
-    create_subplot(ax_neg, titles[2], pics[2])
-    create_subplot(ax_anchpos_anch, titles[3], pics[3])
-    create_subplot(ax_anchpos_pos, titles[3], pics[4])
-    create_subplot(ax_anchneg_anch, titles[4], pics[5])
-    create_subplot(ax_anchneg_neg, titles[4], pics[6])
+        fig = plt.figure(figsize=(10, 10))
+        ax_anch = plt.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
+        ax_pos = plt.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
+        ax_neg = plt.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)
+        ax_anchpos_anch = plt.subplot2grid((6, 6), (1, 2), rowspan=2, colspan=2)
+        ax_anchneg_anch = plt.subplot2grid((6, 6), (3, 2), rowspan=2, colspan=2)
+        ax_anchpos_pos = plt.subplot2grid((6, 6), (1, 4), rowspan=2, colspan=2)
+        ax_anchneg_neg = plt.subplot2grid((6, 6), (3, 4), rowspan=2, colspan=2)
 
-    fig.suptitle(overall_title)
+        create_subplot(ax_anch, titles[0], pics[0])
+        create_subplot(ax_pos, titles[1], pics[1])
+        create_subplot(ax_neg, titles[2], pics[2])
+        create_subplot(ax_anchpos_anch, titles[3], pics[3])
+        create_subplot(ax_anchpos_pos, titles[3], pics[4])
+        create_subplot(ax_anchneg_anch, titles[4], pics[5])
+        create_subplot(ax_anchneg_neg, titles[4], pics[6])
 
-    plt.savefig(heatmap_path)
-    plt.close('all')
+        fig.suptitle(overall_title + ' (' + method + ')')
+
+        plt.savefig(heatmap_path[method])
+        plt.close('all')
 
     # for pic, title in zip(pics, titles):
     #
