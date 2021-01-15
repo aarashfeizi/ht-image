@@ -664,17 +664,17 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
             if return_bg:
                 datas_bg[idx] = []
 
-        datas[idx].append((os.path.join(dataset_path, path), Image.open(os.path.join(dataset_path, path))))
+        datas[idx].append((os.path.join(dataset_path, path), np.array(Image.open(os.path.join(dataset_path, path)))))
         if return_bg:
-            datas_bg[idx].append((os.path.join(dataset_path, path), True, Image.open(os.path.join(dataset_path, path))))
+            datas_bg[idx].append((os.path.join(dataset_path, path), True, np.array(Image.open(os.path.join(dataset_path, path)))))
 
     if return_bg:
         for idx, path in zip(image_labels_bg, image_path_bg):
             if idx not in datas_bg.keys():
                 datas_bg[idx] = []
-            if (os.path.join(dataset_path, path), False, Image.open(os.path.join(dataset_path, path))) not in datas_bg[idx] and \
-                    (os.path.join(dataset_path, path), True, Image.open(os.path.join(dataset_path, path))) not in datas_bg[idx]:
-                datas_bg[idx].append((os.path.join(dataset_path, path), False, Image.open(os.path.join(dataset_path, path))))
+            if (os.path.join(dataset_path, path), False, np.array(Image.open(os.path.join(dataset_path, path)))) not in datas_bg[idx] and \
+                    (os.path.join(dataset_path, path), True, np.array(Image.open(os.path.join(dataset_path, path)))) not in datas_bg[idx]:
+                datas_bg[idx].append((os.path.join(dataset_path, path), False, np.array(Image.open(os.path.join(dataset_path, path)))))
 
     labels = np.unique(image_labels)
     print(f'Number of labels in {mode}: ', len(labels))

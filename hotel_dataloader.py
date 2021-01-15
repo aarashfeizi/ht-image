@@ -84,13 +84,13 @@ class HotelTrain_Metric(Dataset):
             anch_class = self.labels[anch_idx]
             (random_path, anch) = random.choice(self.datas[anch_class])
             paths.append(random_path)
-            # anch = Image.open(random_path)
+            anch = Image.fromarray(random_path)
 
             # get pos image from same class
 
             (random_path, pos) = random.choice(self.datas[anch_class])
             paths.append(random_path)
-            # pos = Image.open(random_path)
+            pos = Image.fromarray(random_path)
 
             # get neg image from different class
             negs = []
@@ -108,7 +108,7 @@ class HotelTrain_Metric(Dataset):
 
                 (random_path, neg) = random.choice(self.datas[neg_class])
                 paths.append(random_path)
-                # neg = Image.open(random_path)
+                neg = Image.fromarray(random_path)
 
                 neg = neg.convert('RGB')
                 negs.append(neg)
