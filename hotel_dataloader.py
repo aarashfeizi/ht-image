@@ -23,6 +23,7 @@ class HotelTrain_Metric(Dataset):
         self.aug_mask = args.aug_mask
         self.return_paths = return_paths
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.colored_mask = args.colored_mask
 
         start = time.time()
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
@@ -134,8 +135,8 @@ class HotelTrain_Metric(Dataset):
 
                 pos_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                anch, masked_anch, anch_mask, _ = utils.add_mask(anch, anch_mask)
-                pos, masked_pos, pos_mask, _ = utils.add_mask(pos, pos_mask)
+                anch, masked_anch, anch_mask, _ = utils.add_mask(anch, anch_mask, colored=self.colored_mask)
+                pos, masked_pos, pos_mask, _ = utils.add_mask(pos, pos_mask, colored=self.colored_mask)
 
                 if not self.fourth_dim:
                     anch = masked_anch
@@ -146,7 +147,7 @@ class HotelTrain_Metric(Dataset):
 
                 for neg in negs:
                     neg_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                    neg, masked_neg, neg_mask, _ = utils.add_mask(neg, neg_mask)
+                    neg, masked_neg, neg_mask, _ = utils.add_mask(neg, neg_mask, colored=self.colored_mask)
 
                     if not self.fourth_dim:
                         neg = masked_neg
@@ -203,6 +204,7 @@ class HotelTrain_FewShot(Dataset):
         self.image1 = None
         self.no_negative = args.no_negative
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.colored_mask = args.colored_mask
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -273,8 +275,8 @@ class HotelTrain_FewShot(Dataset):
 
                 image2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                image1, masked_img1, image1_mask, _ = utils.add_mask(image1, image1_mask)
-                image2, masked_img2, image2_mask, _ = utils.add_mask(image2, image2_mask)
+                image1, masked_img1, image1_mask, _ = utils.add_mask(image1, image1_mask, colored=self.colored_mask)
+                image2, masked_img2, image2_mask, _ = utils.add_mask(image2, image2_mask, colored=self.colored_mask)
 
                 if not self.fourth_dim:
                     image1 = masked_img1
@@ -332,6 +334,7 @@ class HotelTest_FewShot(Dataset):
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
         self.fourth_dim = args.fourth_dim
+        self.colored_mask = args.colored_mask
 
         self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
                                                                                     args.dataset_name,
@@ -389,8 +392,8 @@ class HotelTest_FewShot(Dataset):
 
                 img2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                img1, masked_img1, img1_mask, _ = utils.add_mask(img1, img1_mask)
-                img2, masked_img2, img2_mask, _ = utils.add_mask(img2, img2_mask)
+                img1, masked_img1, img1_mask, _ = utils.add_mask(img1, img1_mask, colored=self.colored_mask)
+                img2, masked_img2, img2_mask, _ = utils.add_mask(img2, img2_mask, colored=self.colored_mask)
 
                 if not self.fourth_dim:
                     img1 = masked_img1
@@ -420,6 +423,7 @@ class Hotel_DB(Dataset):
 
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.colored_mask = args.colored_mask
 
         total = True
         if self.mode == 'val' or self.mode == 'test':  # mode == *_seen or *_unseen or train
@@ -475,7 +479,7 @@ class Hotel_DB(Dataset):
         if self.transform:
             if self.aug_mask:
                 img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                img, masked_img, img_mask, _ = utils.add_mask(img, img_mask)
+                img, masked_img, img_mask, _ = utils.add_mask(img, img_mask, colored=self.colored_mask)
 
                 if not self.fourth_dim:
                     img = masked_img

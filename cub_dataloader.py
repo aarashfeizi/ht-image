@@ -22,6 +22,7 @@ class CUBTrain_Metric(Dataset):
         self.aug_mask = args.aug_mask
         self.return_paths = return_paths
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.colored_mask = args.colored_mask
 
         start = time.time()
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
@@ -129,15 +130,15 @@ class CUBTrain_Metric(Dataset):
 
                 pos_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
 
-                anch, _, anch_mask, _ = utils.add_mask(anch, anch_mask)
-                pos, _, pos_mask, _ = utils.add_mask(pos, pos_mask)
+                anch, _, anch_mask, _ = utils.add_mask(anch, anch_mask, colored=self.colored_mask)
+                pos, _, pos_mask, _ = utils.add_mask(pos, pos_mask, colored=self.colored_mask)
 
                 masked_negs = []
                 neg_masks = []
 
                 for neg in negs:
                     neg_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                    neg, _, neg_mask, _ = utils.add_mask(neg, neg_mask)
+                    neg, _, neg_mask, _ = utils.add_mask(neg, neg_mask, colored=self.colored_mask)
 
                     masked_negs.append(neg)
                     neg_masks.append(neg_mask)
@@ -176,6 +177,7 @@ class CUBTrain_FewShot(Dataset):
         self.image1 = None
         self.no_negative = args.no_negative
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.colored_mask = args.colored_mask
 
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -297,6 +299,7 @@ class CUBTest_FewShot(Dataset):
         self.c1 = None
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.colored_mask = args.colored_mask
 
         self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
                                                                                     args.dataset_name,
@@ -379,6 +382,7 @@ class CUB_DB(Dataset):
         self.normalize = utils.TransformLoader(-1).transform_normalize
         total = True
         self.mode = mode
+        self.colored_mask = args.colored_mask
 
         if mode == 'val' or mode == 'test':  # mode == *_seen or *_unseen or train
             mode_tmp = mode + '_seen'

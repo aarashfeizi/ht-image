@@ -195,6 +195,7 @@ def get_args():
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
     parser.add_argument('-m', '--aug_mask', default=False, action='store_true')
+    parser.add_argument('-cm', '--colored_mask', default=False, action='store_true')
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
@@ -740,19 +741,6 @@ def create_save_path(path, id_str, logger):
         logger.info(f'Save directory {path} already exists, but how?? {id_str}')  # almost impossible
 
 
-def add_mask(img, mask):
-    img_size = img.size
-    mask_size = mask.size
-
-    random_x = np.random.randint(0, img_size[0] - mask_size[0])
-    random_y = np.random.randint(0, img_size[1] - mask_size[1])
-
-    pos = (random_x, random_y)
-
-    img.paste(mask, pos, mask)
-
-    return img
-
 
 def read_masks(path):
     # create mask csv
@@ -1093,7 +1081,7 @@ def vector_merge_function(v1, v2):
 
 
 @MY_DEC
-def add_mask(org_img, mask, offsets=None, resize_factors=None):
+def add_mask(org_img, mask, offsets=None, resize_factors=None, colored=False):
     img = org_img.copy()
 
     angle = np.random.uniform(0, 360)
@@ -1126,9 +1114,12 @@ def add_mask(org_img, mask, offsets=None, resize_factors=None):
     # import pdb
     # pdb.set_trace()
     # mask_np[mask_np > 0] = 255
-    random_mask_color = np.random.randint(0, 256, mask_np[np.where(mask_np[:, :, 3] > 0)].shape)
-    random_mask_color[:, 3] = 255
-    mask_np[np.where(mask_np[:, :, 3] > 0)] = random_mask_color
+    if colored:
+        random_mask_color = np.random.randint(0, 256, mask_np[np.where(mask_np[:, :, 3] > 0)].shape)
+        random_mask_color[:, 3] = 255
+        mask_np[np.where(mask_np[:, :, 3] > 0)] = random_mask_color
+    else:
+        mask_np[mask_np > 0] = 255
 
     # mask_np[mask_np > 0] = np.random.randint(0, 256, len(mask_np[mask_np > 0]))
     mask = Image.fromarray(mask_np)

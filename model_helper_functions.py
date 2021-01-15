@@ -32,6 +32,7 @@ class ModelMethods:
         self.model = model
 
         self.model_name = model_name
+        self.colored_mask = args.colored_mask
 
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
@@ -225,11 +226,14 @@ class ModelMethods:
             if self.aug_mask:
                 anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask,
                                                                           offsets=self.anch_offsets,
-                                                                          resize_factors=self.anch_resizefactors)
+                                                                          resize_factors=self.anch_resizefactors,
+                                                                          colored=self.colored_mask)
                 pos, masked_pos, pos_mask, param_pos = utils.add_mask(pos, self.pos_mask, offsets=self.pos_offsets,
-                                                                      resize_factors=self.pos_resizefactors)
+                                                                      resize_factors=self.pos_resizefactors,
+                                                                      colored=self.colored_mask)
                 neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
-                                                                      resize_factors=self.neg_resizefactors)
+                                                                      resize_factors=self.neg_resizefactors,
+                                                                      colored=self.colored_mask)
 
                 if not args.fourth_dim:
                     anch = masked_anch
