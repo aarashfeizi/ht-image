@@ -82,15 +82,15 @@ class HotelTrain_Metric(Dataset):
         else:  # not overfitting
             anch_idx = random.randint(0, self.num_classes - 1)
             anch_class = self.labels[anch_idx]
-            random_path = random.choice(self.datas[anch_class])
+            (random_path, anch) = random.choice(self.datas[anch_class])
             paths.append(random_path)
-            anch = Image.open(random_path)
+            # anch = Image.open(random_path)
 
             # get pos image from same class
 
-            random_path = random.choice(self.datas[anch_class])
+            (random_path, pos) = random.choice(self.datas[anch_class])
             paths.append(random_path)
-            pos = Image.open(random_path)
+            # pos = Image.open(random_path)
 
             # get neg image from different class
             negs = []
@@ -106,9 +106,9 @@ class HotelTrain_Metric(Dataset):
 
                     # image1 = Image.open(random.choice(self.datas[self.class1]))
 
-                random_path = random.choice(self.datas[neg_class])
+                (random_path, neg) = random.choice(self.datas[neg_class])
                 paths.append(random_path)
-                neg = Image.open(random_path)
+                # neg = Image.open(random_path)
 
                 neg = neg.convert('RGB')
                 negs.append(neg)
