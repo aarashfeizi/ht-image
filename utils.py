@@ -1122,7 +1122,15 @@ def add_mask(org_img, mask, offsets=None, resize_factors=None):
                         int(y_resize_factor * mask_shape[1])))
 
     mask_np = np.array(mask)
-    mask_np[mask_np > 0] = 255
+
+    # import pdb
+    # pdb.set_trace()
+    # mask_np[mask_np > 0] = 255
+    random_mask_color = np.random.randint(0, 256, mask_np[np.where(mask_np[:, :, 3] > 0)].shape)
+    random_mask_color[:, 3] = 255
+    mask_np[np.where(mask_np[:, :, 3] > 0)] = random_mask_color
+
+    # mask_np[mask_np > 0] = np.random.randint(0, 256, len(mask_np[mask_np > 0]))
     mask = Image.fromarray(mask_np)
 
     mask_shape = mask.size
@@ -1150,6 +1158,12 @@ def add_mask(org_img, mask, offsets=None, resize_factors=None):
     mask = ImageOps.expand(mask, padding)
     img.paste(mask, (0, 0), mask=mask)
     assert mask.size == img.size
+
+    # plt.imshow(img)
+    # plt.show()
+    # # import pdb
+    # pdb.set_trace()
+
 
     four_channel_img = Image.fromarray(np.dstack((np.asarray(img), np.asarray(mask)[:, :, 3] // 255)))
 
