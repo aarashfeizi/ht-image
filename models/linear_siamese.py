@@ -1,18 +1,28 @@
-import torch
 import torch.nn as nn
 import utils
+import torch.nn as nn
+
+import utils
+
 
 class LiSiamese(nn.Module):
 
     def __init__(self, args):
         super(LiSiamese, self).__init__()
 
-        if args.feat_extractor == 'resnet50':
-            self.input_shape = 2048
-        elif args.feat_extractor == 'vgg16':
-            self.input_shape = 4096
+        self.merge_method = args.merge_method
+
+        if self.merge_method == 'diffsim':
+            method_coefficient = 2
         else:
-            self.input_shape = 512
+            method_coefficient = 1
+
+        if args.feat_extractor == 'resnet50':
+            self.input_shape = method_coefficient * 2048
+        elif args.feat_extractor == 'vgg16':
+            self.input_shape = method_coefficient * 4096
+        else:
+            self.input_shape = method_coefficient * 512
 
         self.extra_layer = args.extra_layer
         # self.layer = nn.Sequential(nn.Linear(25088, 512))
@@ -49,11 +59,9 @@ class LiSiamese(nn.Module):
 
         out2 = self.forward_one(x2)
 
-
         # out_cat = torch.cat((out1, out2), 1)
         # out_dist = torch.pow((out1 - out2), 2)
-        out_dist = utils.vector_merge_function(out1, out2)
-
+        out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method)
 
         # dis = torch.abs(out1 - out2)
         pred = self.classifier(out_dist)  # output between -inf and inf. Passed through sigmoid in loss function

@@ -54,6 +54,9 @@ class ModelMethods:
         self.logger.info("** Save path: " + self.save_path)
         self.logger.info("** Tensorboard path: " + self.tensorboard_path)
 
+        self.merge_method = args.merge_method
+        self.logger.info(f'Merging with {self.merge_method}')
+
         if args.debug_grad:
             self.draw_grad = True
             self.plt_save_path = f'{self.save_path}/loss_plts/'
@@ -293,14 +296,15 @@ class ModelMethods:
             pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos = net.forward(anch, pos, feats=True, hook=True)
 
             map_shape = acts_anch_pos[0].shape
-
-            classifier_weights = torch.repeat_interleave(classifier_weights,
+            # import pdb
+            # pdb.set_trace()
+            classifier_weights_tensor = torch.repeat_interleave(classifier_weights,
                                                          repeats=map_shape[2] * map_shape[3],
                                                          dim=0).view(map_shape[0], map_shape[1], map_shape[2],
                                                                      map_shape[3])
 
-            acts_anch_pos[0] *= classifier_weights
-            acts_anch_pos[1] *= classifier_weights
+            # acts_anch_pos[0] *= classifier_weights
+            # acts_anch_pos[1] *= classifier_weights
             #
             # acts_anch_pos[0] = np.maximum(acts_anch_pos[0], 0)
             # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
@@ -326,8 +330,8 @@ class ModelMethods:
             neg_pred, neg_dist, _, neg_feat, acts_anch_neg = net.forward(anch, neg, feats=True, hook=True)
             # self.logger.info(f'cam neg {id - 1}: ', torch.sigmoid(neg_pred).item())
 
-            acts_anch_neg[0] *= classifier_weights
-            acts_anch_neg[1] *= classifier_weights
+            # acts_anch_neg[0] *= classifier_weights
+            # acts_anch_neg[1] *= classifier_weights
 
             # acts_anch_neg[0] = np.maximum(acts_anch_neg[0], 0)
             # acts_anch_neg[1] = np.maximum(acts_anch_neg[1], 0)
@@ -367,10 +371,18 @@ class ModelMethods:
 
             ks = list(map(lambda x: int(x), args.k_best_maps))
 
+            value = ''
+            if self.merge_method == 'diff':
+                value = 'different'
+            elif self.merge_method == 'sim':
+                value = 'similar'
+            elif self.merge_method == 'diffsim':
+                value = 'different and similar'
+
             for k in ks:
                 acts_tmp = []
 
-                pos_max_indices = torch.topk(pos_dist, k=k).indices
+                pos_max_indices = torch.topk(pos_dist * classifier_weights, k=k).indices
 
                 self.logger.info(f'pos max indices: {pos_max_indices}, {pos_dist[0][pos_max_indices]}')
 
@@ -384,7 +396,9 @@ class ModelMethods:
 
                 histogram_path = os.path.join(heatmap_path_perepoch_id, f'k_{k}_histogram_triplet{id}_best_anchpos.png')
 
-                plot_title = f"{k} most important different channels for Anch Pos" + result_text
+                plot_title_wo_weights = f"{k} most important {value} channels for Anch Pos (w/o weights mul)" + result_text
+                plot_title = f"{k} most important {value} channels for Anch Pos (with weights mul)" + result_text
+
                 if k < 32:
                     all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
                                                          f'k_{k}_triplet{id}_all_heatmaps_best_anchpos.pdf')
@@ -396,7 +410,7 @@ class ModelMethods:
                                             [anch_org, pos_org, neg_org],
                                             ['Anch', 'Pos', 'Neg'],
                                             all_heatmap_grid_path,
-                                            plot_title)
+                                            plot_title_wo_weights)
                     self.logger.info('after')
                     self.logger.info(str(acts_tmp[0].min()))
                     self.logger.info(str(acts_tmp[1].min()))
@@ -412,13 +426,15 @@ class ModelMethods:
                                             #                   pos_hm_file_path],
                                             # pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path],
                                             titles=['Anch', 'Pos', 'Neg'],
-                                            histogram_path=histogram_path)
+                                            histogram_path=histogram_path,
+                                            merge_method=self.merge_method,
+                                            classifier_weights=classifier_weights_tensor[:, pos_max_indices, :, :].squeeze(dim=0))
                 # import pdb
                 # pdb.set_trace()
 
                 acts_tmp = []
 
-                neg_max_indices = torch.topk(neg_dist, k=k).indices
+                neg_max_indices = torch.topk(neg_dist * classifier_weights, k=k).indices
 
                 all_heatmap_path = {
                     'max': os.path.join(heatmap_path_perepoch_id, f'max_k_{k}_triplet{id}_best_anchneg.png'),
@@ -429,7 +445,8 @@ class ModelMethods:
                 acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
                 acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
 
-                plot_title = f"{k} most important different channels for Anch Neg" + result_text
+                plot_title_wo_weights = f"{k} most important {value} channels for Anch Neg (w/o weights mul)" + result_text
+                plot_title = f"{k} most important {value} channels for Anch Neg (with weights mul)" + result_text
 
                 if k < 32:
                     all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
@@ -438,7 +455,7 @@ class ModelMethods:
                                             [anch_org, pos_org, neg_org],
                                             ['Anch', 'Pos', 'Neg'],
                                             all_heatmap_grid_path,
-                                            plot_title)
+                                            plot_title_wo_weights)
 
                 utils.apply_forward_heatmap(acts_tmp,
                                             [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
@@ -449,7 +466,9 @@ class ModelMethods:
                                             #                   neg_hm_file_path],
                                             # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
                                             titles=['Anch', 'Pos', 'Neg'],
-                                            histogram_path=histogram_path)
+                                            histogram_path=histogram_path,
+                                            merge_method=self.merge_method,
+                                            classifier_weights=classifier_weights_tensor[:, pos_max_indices, :, :].squeeze(dim=0))
 
             if loss_fn is not None:
                 ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)

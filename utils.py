@@ -188,6 +188,7 @@ def get_args():
     parser.add_argument('-mtlr', '--metric_learning', default=False, action='store_true')
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin'])
+    parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diffsim'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
 
@@ -1006,16 +1007,19 @@ def get_heatmap(activations, shape, save_path=None, label=None, method='avg'):
     return heatmap
 
 
-def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], method='avg'):
+def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], method='avg', classifier_weights=None):
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
 
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
+    new_activations = []
+    for activation in activations:
+        new_activations.append(activation * classifier_weights)
 
-    method_list = [method for _ in range(len(activations))]
-    activations = np.array(list(map(activation_reduction,
-                                    activations, method_list)))
+    method_list = [method for _ in range(len(new_activations))]
+    new_activations = np.array(list(map(activation_reduction,
+                                    new_activations, method_list)))
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
@@ -1026,7 +1030,7 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
     # import pdb
     # pdb.set_trace()
 
-    heatmaps = np.maximum(activations, 0)
+    heatmaps = np.maximum(new_activations, 0)
     # activations[0][0] *= -1
     # heatmaps = activations
 
@@ -1035,7 +1039,8 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
     # normalize the heatmap
     print(f'heatmaps max: {np.max(heatmaps)}')
 
-    heatmaps = heatmaps / np.max(heatmaps)
+    if np.max(heatmaps) != 0:
+        heatmaps = heatmaps / np.max(heatmaps)
 
     for heatmap in heatmaps:
         final_heatmaps.append(__post_create_heatmap(heatmap, shape))
@@ -1074,10 +1079,17 @@ def read_img_paths(path, local_path='.'):
     return final_lines
 
 
-def vector_merge_function(v1, v2):
-    # merged = torch.pow((v1 - v2), 2)
-    merged = v1 * v2
-    return merged
+def vector_merge_function(v1, v2, method='sim'):
+    if method == 'diff':
+        return torch.pow((v1 - v2), 2)
+    elif method == 'sim':
+        return v1 * v2
+    elif method == 'diffsim':
+        diff_merged = torch.pow((v1 - v2), 2)
+        sim_merged = v1 * v2
+        return torch.cat([diff_merged, sim_merged], dim=1)
+    else:
+        raise Exception(f'Merge method {method} not implemented.')
 
 
 @MY_DEC
@@ -1182,11 +1194,14 @@ def create_subplot(ax, label, img):
     ax.set_title(label)
 
 
-def draw_act_histograms(ax, acts, titles, plot_title):
+def draw_act_histograms(ax, acts, titles, plot_title, classifier_weights=None):
     # plt.rcParams.update({'font.size': 5})
     # fig = plt.Figure(figsize=(20, 20))
 
     acts = list(map(lambda x: x.cpu().numpy(), acts))
+
+    for act in acts:
+        act *= classifier_weights
 
     legends = list(map(lambda x: x + ' value distribution', titles))
     if len(acts) == 2:
@@ -1259,7 +1274,9 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
 
 
 @MY_DEC
-def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, titles=[''], histogram_path=''):
+def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
+                          titles=[''], histogram_path='',
+                          merge_method='sim', classifier_weights=None):
     """
 
     :param acts: [anch_activation_p,
@@ -1276,19 +1293,22 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     :return:
     """
 
+    classifier_weights = classifier_weights.cpu().numpy()
     shape = img_list[0][1].shape[0:2]
 
-    acts.append(vector_merge_function(acts[0], acts[1]))  # anch_pos_subtraction
-    titles.append('anch_pos_subtraction')
+    acts.append(vector_merge_function(acts[0], acts[1], method=merge_method))  # anch_pos_subtraction
+    titles.append(f'anch_pos_{merge_method}')
 
-    acts.append(vector_merge_function(acts[0], acts[2]))  # anch_neg_subtraction
-    titles.append('anch_neg_subtraction')
+    acts.append(vector_merge_function(acts[0], acts[2], method=merge_method))  # anch_neg_subtraction
+    titles.append(f'anch_neg_{merge_method}')
 
     plt.rcParams.update({'font.size': 19})
 
     fig, axes = plt.subplots(1, 2, figsize=(22, 10))
-    draw_act_histograms(axes[0], acts[0:3], titles[0:3], 'Heatmaps')
-    draw_act_histograms(axes[1], acts[3:5], titles[3:5], 'Heatmap diffs')
+    draw_act_histograms(axes[0], acts[0:3], titles[0:3],
+                        'Heatmaps', classifier_weights=classifier_weights)
+    draw_act_histograms(axes[1], acts[3:5], titles[3:5],
+                        f'Heatmap {merge_method}s', classifier_weights=classifier_weights)
 
     fig.suptitle(overall_title)
 
@@ -1296,9 +1316,11 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
     plt.close('all')
 
     for method in ['avg', 'max']:
-
-        heatmaps = get_heatmaps(acts[:3], shape=shape, method=method)
-        heatmaps.extend(get_heatmaps(acts[3:5], shape=shape, method=method))
+        heatmaps = get_heatmaps(acts[:3], shape=shape, method=method,
+                                classifier_weights=torch.ones((1,)))  # seperated for normalization, heatmaps withOUT classifier weights
+        heatmaps.extend(get_heatmaps(acts[:3], shape=shape, method=method,
+                                classifier_weights=classifier_weights)) # seperated for normalization, heatmaps WITH classifier weights
+        heatmaps.extend(get_heatmaps(acts[3:5], shape=shape, method=method, classifier_weights=classifier_weights))
 
         # path_ = os.path.join(path, f'cam_{id}_{l}.png')
         # merge_heatmap_img(i, heatmap, path=path_)
@@ -1306,30 +1328,45 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title, title
         pics = [merge_heatmap_img(img_list[0][1], heatmaps[0]),
                 merge_heatmap_img(img_list[1][1], heatmaps[1]),
                 merge_heatmap_img(img_list[2][1], heatmaps[2]),
+
                 merge_heatmap_img(img_list[0][1], heatmaps[3]),
-                merge_heatmap_img(img_list[1][1], heatmaps[3]),
-                merge_heatmap_img(img_list[0][1], heatmaps[4]),
-                merge_heatmap_img(img_list[2][1], heatmaps[4])]
+                merge_heatmap_img(img_list[1][1], heatmaps[4]),
+                merge_heatmap_img(img_list[2][1], heatmaps[5]),
+
+                merge_heatmap_img(img_list[0][1], heatmaps[6]),
+                merge_heatmap_img(img_list[1][1], heatmaps[6]),
+                merge_heatmap_img(img_list[0][1], heatmaps[7]),
+                merge_heatmap_img(img_list[2][1], heatmaps[7])]
 
         plt.rcParams.update({'font.size': 10})
         # plt.rcParams.update({'figure.figsize': (10, 10)})
 
-        fig = plt.figure(figsize=(10, 10))
-        ax_anch = plt.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
-        ax_pos = plt.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
-        ax_neg = plt.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)
-        ax_anchpos_anch = plt.subplot2grid((6, 6), (1, 2), rowspan=2, colspan=2)
-        ax_anchneg_anch = plt.subplot2grid((6, 6), (3, 2), rowspan=2, colspan=2)
-        ax_anchpos_pos = plt.subplot2grid((6, 6), (1, 4), rowspan=2, colspan=2)
-        ax_anchneg_neg = plt.subplot2grid((6, 6), (3, 4), rowspan=2, colspan=2)
+        fig = plt.figure(figsize=(12, 12))
+        ax_anch = plt.subplot2grid((9, 12), (0, 0), colspan=3, rowspan=3)
+        ax_pos = plt.subplot2grid((9, 12), (3, 0), colspan=3, rowspan=3)
+        ax_neg = plt.subplot2grid((9, 12), (6, 0), colspan=3, rowspan=3)
 
-        create_subplot(ax_anch, titles[0], pics[0])
-        create_subplot(ax_pos, titles[1], pics[1])
-        create_subplot(ax_neg, titles[2], pics[2])
-        create_subplot(ax_anchpos_anch, titles[3], pics[3])
-        create_subplot(ax_anchpos_pos, titles[3], pics[4])
-        create_subplot(ax_anchneg_anch, titles[4], pics[5])
-        create_subplot(ax_anchneg_neg, titles[4], pics[6])
+        ax_anch_ww = plt.subplot2grid((9, 12), (0, 3), colspan=3, rowspan=3)
+        ax_pos_ww = plt.subplot2grid((9, 12), (3, 3), colspan=3, rowspan=3)
+        ax_neg_ww = plt.subplot2grid((9, 12), (6, 3), colspan=3, rowspan=3)
+
+        ax_anchpos_anch = plt.subplot2grid((9, 12), (1, 6), rowspan=3, colspan=3)
+        ax_anchneg_anch = plt.subplot2grid((9, 12), (4, 6), rowspan=3, colspan=3)
+        ax_anchpos_pos = plt.subplot2grid((9, 12), (1, 9), rowspan=3, colspan=3)
+        ax_anchneg_neg = plt.subplot2grid((9, 12), (4, 9), rowspan=3, colspan=3)
+
+        create_subplot(ax_anch, titles[0] + ' org', pics[0])
+        create_subplot(ax_pos, titles[1] + ' org', pics[1])
+        create_subplot(ax_neg, titles[2] + ' org', pics[2])
+
+        create_subplot(ax_anch_ww, titles[0], pics[3])
+        create_subplot(ax_pos_ww, titles[1], pics[4])
+        create_subplot(ax_neg_ww, titles[2], pics[5])
+
+        create_subplot(ax_anchpos_anch, titles[3], pics[6])
+        create_subplot(ax_anchpos_pos, titles[3], pics[7])
+        create_subplot(ax_anchneg_anch, titles[4], pics[8])
+        create_subplot(ax_anchneg_neg, titles[4], pics[9])
 
         fig.suptitle(overall_title + ' (' + method + ')')
 
@@ -1429,7 +1466,7 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
         # plt.rcParams.update({'figure.figsize': (20, 10)})
         print(f'Begin drawing all activations for {plot_title}')
 
-        acts_pos = np.maximum(acts, 0)
+        acts_pos = np.maximum(acts, 0) # todo fucking it up
         acts_pos /= np.max(acts_pos)
 
         # acts = acts[0, 0:4, :, :]
@@ -1509,10 +1546,12 @@ def get_logname(args, model):
                          'bcecoefficient': 'bco',
                          'debug_grad': 'dg',
                          'aug_mask': 'am',
+                         'colored_mask': 'colmask',
                          'from_scratch': 'fs',
                          'fourth_dim': 'fd',
                          'image_size': 'igsz',
-                         'pooling': 'pool'}
+                         'pooling': 'pool',
+                         'merge_method': 'mm'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1531,7 +1570,9 @@ def get_logname(args, model):
                       'from_scratch',
                       'image_size',
                       'fourth_dim',
-                      'pooling']
+                      'pooling',
+                      'merge_method',
+                      'colored_mask']
 
     if args.loss != 'bce':
         important_args.extend(['bcecoefficient',
@@ -1543,14 +1584,19 @@ def get_logname(args, model):
                 continue
             elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
                 continue
-            elif str(arg) == 'aug_mask' and getattr(args, arg) == 0:
+            elif str(arg) == 'aug_mask' and not getattr(args, arg):
                 continue
-            elif str(arg) == 'from_scratch' and getattr(args, arg) == 0:
+            elif str(arg) == 'from_scratch' and not getattr(args, arg):
                 continue
-            elif str(arg) == 'fourth_dim' and getattr(args, arg) == 0:
+            elif str(arg) == 'fourth_dim' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'colored_mask' and not getattr(args, arg):
                 continue
 
-            name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
+            if type(getattr(args, arg)) is not bool:
+                name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
+            else:
+                name += '-' + name_replace_dict[str(arg)]
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'
