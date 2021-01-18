@@ -1013,13 +1013,17 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
 
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
-    new_activations = []
-    for activation in activations:
-        new_activations.append(activation * classifier_weights)
+    cpu_activations = []
+    if classifier_weights is not None:
+        for activation in activations:
+            cpu_activations.append(activation * classifier_weights)
+    else:
+        for activation in activations:
+            cpu_activations.append(activation)
 
-    method_list = [method for _ in range(len(new_activations))]
-    new_activations = np.array(list(map(activation_reduction,
-                                    new_activations, method_list)))
+    method_list = [method for _ in range(len(cpu_activations))]
+    cpu_activations = np.array(list(map(activation_reduction,
+                                    cpu_activations, method_list)))
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
@@ -1030,7 +1034,7 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
     # import pdb
     # pdb.set_trace()
 
-    heatmaps = np.maximum(new_activations, 0)
+    heatmaps = np.maximum(cpu_activations, 0)
     # activations[0][0] *= -1
     # heatmaps = activations
 
@@ -1198,10 +1202,11 @@ def draw_act_histograms(ax, acts, titles, plot_title, classifier_weights=None):
     # plt.rcParams.update({'font.size': 5})
     # fig = plt.Figure(figsize=(20, 20))
 
-    acts = list(map(lambda x: x.cpu().numpy(), acts))
+    new_acts = list(map(lambda x: x.cpu().numpy(), acts))
+    cw = classifier_weights.cpu().numpy()
 
-    for act in acts:
-        act *= classifier_weights
+    for act in new_acts:
+        act *= cw
 
     legends = list(map(lambda x: x + ' value distribution', titles))
     if len(acts) == 2:
@@ -1293,7 +1298,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
     :return:
     """
 
-    classifier_weights = classifier_weights.cpu().numpy()
+    # classifier_weights = classifier_weights.cpu().numpy()
     shape = img_list[0][1].shape[0:2]
 
     acts.append(vector_merge_function(acts[0], acts[1], method=merge_method))  # anch_pos_subtraction
@@ -1310,14 +1315,14 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
     draw_act_histograms(axes[1], acts[3:5], titles[3:5],
                         f'Heatmap {merge_method}s', classifier_weights=classifier_weights)
 
-    fig.suptitle(overall_title)
+    fig.suptitle(overall_title + 'with weights')
 
     plt.savefig(histogram_path)
     plt.close('all')
 
     for method in ['avg', 'max']:
         heatmaps = get_heatmaps(acts[:3], shape=shape, method=method,
-                                classifier_weights=torch.ones((1,)))  # seperated for normalization, heatmaps withOUT classifier weights
+                                classifier_weights=None)  # seperated for normalization, heatmaps withOUT classifier weights
         heatmaps.extend(get_heatmaps(acts[:3], shape=shape, method=method,
                                 classifier_weights=classifier_weights)) # seperated for normalization, heatmaps WITH classifier weights
         heatmaps.extend(get_heatmaps(acts[3:5], shape=shape, method=method, classifier_weights=classifier_weights))
