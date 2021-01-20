@@ -1707,7 +1707,7 @@ class ModelMethods:
         max = 0
         min = 100
         for act, title, color in zip(classifier_weights_methods, titles, colors):
-            flatten_act = act.flatten()
+            flatten_act = act.flatten().cpu().numpy()
             if max < flatten_act.max():
                 max = flatten_act.max()
             if min > flatten_act.min():
