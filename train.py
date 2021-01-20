@@ -302,7 +302,8 @@ def main():
                                         transform_for_model=data_transforms_val,
                                         transform_for_heatmap=cam_data_transforms,
                                         epoch=-1,
-                                        count=1)
+                                        count=1,
+                                        draw_all_thresh=args.draw_all_thresh)
         logger.info(f'DONE drawing heatmaps on epoch {-1}!!!')
 
     if args.katn and args.pretrained_model_name != '':
