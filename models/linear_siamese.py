@@ -38,8 +38,8 @@ class LiSiamese(nn.Module):
 
             # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
 
+        self.bn_for_classifier = nn.BatchNorm1d(self.input_shape)
         self.classifier = nn.Sequential(nn.Linear(self.input_shape, 1))  # no sigmoid for bce_with_crossentorpy loss!!!!
-
         # return -1 if (a, n) and 1 if (a, p). Should learn a "distance function"
         # self.out = nn.Sequential(nn.Linear(self.input_shape, 1), nn.Tanh())
 
@@ -59,10 +59,12 @@ class LiSiamese(nn.Module):
 
         out2 = self.forward_one(x2)
 
+
         # out_cat = torch.cat((out1, out2), 1)
         # out_dist = torch.pow((out1 - out2), 2)
         out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method)
 
+        out_dist = self.bn_for_classifier(out_dist)
         # dis = torch.abs(out1 - out2)
         pred = self.classifier(out_dist)  # output between -inf and inf. Passed through sigmoid in loss function
 
