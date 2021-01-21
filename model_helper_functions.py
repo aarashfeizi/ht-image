@@ -400,14 +400,19 @@ class ModelMethods:
 
                     # import pdb
                     # pdb.set_trace()
-                    begin_index = int(m_i * sub_method_dim)
-                    end_index = int((m_i + 1) * sub_method_dim)
+                    offset = int(m_i * sub_method_dim)
+                    begin_index = offset
+                    end_index = int(offset + sub_method_dim)
                     pos_dist_weighted_temp = pos_dist_weighted[:, begin_index:end_index]
                     neg_dist_weighted_temp = neg_dist_weighted[:, begin_index:end_index]
                     pos_max_indices = torch.topk(pos_dist_weighted_temp, k=k).indices
 
-                    self.logger.info(f'pos max indices {met}: {pos_max_indices}, {pos_dist[0][pos_max_indices]}')
-                    print(f'pos max indices {met}: {pos_max_indices}, {pos_dist[0][pos_max_indices]}')
+                    print(f'offset = {offset}')
+
+                    self.logger.info(f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
+                    print(f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
+
+                    acts_tmp = []
 
                     acts_tmp.append(acts_anch_pos[0][:, pos_max_indices, :, :].squeeze(dim=0))
                     acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
@@ -461,7 +466,7 @@ class ModelMethods:
                                                 titles=['Anch', 'Pos', 'Neg'],
                                                 histogram_path=histogram_path,
                                                 merge_method=met,
-                                                classifier_weights=classifier_weights_tensor[:, pos_max_indices, :,
+                                                classifier_weights=classifier_weights_tensor[:, offset + pos_max_indices, :,
                                                                    :].squeeze(dim=0))
                     self.logger.info('after forward drawing')
                     self.logger.info(f'min: {(acts_tmp[0].min())}')
@@ -513,7 +518,7 @@ class ModelMethods:
                                                 titles=['Anch', 'Pos', 'Neg'],
                                                 histogram_path=histogram_path,
                                                 merge_method=met,
-                                                classifier_weights=classifier_weights_tensor[:, neg_max_indices, :,
+                                                classifier_weights=classifier_weights_tensor[:, offset + neg_max_indices, :,
                                                                    :].squeeze(dim=0))
 
             if loss_fn is not None:

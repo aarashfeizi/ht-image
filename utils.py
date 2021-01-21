@@ -1086,12 +1086,20 @@ def read_img_paths(path, local_path='.'):
 
 def vector_merge_function(v1, v2, method='sim'):
     if method == 'diff':
-        return torch.pow((v1 - v2), 2)
+        ret = torch.pow((v1 - v2), 2)
+        ret /= ret.norm()
+        return ret
     elif method == 'sim':
-        return v1 * v2
+        ret = v1 * v2
+        ret /= ret.norm()
+        return ret
     elif method == 'diff-sim':
         diff_merged = torch.pow((v1 - v2), 2)
         sim_merged = v1 * v2
+
+        diff_merged /= diff_merged.norm()
+        sim_merged /= sim_merged.norm()
+
         return torch.cat([diff_merged, sim_merged], dim=1)
     else:
         raise Exception(f'Merge method {method} not implemented.')
@@ -1315,6 +1323,30 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
 
     acts.append(vector_merge_function(acts[0], acts[2], method=merge_method))  # anch_neg_subtraction
     titles.append(f'anch_neg_{merge_method}')
+    # print('#################################################################################################\n' + overall_title)
+    # print(f'anch_{merge_method} median: {acts[0].median()}')
+    # print(f'anch_{merge_method} max: {acts[0].max()}')
+    # print(f'anch_{merge_method} min: {acts[0].min()}')
+    #
+    # print(f'pos_{merge_method} median: {acts[1].median()}')
+    # print(f'pos_{merge_method} max: {acts[1].max()}')
+    # print(f'pos_{merge_method} min: {acts[1].min()}')
+    #
+    # print(f'neg_{merge_method} median: {acts[2].median()}')
+    # print(f'neg_{merge_method} max: {acts[2].max()}')
+    # print(f'neg_{merge_method} min: {acts[2].min()}')
+    #
+    # print(f'pos_anch_{merge_method} median: {acts[3].median()}')
+    # print(f'neg_anch_{merge_method} median: {acts[4].median()}')
+    #
+    # print(f'pos_anch_{merge_method} max: {acts[3].max()}')
+    # print(f'neg_anch_{merge_method} max: {acts[4].max()}')
+    #
+    # print(f'pos_anch_{merge_method} min: {acts[3].min()}')
+    # print(f'neg_anch_{merge_method} min: {acts[4].min()}')
+    #
+    # import pdb
+    # pdb.set_trace()
 
     plt.rcParams.update({'font.size': 25})
 
