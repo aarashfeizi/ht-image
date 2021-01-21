@@ -1087,16 +1087,21 @@ def read_img_paths(path, local_path='.'):
 def vector_merge_function(v1, v2, method='sim'):
     if method == 'diff':
         ret = torch.pow((v1 - v2), 2)
-        return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
+        # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
+        return torch.div(ret, torch.max(ret))
     elif method == 'sim':
         ret = v1 * v2
-        return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
+        return torch.div(ret, torch.max(ret))
+        # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
     elif method == 'diff-sim':
         diff_merged = torch.pow((v1 - v2), 2)
         sim_merged = v1 * v2
 
-        ret1 = torch.div(diff_merged, torch.sqrt(torch.sum(torch.pow(diff_merged, 2))))
-        ret2 = torch.div(sim_merged, torch.sqrt(torch.sum(torch.pow(sim_merged, 2))))
+        # ret1 = torch.div(diff_merged, torch.sqrt(torch.sum(torch.pow(diff_merged, 2))))
+        # ret2 = torch.div(sim_merged, torch.sqrt(torch.sum(torch.pow(sim_merged, 2))))
+
+        ret1 = torch.div(diff_merged, torch.max(diff_merged))
+        ret2 = torch.div(sim_merged, torch.max(sim_merged))
 
         return torch.cat([ret1, ret2], dim=1)
     else:
