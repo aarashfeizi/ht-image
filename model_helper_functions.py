@@ -409,7 +409,8 @@ class ModelMethods:
 
                     print(f'offset = {offset}')
 
-                    self.logger.info(f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
+                    self.logger.info(
+                        f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
                     print(f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
 
                     acts_tmp = []
@@ -466,7 +467,8 @@ class ModelMethods:
                                                 titles=['Anch', 'Pos', 'Neg'],
                                                 histogram_path=histogram_path,
                                                 merge_method=met,
-                                                classifier_weights=classifier_weights_tensor[:, offset + pos_max_indices, :,
+                                                classifier_weights=classifier_weights_tensor[:,
+                                                                   offset + pos_max_indices, :,
                                                                    :].squeeze(dim=0))
                     self.logger.info('after forward drawing')
                     self.logger.info(f'min: {(acts_tmp[0].min())}')
@@ -518,7 +520,8 @@ class ModelMethods:
                                                 titles=['Anch', 'Pos', 'Neg'],
                                                 histogram_path=histogram_path,
                                                 merge_method=met,
-                                                classifier_weights=classifier_weights_tensor[:, offset + neg_max_indices, :,
+                                                classifier_weights=classifier_weights_tensor[:,
+                                                                   offset + neg_max_indices, :,
                                                                    :].squeeze(dim=0))
 
             if loss_fn is not None:
@@ -659,7 +662,7 @@ class ModelMethods:
                     utils.print_gpu_stuff(args.cuda, 'before train few_shot')
 
                     start = time.time()
-                    train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error = self.apply_fewshot_eval(
+                    train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error, train_fewshot_predictions = self.apply_fewshot_eval(
                         args, net, train_loader_fewshot, bce_loss)
                     end = time.time()
 
@@ -690,10 +693,13 @@ class ModelMethods:
                         if args.eval_mode == 'fewshot':
 
                             utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
-                            val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net,
-                                                                                         val_loaders_fewshot[0],
-                                                                                         bce_loss, val=True,
-                                                                                         epoch=epoch, comment='known')
+                            val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_fewshot(args, net,
+                                                                                                         val_loaders_fewshot[
+                                                                                                             0],
+                                                                                                         bce_loss,
+                                                                                                         val=True,
+                                                                                                         epoch=epoch,
+                                                                                                         comment='known')
 
                             utils.print_gpu_stuff(args.cuda, 'after test few_shot 1 and before test_metric')
 
@@ -703,12 +709,14 @@ class ModelMethods:
 
                             utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
 
-                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
-                                                                                               val_loaders_fewshot[1],
-                                                                                               bce_loss,
-                                                                                               val=True,
-                                                                                               epoch=epoch,
-                                                                                               comment='unknown')
+                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_fewshot(args,
+                                                                                                                 net,
+                                                                                                                 val_loaders_fewshot[
+                                                                                                                     1],
+                                                                                                                 bce_loss,
+                                                                                                                 val=True,
+                                                                                                                 epoch=epoch,
+                                                                                                                 comment='unknown')
                             utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
 
                             self.test_metric(args, net, val_loaders[1],
@@ -749,6 +757,11 @@ class ModelMethods:
                     if val_acc > max_val_acc:
                         utils.print_gpu_stuff(args.cuda, 'Before saving model')
                         val_counter = 0
+                        np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
+                                 np.array(train_fewshot_predictions))
+                        np.savez(os.path.join(self.save_path, f'val_preds_knwn_epoch{epoch}'), np.array(val_preds_knwn))
+                        np.savez(os.path.join(self.save_path, f'val_preds_unknwn_epoch{epoch}'),
+                                 np.array(val_preds_unknwn))
                         self.logger.info(
                             'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
                         best_model = self.save_model(args, net, epoch, val_acc)
@@ -901,14 +914,18 @@ class ModelMethods:
 
                     if args.eval_mode == 'fewshot':
 
-                        val_rgt_knwn, val_err_knwn, val_acc_knwn = self.test_fewshot(args, net, val_loaders[0],
-                                                                                     loss_fn, val=True,
-                                                                                     epoch=epoch, comment='known')
-                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn = self.test_fewshot(args, net,
-                                                                                           val_loaders[1], loss_fn,
-                                                                                           val=True,
-                                                                                           epoch=epoch,
-                                                                                           comment='unknown')
+                        val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_fewshot(args, net,
+                                                                                                     val_loaders[0],
+                                                                                                     loss_fn, val=True,
+                                                                                                     epoch=epoch,
+                                                                                                     comment='known')
+                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_fewshot(args, net,
+                                                                                                             val_loaders[
+                                                                                                                 1],
+                                                                                                             loss_fn,
+                                                                                                             val=True,
+                                                                                                             epoch=epoch,
+                                                                                                             comment='unknown')
 
                     elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                         val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
@@ -1096,7 +1113,8 @@ class ModelMethods:
             prompt_text = comment + ' TEST FEW SHOT:\tcorrect:\t%d\terror:\t%d\ttest_acc:%f\ttest_loss:%f\t'
             prompt_text_tb = comment + '_Test'
 
-        test_acc, test_loss, tests_right, tests_error = self.apply_fewshot_eval(args, net, data_loader, loss_fn)
+        test_acc, test_loss, tests_right, tests_error, tests_predictions = self.apply_fewshot_eval(args, net,
+                                                                                                   data_loader, loss_fn)
 
         self.logger.info('$' * 70)
         self.logger.info(prompt_text % (tests_right, tests_error, test_acc, test_loss))
@@ -1106,7 +1124,7 @@ class ModelMethods:
         self.writer.add_scalar(f'{prompt_text_tb}/Fewshot_Acc', test_acc, epoch)
         self.writer.flush()
 
-        return tests_right, tests_error, test_acc
+        return tests_right, tests_error, test_acc, tests_predictions
 
     @utils.MY_DEC
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
@@ -1385,7 +1403,7 @@ class ModelMethods:
             label = Variable(label.cuda())
         else:
             label = Variable(label)
-
+        all_predictions = []
         for _, (img1, img2) in enumerate(data_loader, 1):
             if args.cuda:
                 img1, img2 = img1.cuda(), img2.cuda()
@@ -1393,6 +1411,7 @@ class ModelMethods:
             pred_vector, dist = net.forward(img1, img2)
             loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
             pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
+            all_predictions.extend(pred_vector)
             pred = np.argmax(pred_vector)
             if pred == 0:
                 right += 1
@@ -1401,7 +1420,7 @@ class ModelMethods:
 
         acc = right * 1.0 / (right + error)
 
-        return acc, loss, right, error
+        return acc, loss, right, error, all_predictions
 
     def get_loss_value(self, args, loss_fn, anch_feat, pos_feat, neg_feat):
 
