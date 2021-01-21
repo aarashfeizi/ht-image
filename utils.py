@@ -1087,20 +1087,18 @@ def read_img_paths(path, local_path='.'):
 def vector_merge_function(v1, v2, method='sim'):
     if method == 'diff':
         ret = torch.pow((v1 - v2), 2)
-        ret /= ret.norm()
-        return ret
+        return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
     elif method == 'sim':
         ret = v1 * v2
-        ret /= ret.norm()
-        return ret
+        return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
     elif method == 'diff-sim':
         diff_merged = torch.pow((v1 - v2), 2)
         sim_merged = v1 * v2
 
-        diff_merged /= diff_merged.norm()
-        sim_merged /= sim_merged.norm()
+        ret1 = torch.div(diff_merged, torch.sqrt(torch.sum(torch.pow(diff_merged, 2))))
+        ret2 = torch.div(sim_merged, torch.sqrt(torch.sum(torch.pow(sim_merged, 2))))
 
-        return torch.cat([diff_merged, sim_merged], dim=1)
+        return torch.cat([ret1, ret2], dim=1)
     else:
         raise Exception(f'Merge method {method} not implemented.')
 
