@@ -1087,20 +1087,25 @@ def read_img_paths(path, local_path='.'):
 def vector_merge_function(v1, v2, method='sim'):
     if method == 'diff':
         ret = torch.pow((v1 - v2), 2)
-        ret = F.normalize(ret, p=2, dim=1)
+        # ret = F.normalize(ret, p=2, dim=1)
+        ret = torch.div(ret, ret.max(dim=1, keepdim=True)[0])
         # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
         return ret
     elif method == 'sim':
         ret = v1 * v2
-        ret = F.normalize(ret, p=2, dim=1)
+        ret = torch.div(ret, ret.max(dim=1, keepdim=True)[0])
+        # ret = F.normalize(ret, p=2, dim=1)
         return ret
         # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
     elif method == 'diff-sim':
         diff_merged = torch.pow((v1 - v2), 2)
         sim_merged = v1 * v2
 
-        diff_merged = F.normalize(diff_merged, p=2, dim=1)
-        sim_merged = F.normalize(sim_merged, p=2, dim=1)
+        diff_merged = torch.div(diff_merged, diff_merged.max(dim=1, keepdim=True)[0])
+        sim_merged = torch.div(sim_merged, sim_merged.max(dim=1, keepdim=True)[0])
+
+        # diff_merged = F.normalize(diff_merged, p=2, dim=1)
+        # sim_merged = F.normalize(sim_merged, p=2, dim=1)
         # ret1 = torch.div(diff_merged, torch.sqrt(torch.sum(torch.pow(diff_merged, 2))))
         # ret2 = torch.div(sim_merged, torch.sqrt(torch.sum(torch.pow(sim_merged, 2))))
         #
