@@ -38,7 +38,7 @@ class LiSiamese(nn.Module):
 
             # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
 
-        self.bn_for_classifier = nn.BatchNorm1d(self.input_shape)
+        # self.bn_for_classifier = nn.BatchNorm1d(self.input_shape)
         self.classifier = nn.Sequential(nn.Linear(self.input_shape, 1))  # no sigmoid for bce_with_crossentorpy loss!!!!
         # return -1 if (a, n) and 1 if (a, p). Should learn a "distance function"
         # self.out = nn.Sequential(nn.Linear(self.input_shape, 1), nn.Tanh())
