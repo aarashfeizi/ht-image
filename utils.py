@@ -1087,16 +1087,20 @@ def read_img_paths(path, local_path='.'):
 def vector_merge_function(v1, v2, method='sim'):
     if method == 'diff':
         ret = torch.pow((v1 - v2), 2)
+        ret = F.normalize(ret, p=2, dim=1)
         # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
         return ret
     elif method == 'sim':
         ret = v1 * v2
+        ret = F.normalize(ret, p=2, dim=1)
         return ret
         # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
     elif method == 'diff-sim':
         diff_merged = torch.pow((v1 - v2), 2)
         sim_merged = v1 * v2
 
+        diff_merged = F.normalize(diff_merged, p=2, dim=1)
+        sim_merged = F.normalize(sim_merged, p=2, dim=1)
         # ret1 = torch.div(diff_merged, torch.sqrt(torch.sum(torch.pow(diff_merged, 2))))
         # ret2 = torch.div(sim_merged, torch.sqrt(torch.sum(torch.pow(sim_merged, 2))))
         #
@@ -1749,3 +1753,22 @@ def rmac(x, L=3, eps=1e-6):
                 v += vt
 
     return v
+
+
+def sigmoid(x):
+    return 1/(1 + np.exp(-x))
+
+def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist'):
+    plt.figure(figsize=(10, 10))
+    plt.hist(sigmoid(pos_preds), alpha=0.5, bins=bins, color='g')
+    plt.hist(sigmoid(neg_preds), alpha=0.5, bins=bins, color='r')
+
+
+    lines = [Line2D([0], [0], color="g", lw=4),
+             Line2D([0], [0], color="r", lw=4)]
+
+    plt.legend(lines, ['Positive', 'Negative'])
+    plt.title(title)
+
+    plt.savefig(savepath)
+    plt.close('all')

@@ -64,7 +64,7 @@ class LiSiamese(nn.Module):
         # out_dist = torch.pow((out1 - out2), 2)
         out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method)
 
-        out_dist = self.bn_for_classifier(out_dist)
+        # out_dist = self.bn_for_classifier(out_dist)
         # dis = torch.abs(out1 - out2)
         pred = self.classifier(out_dist)  # output between -inf and inf. Passed through sigmoid in loss function
 

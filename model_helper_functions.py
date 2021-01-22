@@ -1524,6 +1524,11 @@ class ModelMethods:
 
         metric_ACC.reset_acc()
 
+        merged_vectors = {}
+
+        pos_all_merged_vectors = None
+        neg_all_merged_vectors = None
+
         for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
             start = time.time()
             # self.logger.info('input: ', img1.size())
@@ -1558,6 +1563,11 @@ class ModelMethods:
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
             forward_end = time.time()
 
+            if pos_all_merged_vectors is None:
+                pos_all_merged_vectors = pos_dist.data.cpu()
+            else:
+                pos_all_merged_vectors = torch.cat([pos_all_merged_vectors, pos_dist.data.cpu()], dim=0)
+
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
 
@@ -1570,6 +1580,12 @@ class ModelMethods:
                 forward_start = time.time()
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
+
+                if neg_all_merged_vectors is None:
+                    neg_all_merged_vectors = neg_dist.data.cpu()
+                else:
+                    neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+
                 forward_end = time.time()
                 if utils.MY_DEC.enabled:
                     self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
@@ -1707,6 +1723,21 @@ class ModelMethods:
             end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one batch time: {end - start}')
+
+        if self.merge_method == 'diff-sim':
+
+            merged_vectors['pos-diff'] = pos_all_merged_vectors[:, :(pos_all_merged_vectors.shape[1] // 2)]
+            merged_vectors['pos-sim'] =pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
+
+            merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
+            merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
+        else:
+            merged_vectors[f'pos-{self.merge_method}'] = pos_all_merged_vectors
+            merged_vectors[f'neg-{self.merge_method}'] = neg_all_merged_vectors
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
 
         return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
 
