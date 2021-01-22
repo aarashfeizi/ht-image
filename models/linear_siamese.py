@@ -48,7 +48,7 @@ class LiSiamese(nn.Module):
         if self.extra_layer > 0:
             x = self.layer1(x)
 
-        x = nn.functional.normalize(x, p=2, dim=1)
+        # x = nn.functional.normalize(x, p=2, dim=1)
         # x = x / torch.norm(x)  # normalize to unit hypersphere
 
         return x
