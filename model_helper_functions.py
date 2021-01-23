@@ -167,12 +167,12 @@ class ModelMethods:
         total_batch_id = 0
         metric = metrics.Metric_Accuracy()
 
-        for epoch in range(epochs):
+        for epoch in range(1, epochs + 1):
 
             train_loss = 0
             metric.reset_acc()
 
-            with tqdm(total=len(trainLoader), desc=f'Epoch {epoch + 1}/{epochs}') as t:
+            with tqdm(total=len(trainLoader), desc=f'Epoch {epoch}/{epochs}') as t:
                 for batch_id, (img, label) in enumerate(trainLoader, 1):
 
                     # self.logger.info('input: ', img1.size())
@@ -622,11 +622,11 @@ class ModelMethods:
 
         val_counter = 0
 
-        for epoch in range(epochs):
+        for epoch in range(1, epochs + 1):
 
             epoch_start = time.time()
 
-            with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
+            with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
                     # self.logger.info(grad_save_path)
@@ -685,7 +685,7 @@ class ModelMethods:
                     self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
                     self.writer.flush()
 
-                    if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
+                    if val_loaders is not None and (epoch) % args.test_freq == 0:
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
@@ -763,7 +763,7 @@ class ModelMethods:
                         np.savez(os.path.join(self.save_path, f'val_preds_unknwn_epoch{epoch}'),
                                  np.array(val_preds_unknwn))
                         self.logger.info(
-                            'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
+                            f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
                         best_model = self.save_model(args, net, epoch, val_acc)
                         max_val_acc = val_acc
                         utils.print_gpu_stuff(args.cuda, 'Before saving model')
@@ -858,12 +858,12 @@ class ModelMethods:
 
         val_counter = 0
 
-        for epoch in range(epochs):
+        for epoch in range(1, epochs + 1):
 
             train_loss = 0
             metric.reset_acc()
 
-            with tqdm(total=len(train_loader), desc=f'Epoch {epoch + 1}/{args.epochs}') as t:
+            with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 for batch_id, (img1, img2, label) in enumerate(train_loader, 1):
 
                     # self.logger.info('input: ', img1.size())
@@ -907,7 +907,7 @@ class ModelMethods:
                 self.writer.add_scalar('Train/Acc', metric.get_acc(), epoch)
                 self.writer.flush()
 
-                if val_loaders is not None and (epoch + 1) % args.test_freq == 0:
+                if val_loaders is not None and (epoch) % args.test_freq == 0:
                     net.eval()
                     # device = f'cuda:{net.device_ids[0]}'
                     val_acc_unknwn, val_acc_knwn = -1, -1
@@ -1296,7 +1296,7 @@ class ModelMethods:
         plt.close('all')
 
     def save_model(self, args, net, epoch, val_acc):
-        best_model = 'model-epoch-' + str(epoch + 1) + '-val-acc-' + str(val_acc) + '.pt'
+        best_model = 'model-epoch-' + str(epoch) + '-val-acc-' + str(val_acc) + '.pt'
         torch.save({'epoch': epoch, 'model_state_dict': net.state_dict()},
                    self.save_path + '/' + best_model)
         return best_model
@@ -1446,7 +1446,7 @@ class ModelMethods:
             v.append(res[k])
 
         colors = ['r', 'b', 'y', 'g', 'c', 'm']
-        epochs = [i for i in range(epoch + 1)]
+        epochs = [i for i in range(1, epoch + 1)]
         legends = []
         colors_reordered = []
 
@@ -1462,7 +1462,7 @@ class ModelMethods:
         plt.grid(True)
         plt.xlabel('Epoch')
         plt.ylabel('Euclidean Distance')
-        plt.xlim(left=-1, right=epoch + 5)
+        plt.xlim(left=0, right=epoch + 5)
         plt.legend([Line2D([0], [0], color=colors_reordered[0], lw=4),
                     Line2D([0], [0], color=colors_reordered[1], lw=4),
                     Line2D([0], [0], color=colors_reordered[2], lw=4),
@@ -1481,7 +1481,7 @@ class ModelMethods:
         samples_silhouette = silhouette_samples(X, labels)
 
         if epoch != -1:
-            epochs = [i for i in range(epoch + 1)]
+            epochs = [i for i in range(1, epoch + 1)]
 
             plt.figure(figsize=(10, 10))
             if len(self.silhouette_scores[mode]) > 1:
@@ -1492,7 +1492,7 @@ class ModelMethods:
             plt.grid(True)
             plt.xlabel('Epoch')
             plt.ylabel(f'Silhouette Score')
-            plt.xlim(left=-1, right=epoch + 5)
+            plt.xlim(left=0, right=epoch + 5)
 
             plt.title(f'Silhouette Scores for {mode} set')
 
