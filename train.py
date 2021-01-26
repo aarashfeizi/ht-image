@@ -219,7 +219,7 @@ def main():
         loss_fn = None
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
-        loss_fn = TripletLoss(margin=args.margin, args=args)
+        loss_fn = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)
     elif args.loss == 'maxmargin':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = MaxMarginLoss(margin=args.margin, args=args)

@@ -4,7 +4,7 @@ import torch
 
 
 class TripletLoss(nn.Module):
-    def __init__(self, args, margin):
+    def __init__(self, args, margin, soft=False):
         super(TripletLoss, self).__init__()
         #
         # if margin > 1:
@@ -14,18 +14,36 @@ class TripletLoss(nn.Module):
         self.no_negative = args.no_negative
         self.loss = 0
         self.pd = torch.nn.PairwiseDistance(p=2)
+        self.soft = soft
 
     def forward(self, pos_dist, neg_dist):
         # pos_dist = self.pd(anch, pos)
         # neg_dist = self.pd(anch, neg)
 
-        dist = pos_dist - neg_dist + self.margin
-
-        loss = F.relu(dist)
+        if self.soft:
+            loss = F.softplus(pos_dist - neg_dist)
+        else:
+            dist = pos_dist - neg_dist + self.margin
+            loss = F.relu(dist)
 
         loss = loss.mean()
 
         return loss
+
+class HardBatch(nn.Module):
+    def __init__(self, args, margin, soft=False):
+        super(TripletLoss, self).__init__()
+        #
+        # if margin > 1:
+        #     raise Exception("Distances are normalized. Margine should be less than 1.0"
+        self.margin = margin
+        self.soft = soft
+
+
+    def forward(self, batch, mask):
+
+        return 0
+
 
 
 class MaxMarginLoss(nn.Module):

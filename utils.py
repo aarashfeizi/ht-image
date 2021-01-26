@@ -188,6 +188,7 @@ def get_args():
     parser.add_argument('-mtlr', '--metric_learning', default=False, action='store_true')
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin'])
+    parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
