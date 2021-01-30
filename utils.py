@@ -189,7 +189,7 @@ def get_args():
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
-    parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim'])
+    parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim', 'concat'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
 
@@ -1123,6 +1123,9 @@ def vector_merge_function(v1, v2, method='sim', normalize=True):
         # ret2 = torch.nn.BatchNorm1d(sim_merged)
 
         return torch.cat([diff_merged, sim_merged], dim=1)
+    elif method == 'concat':
+        merged = torch.cat([v1, v2], dim=1)
+        return merged
     else:
         raise Exception(f'Merge method {method} not implemented.')
 

@@ -12,7 +12,7 @@ class LiSiamese(nn.Module):
 
         self.merge_method = args.merge_method
 
-        if self.merge_method == 'diff-sim':
+        if self.merge_method == 'diff-sim' or self.merge_method == 'concat':
             method_coefficient = 2
         else:
             method_coefficient = 1
