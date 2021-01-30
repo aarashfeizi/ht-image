@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 import model_helper_functions
 from cub_dataloader import *
 from hotel_dataloader import *
-from losses import TripletLoss, MaxMarginLoss
+from losses import TripletLoss, MaxMarginLoss, BatchHard
 from models.top_model import *
 
 
@@ -36,6 +36,9 @@ def main():
         dataset_info = json.load(d)
 
     args_dict = vars(args)
+    if args_dict['loss'] == 'batchhard':
+        args_dict['batch_size'] = args_dict['bh_P'] * args_dict['bh_K']
+
     args_dict.update(dataset_info[args.dataset_name])
     args = Namespace(**args_dict)
 
@@ -48,6 +51,7 @@ def main():
     logger = _logger(model_name, args.env)
 
     logger.info(f'Verbose: {args.verbose}')
+    logger.info(f'Batch size is {args_dict["batch_size"]}')
 
     basic_aug = (args.overfit_num == 0)
 
@@ -120,15 +124,19 @@ def main():
     #                                                   save_pictures=False, overfit=False, return_paths=True)
 
     logger.info('*' * 10)
+    is_batchhard = (args.loss == 'batchhard')
     if args.metric_learning:
-        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False,
-                                         overfit=True)
+        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train',
+                                         save_pictures=False, overfit=True,
+                                         batchhard=[is_batchhard, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
-                                                    save_pictures=False, overfit=False)
+                                                    save_pictures=False, overfit=False,
+                                                    batchhard=[is_batchhard, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                      save_pictures=False, overfit=False)
+                                                      save_pictures=False, overfit=False,
+                                                      batchhard=[is_batchhard, args.bh_P, args.bh_K])
 
 
     else:
@@ -224,6 +232,9 @@ def main():
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = MaxMarginLoss(margin=args.margin, args=args)
         # loss_fn = torch.nn.TripletMarginLoss(margin=args.margin, p=2)
+    elif args.loss == 'batchhard':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = BatchHard(args, margin=args.margin, soft=args.softmargin)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
 

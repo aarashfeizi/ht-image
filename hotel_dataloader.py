@@ -13,7 +13,8 @@ from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
 
 
 class HotelTrain_Metric(Dataset):
-    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False):
+    def __init__(self, args, transform=None, mode='f',
+                 save_pictures=False, overfit=False, return_paths=False, batchhard=[False, 0, 0]):
         super(HotelTrain_Metric, self).__init__()
         self.fourth_dim = args.fourth_dim
         np.random.seed(args.seed)
@@ -24,6 +25,10 @@ class HotelTrain_Metric(Dataset):
         self.return_paths = return_paths
         self.normalize = utils.TransformLoader(-1).transform_normalize
         self.colored_mask = args.colored_mask
+        self.batchhard = batchhard[0]
+        self.bh_P = batchhard[1]
+        self.bh_K = batchhard[2]
+
 
         start = time.time()
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
@@ -58,9 +63,7 @@ class HotelTrain_Metric(Dataset):
     def __len__(self):
         return self.length
 
-    @utils.MY_DEC
-    def __getitem__(self, index):
-
+    def __triplet_getitem__(self, index):
         paths = []
         start = time.time()
         if self.overfit:
@@ -81,9 +84,9 @@ class HotelTrain_Metric(Dataset):
                 negs.append(neg)
 
         else:  # not overfitting
-            anch_idx = random.randint(0, self.num_classes - 1)
+            anch_idx = np.random.randint(0, self.num_classes - 1)
             anch_class = self.labels[anch_idx]
-            random_path = random.choice(self.datas[anch_class])
+            random_path = np.random.choice(self.datas[anch_class])
             paths.append(random_path)
             anch = Image.open(random_path)
 
@@ -186,6 +189,101 @@ class HotelTrain_Metric(Dataset):
             return anch, pos, neg, paths
         else:
             return anch, pos, neg
+
+    def __batchhard_getitem__(self, index):
+        paths = []
+        labels_to_return = []
+        start = time.time()
+        imgs = []
+        if self.overfit:  # todo
+            raise Exception('Not implemented')
+            # overfit_triplet = np.random.choice(self.overfit_samples, 1)[0]
+            # paths.append(overfit_triplet['anch'])
+            # anch = Image.open(overfit_triplet['anch'])
+            # anch = anch.convert('RGB')
+            #
+            # paths.append(overfit_triplet['pos'])
+            # pos = Image.open(overfit_triplet['pos'])
+            #
+            # negs = []
+            # for neg_path in overfit_triplet['neg']:
+            #     paths.append(neg_path)
+            #     neg = Image.open(neg_path)
+            #     neg = neg.convert('RGB')
+            #
+            #     negs.append(neg)
+
+        else:  # not overfitting
+            if self.num_classes > self.bh_P:
+                label_idxes = np.random.choice(self.num_classes, size=self.bh_P, replace=False)
+            else:
+                label_idxes = np.random.choice(self.num_classes, size=self.bh_P, replace=True)
+
+            labels = self.labels[label_idxes]
+            for label in labels:
+                if len(self.datas[label]) >= self.bh_K:
+                    random_paths = np.random.choice(self.datas[label], size=self.bh_K, replace=False)
+                else:
+                    random_paths = np.random.choice(self.datas[label], size=self.bh_K, replace=True)
+
+                for random_path in random_paths:
+                    labels_to_return.append(label)
+                    paths.append(random_path)
+                    imgs.append(Image.open(random_path).convert('RGB'))
+
+        end = time.time()
+        if utils.MY_DEC.enabled:
+            print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
+
+
+        # import pdb
+        # pdb.set_trace()
+
+        if self.transform:
+            start = time.time()
+
+            if self.aug_mask:
+                masked_imgs = []
+                for img in imgs:
+                    mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                    img, masked_img, mask, _ = utils.add_mask(img, mask, colored=self.colored_mask)
+
+                    if not self.fourth_dim:
+                        img = masked_img
+
+                    masked_imgs.append(img)
+
+                imgs = masked_imgs
+
+                # if random.random() < 0.00001:
+                # rand = random.random()
+                # masked_anch.save(f'train_anch_{rand}_masked.png')
+                # masked_pos.save(f'train_pos_{rand}_masked.png')
+                # masked_neg.save(f'train_neg_{rand}_masked.png')
+
+            # import pdb
+            # pdb.set_trace()
+
+            for i, im in enumerate(imgs):
+                imgs[i] = self.do_transform(im)
+
+            imgs = torch.stack(imgs)
+
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                print(f'HotelTrain_Metric Dataloader, transform images time: {end - start}')
+
+        if self.return_paths:
+            return imgs, paths
+        else:
+            return imgs
+
+    @utils.MY_DEC
+    def __getitem__(self, index):
+        if self.batchhard:
+            return self.__batchhard_getitem__(index)
+        else:
+            return self.__triplet_getitem__(index)
 
     def do_transform(self, img):
         img = self.transform(img)
