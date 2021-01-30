@@ -187,7 +187,7 @@ def get_args():
 
     parser.add_argument('-mtlr', '--metric_learning', default=False, action='store_true')
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
-    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin'])
+    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
@@ -197,6 +197,8 @@ def get_args():
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
     parser.add_argument('-dat', '--draw_all_thresh', default=32, type=int, help="threshold for drawing all heatmaps")
+    parser.add_argument('-p', '--bh_P', default=18, type=int, help="number of classes for batchhard")
+    parser.add_argument('-k', '--bh_K', default=4, type=int, help="number of imgs per class for batchhard")
     parser.add_argument('-m', '--aug_mask', default=False, action='store_true')
     parser.add_argument('-cm', '--colored_mask', default=False, action='store_true')
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
@@ -744,7 +746,6 @@ def create_save_path(path, id_str, logger):
         logger.info(f'Save directory {path} already exists, but how?? {id_str}')  # almost impossible
 
 
-
 def read_masks(path):
     # create mask csv
     # read mask csv and paths
@@ -972,7 +973,8 @@ def __post_create_heatmap(heatmap, shape):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     return heatmap
 
-def activation_reduction(activations, method='avg'): # avg or max
+
+def activation_reduction(activations, method='avg'):  # avg or max
     if method == 'avg':
         act = torch.mean(activations, dim=1).squeeze().data.cpu().numpy()
     elif method == 'max':
@@ -992,7 +994,6 @@ def get_heatmap(activations, shape, save_path=None, label=None, method='avg'):
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-
 
     max_value = np.max(np.abs(heatmap))  # to keep it normalized between positive and negative
 
@@ -1025,7 +1026,7 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
 
     method_list = [method for _ in range(len(cpu_activations))]
     cpu_activations = np.array(list(map(activation_reduction,
-                                    cpu_activations, method_list)))
+                                        cpu_activations, method_list)))
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
@@ -1200,7 +1201,6 @@ def add_mask(org_img, mask, offsets=None, resize_factors=None, colored=False):
     # plt.show()
     # # import pdb
     # pdb.set_trace()
-
 
     four_channel_img = Image.fromarray(np.dstack((np.asarray(img), np.asarray(mask)[:, :, 3] // 255)))
 
@@ -1389,7 +1389,7 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
         heatmaps = get_heatmaps(acts[:3], shape=shape, method=method,
                                 classifier_weights=None)  # seperated for normalization, heatmaps withOUT classifier weights
         heatmaps.extend(get_heatmaps(acts[:3], shape=shape, method=method,
-                                classifier_weights=classifier_weights)) # seperated for normalization, heatmaps WITH classifier weights
+                                     classifier_weights=classifier_weights))  # seperated for normalization, heatmaps WITH classifier weights
         heatmaps.extend(get_heatmaps(acts[3:5], shape=shape, method=method, classifier_weights=None))
         heatmaps.extend(get_heatmaps(acts[3:5], shape=shape, method=method, classifier_weights=classifier_weights))
 
@@ -1450,7 +1450,6 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
         create_subplot(ax_anchpos_pos, titles[3] + ' org', pics[7])
         create_subplot(ax_anchneg_anch, titles[4] + ' org', pics[8])
         create_subplot(ax_anchneg_neg, titles[4] + ' org', pics[9])
-
 
         create_subplot(ax_anchpos_anch_ww, titles[3], pics[10])
         create_subplot(ax_anchpos_pos_ww, titles[3], pics[11])
@@ -1555,7 +1554,7 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
         # plt.rcParams.update({'figure.figsize': (20, 10)})
         print(f'Begin drawing all activations for {plot_title}')
 
-        acts_pos = np.maximum(acts, 0) # todo fucking it up
+        acts_pos = np.maximum(acts, 0)  # todo fucking it up
         acts_pos /= np.max(acts_pos)
 
         # acts = acts[0, 0:4, :, :]
@@ -1640,7 +1639,8 @@ def get_logname(args, model):
                          'fourth_dim': 'fd',
                          'image_size': 'igsz',
                          'pooling': 'pool',
-                         'merge_method': 'mm'}
+                         'merge_method': 'mm',
+                         'softmargin': 'softm'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1661,7 +1661,8 @@ def get_logname(args, model):
                       'fourth_dim',
                       'pooling',
                       'merge_method',
-                      'colored_mask']
+                      'colored_mask',
+                      'softmargin']
 
     if args.loss != 'bce':
         important_args.extend(['bcecoefficient',
@@ -1680,6 +1681,8 @@ def get_logname(args, model):
             elif str(arg) == 'fourth_dim' and not getattr(args, arg):
                 continue
             elif str(arg) == 'colored_mask' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'softmargin' and not getattr(args, arg):
                 continue
 
             if type(getattr(args, arg)) is not bool:
@@ -1713,7 +1716,7 @@ def mac(x):
 
 
 def gem(x, p=3, eps=1e-6):
-    return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
+    return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1. / p)
     # return F.lp_pool2d(F.threshold(x, eps, eps), p, (x.size(-2), x.size(-1))) # alternative
 
 
@@ -1770,13 +1773,13 @@ def rmac(x, L=3, eps=1e-6):
 
 
 def sigmoid(x):
-    return 1/(1 + np.exp(-x))
+    return 1 / (1 + np.exp(-x))
+
 
 def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist'):
     plt.figure(figsize=(10, 10))
     plt.hist(sigmoid(pos_preds), alpha=0.5, bins=bins, color='g')
     plt.hist(sigmoid(neg_preds), alpha=0.5, bins=bins, color='r')
-
 
     lines = [Line2D([0], [0], color="g", lw=4),
              Line2D([0], [0], color="r", lw=4)]
@@ -1786,3 +1789,90 @@ def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savep
 
     plt.savefig(savepath)
     plt.close('all')
+
+
+def get_pos_neg_preds(file_path, pos_freq=10):
+    preds = np.load(file_path)['arr_0']
+    pos_mask = np.zeros_like(preds, dtype=bool)
+    pos_mask[::pos_freq] = True
+    neg_mask = np.logical_not(pos_mask)
+
+    pos_preds = preds[pos_mask]
+    neg_preds = preds[neg_mask]
+
+    return pos_preds, neg_preds
+
+
+def squared_pairwise_distances(embeddings):
+    """
+    get dot product (batch_size, batch_size)
+    ||a-b||^2 = |a|^2 - 2*<a,b> + |b|^2
+    :param embeddings:
+    :param squared:
+    :return:
+    """
+
+    dot_product = embeddings.mm(embeddings.t())
+
+    # a vector
+    square_sum = dot_product.diag()
+
+    distances = square_sum.unsqueeze(1) - 2 * dot_product + square_sum.unsqueeze(0)
+
+    distances = distances.clamp(min=0)
+    return distances
+
+
+def get_valid_positive_mask(labels):
+    """
+    To be a valid positive pair (a,p),
+        - a and p are different embeddings
+        - a and p have the same label
+    """
+    indices_equal = torch.eye(labels.size(0)).byte()
+    indices_not_equal = torch.logical_not(indices_equal)
+
+    label_equal = torch.eq(labels.unsqueeze(1), labels.unsqueeze(0))
+
+    mask = torch.logical_and(indices_not_equal, label_equal)
+
+    return mask
+
+
+def get_valid_negative_mask(labels):
+    """
+    To be a valid negative pair (a,n),
+        - a and n are different embeddings
+        - a and n have the different label
+    """
+    indices_equal = torch.eye(labels.size(0)).byte()
+    indices_not_equal = torch.logical_not(indices_equal)
+
+    label_not_equal = torch.ne(labels.unsqueeze(1), labels.unsqueeze(0))
+
+    mask = torch.logical_and(indices_not_equal, label_not_equal)
+
+    return mask
+
+
+# def get_valid_triplets_mask(labels):
+#     """
+#     To be valid, a triplet (a,p,n) has to satisfy:
+#         - a,p,n are distinct embeddings
+#         - a and p have the same label, while a and n have different label
+#     """
+#     indices_equal = torch.eye(labels.size(0)).byte()
+#     indices_not_equal = ~indices_equal
+#     i_ne_j = indices_not_equal.unsqueeze(2)
+#     i_ne_k = indices_not_equal.unsqueeze(1)
+#     j_ne_k = indices_not_equal.unsqueeze(0)
+#     distinct_indices = i_ne_j & i_ne_k & j_ne_k
+#
+#     label_equal = torch.eq(labels.unsqueeze(1), labels.unsqueeze(0))
+#     i_eq_j = label_equal.unsqueeze(2)
+#     i_eq_k = label_equal.unsqueeze(1)
+#     i_ne_k = torch.logical_not(i_eq_k)
+#     valid_labels = torch.logical_and(i_eq_j, i_ne_k)
+#
+#     mask = torch.logical_and(distinct_indices, valid_labels)
+#     return mask
