@@ -1628,7 +1628,7 @@ def get_logname(args, model):
                          # 'early_stopping',
                          'feat_extractor': 'fe',
                          'extra_layer': 'el',
-                         # 'normalize',
+                         'normalize': 'normalClas',
                          'number_of_runs': 'nor',
                          'no_negative': 'nn',
                          'margin': 'm',
@@ -1652,7 +1652,7 @@ def get_logname(args, model):
                       # 'early_stopping',
                       'feat_extractor',
                       'extra_layer',
-                      # 'normalize',
+                      'normalize',
                       'number_of_runs',
                       'no_negative',
                       'loss',
@@ -1686,6 +1686,8 @@ def get_logname(args, model):
             elif str(arg) == 'colored_mask' and not getattr(args, arg):
                 continue
             elif str(arg) == 'softmargin' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'normalize' and not getattr(args, arg):
                 continue
 
             if type(getattr(args, arg)) is not bool:
