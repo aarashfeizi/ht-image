@@ -26,27 +26,30 @@ class LiSiamese(nn.Module):
 
         self.extra_layer = args.extra_layer
         # self.layer = nn.Sequential(nn.Linear(25088, 512))
+        layers = []
+        input_size = self.input_shape
         if self.extra_layer > 0:
-            layers = []
             for i in range(self.extra_layer):
-                layers.append(nn.Linear(self.input_shape, self.input_shape))
+                layers.append(nn.Linear(input_size, input_size // 2))
                 layers.append(nn.ReLU())
                 if args.normalize:
-                    layers.append(nn.BatchNorm1d(self.input_shape))
+                    layers.append(nn.BatchNorm1d(input_size // 2))
+                input_size = input_size // 2
 
-            self.layer1 = nn.Sequential(*layers)
+            # self.layer1 = nn.Sequential(*layers)
 
+        layers.append(nn.Linear(input_size, 1))
             # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
 
         # self.bn_for_classifier = nn.BatchNorm1d(self.input_shape)
-        self.classifier = nn.Sequential(nn.Linear(self.input_shape, 1))  # no sigmoid for bce_with_crossentorpy loss!!!!
+        self.classifier = nn.Sequential(*layers)  # no sigmoid for bce_with_crossentorpy loss!!!!
         # return -1 if (a, n) and 1 if (a, p). Should learn a "distance function"
         # self.out = nn.Sequential(nn.Linear(self.input_shape, 1), nn.Tanh())
 
     def forward_one(self, x):
         x = x.view(x.size()[0], -1)
-        if self.extra_layer > 0:
-            x = self.layer1(x)
+        # if self.extra_layer > 0:
+        #     x = self.layer1(x)
 
         # x = nn.functional.normalize(x, p=2, dim=1)
         # x = x / torch.norm(x)  # normalize to unit hypersphere
