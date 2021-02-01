@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 import model_helper_functions
 from cub_dataloader import *
 from hotel_dataloader import *
-from losses import TripletLoss, MaxMarginLoss
+from losses import TripletLoss, MaxMarginLoss, BatchHard
 from models.top_model import *
 
 
@@ -36,6 +36,10 @@ def main():
         dataset_info = json.load(d)
 
     args_dict = vars(args)
+
+    if args_dict['loss'] == 'batchhard':
+        args_dict['batch_size'] = args_dict['bh_P'] * args_dict['bh_K']
+
     args_dict.update(dataset_info[args.dataset_name])
     args = Namespace(**args_dict)
 
@@ -48,7 +52,7 @@ def main():
     logger = _logger(model_name, args.env)
 
     logger.info(f'Verbose: {args.verbose}')
-
+    logger.info(f'Batch size is {args_dict["batch_size"]}')
     basic_aug = (args.overfit_num == 0)
 
     data_transforms_train, transform_list_train = utils.TransformLoader(args.image_size,
@@ -118,17 +122,20 @@ def main():
     # logger.info('*' * 10)
     # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
     #                                                   save_pictures=False, overfit=False, return_paths=True)
-
+    is_batchhard = (args.loss == 'batchhard')
     logger.info('*' * 10)
     if args.metric_learning:
-        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False,
-                                         overfit=True)
+        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train',
+                                         save_pictures = False, overfit = True,
+                                         batchhard = [is_batchhard, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
-                                                    save_pictures=False, overfit=False)
+                                                    save_pictures=False, overfit=False,
+                                                    batchhard = [is_batchhard, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                      save_pictures=False, overfit=False)
+                                                    save_pictures=False, overfit=False,
+                                                    batchhard = [is_batchhard, args.bh_P, args.bh_K])
 
 
     else:
@@ -179,7 +186,12 @@ def main():
         workers = args.workers
         pin_memory = args.pin_memory
 
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=False, num_workers=workers,
+    if args.loss == 'batchhard':
+        bs = args.bh_P
+    else:
+        bs = args.batch_size
+
+    train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
                               pin_memory=pin_memory, drop_last=True)
 
     train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
@@ -224,6 +236,9 @@ def main():
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = MaxMarginLoss(margin=args.margin, args=args)
         # loss_fn = torch.nn.TripletMarginLoss(margin=args.margin, p=2)
+    elif args.loss == 'batchhard':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = BatchHard(margin=args.margin, args=args, soft=args.softmargin)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
 
@@ -232,9 +247,16 @@ def main():
 
     cam_images_len = len(cam_img_paths) if cam_img_paths is not None else 0
 
-    model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=cam_images_len,
-                                                            model_name=model_name, id_str=id_str)
-    tm_net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
+
+
+    if args.baseline_model != '':
+        net = utils.get_resnet(args, args.baseline_model)
+        model_methods_top = model_helper_functions.BaslineModel(args=args, logger=logger, model=net, loss_fn=loss_fn,
+                                                                model_name=model_name, id_str=id_str)
+    else:
+        model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=cam_images_len,
+                                                                model_name=model_name, id_str=id_str)
+        net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
     logger.info(model_methods_top.save_path)
 
@@ -249,17 +271,22 @@ def main():
     if args.cuda:
         if torch.cuda.device_count() > 1:
             logger.info(f'torch.cuda.device_count() = {torch.cuda.device_count()}')
-            tm_net = nn.DataParallel(tm_net)
+            net = nn.DataParallel(net)
         logger.info(f'Let\'s use {torch.cuda.device_count()} GPUs!')
         utils.print_gpu_stuff(args.cuda, 'before model to gpu')
-        tm_net = tm_net.cuda()
+        net = net.cuda()
         utils.print_gpu_stuff(args.cuda, 'after model to gpu')
 
     logger.info('Training Top')
+    if args.baseline_model != '':
+        logger.info('Training')
+        model_methods_top.train(args, train_loader, val_db_loader)
+
+
     if args.pretrained_model_name == '':
         logger.info('Training')
         if args.metric_learning:
-            tm_net, best_model_top = model_methods_top.train_metriclearning(net=tm_net, loss_fn=loss_fn,
+            net, best_model_top = model_methods_top.train_metriclearning(net=net, loss_fn=loss_fn,
                                                                             bce_loss=loss_fn_bce, args=args,
                                                                             train_loader=train_loader,
                                                                             val_loaders=val_loaders_metric,
@@ -270,7 +297,7 @@ def main():
                                                                                       cam_data_transforms],
                                                                             db_loaders=[train_db_loader, val_db_loader])
         else:
-            tm_net, best_model_top = model_methods_top.train_fewshot(net=tm_net, loss_fn=loss_fn, args=args,
+            net, best_model_top = model_methods_top.train_fewshot(net=net, loss_fn=loss_fn, args=args,
                                                                      train_loader=train_loader,
                                                                      val_loaders=val_loaders_fewshot)
         logger.info('Calculating K@Ns for Validation')
@@ -281,7 +308,7 @@ def main():
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
 
-        model_methods_top.make_emb_db(args, tm_net, val_db_loader,
+        model_methods_top.make_emb_db(args, net, val_db_loader,
                                       eval_sampled=args.sampled_results,
                                       eval_per_class=args.per_class_results, newly_trained=True,
                                       batch_size=args.db_batch,
@@ -290,11 +317,11 @@ def main():
         logger.info('Testing without training')
         best_model_top = args.pretrained_model_name
         logger.info(f"Not training, loading {best_model_top} model...")
-        tm_net = model_methods_top.load_model(args, tm_net, best_model_top)
+        net = model_methods_top.load_model(args, net, best_model_top)
 
     if args.cam and args.pretrained_model_name != '':
         logger.info(f'Drawing heatmaps on epoch {-1}...')
-        model_methods_top.draw_heatmaps(net=tm_net,
+        model_methods_top.draw_heatmaps(net=net,
                                         loss_fn=loss_fn,
                                         bce_loss=loss_fn_bce,
                                         args=args,
@@ -313,7 +340,7 @@ def main():
         #                               eval_per_class=True, newly_trained=True,
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
-        model_methods_top.make_emb_db(args, tm_net, val_db_loader,
+        model_methods_top.make_emb_db(args, net, val_db_loader,
                                       eval_sampled=args.sampled_results,
                                       eval_per_class=args.per_class_results, newly_trained=False,
                                       batch_size=args.db_batch,
@@ -322,10 +349,10 @@ def main():
     # testing
     if args.test:
         logger.info(f"Loading {best_model_top} model...")
-        tm_net = model_methods_top.load_model(args, tm_net, best_model_top)
+        net = model_methods_top.load_model(args, net, best_model_top)
 
-        model_methods_top.test_fewshot(args, tm_net, test_loaders[0], loss_fn, comment='known')
-        model_methods_top.test_fewshot(args, tm_net, test_loaders[1], loss_fn, comment='unknown')
+        model_methods_top.test_fewshot(args, net, test_loaders[0], loss_fn, comment='known')
+        model_methods_top.test_fewshot(args, net, test_loaders[1], loss_fn, comment='unknown')
     else:
         logger.info("NO TESTING DONE.")
     #  learning_rate = learning_rate * 0.95

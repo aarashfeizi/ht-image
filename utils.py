@@ -209,6 +209,7 @@ def get_args():
     parser.add_argument('-lpth', '--local_path',
                         default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
     parser.add_argument('-jid', '--job_id', default='')
+    parser.add_argument('-bm', '--baseline_model', default='')
 
     args = parser.parse_args()
 
@@ -300,7 +301,7 @@ def load_h5(data_description, path):
     return data
 
 
-def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True,
+def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True, even_sampled=True,
                      per_class=False, save_path='', mode=''):
     if per_class:
         logger.info('K@N per class')
@@ -312,7 +313,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
     if sampled:
         logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
-                                                                 run_number, mode)
+                                                                 run_number, mode, even_sampled=even_sampled)
         kavg.to_csv(os.path.join(save_path, f'{mode}_sampled_avg_k@n.csv'), header=True, index=False)
         kruns.to_csv(os.path.join(save_path, f'{mode}_sampled_runs_k@n.csv'), header=True, index=False)
         total.to_csv(os.path.join(save_path, f'{mode}_sampled_per_class_total_avg_k@n.csv'), header=True, index=False)
@@ -393,7 +394,7 @@ def _log_per_class(logger, df, split_kind=''):
     logger.info(f'k@100 per class average: {np.array(df["k@100"]).mean()}\n')
 
 
-def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode=''):
+def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='', even_sampled=False):
     all_lbls = np.unique(img_lbls)
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
@@ -413,15 +414,19 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     k10s_u = []
     k100s_u = []
 
-    if args.dataset_name != 'cub':
+    if args.dataset_name != 'cub' and even_sampled:
         sampled_indices_all = pd.read_csv(
             os.path.join(args.project_path, 'sample_index_por' + str(args.portion) + '.csv'))
         sampled_label_all = pd.read_csv(
             os.path.join(args.project_path, 'sample_label_por' + str(args.portion) + '.csv'))
 
+    if not even_sampled:
+        logger.info(f'### K@N only once. Not even samples, so no randomization.')
+        run_number = 1
+
     for run in range(run_number):
         column_name = f'run{run}'
-        if args.dataset_name != 'cub':
+        if args.dataset_name != 'cub' and even_sampled:
             sampled_indices = np.array(sampled_indices_all[column_name]).astype(int)
             sampled_labels = np.array(sampled_label_all[column_name]).astype(int)
 
@@ -434,7 +439,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
             assert np.array_equal(sampled_labels, chosen_img_lbls)
 
         else:  # dataset os cub
-            logger.info(f'### Run {run} on cub...')
+            logger.info(f'### Run {run} with NOT even samples...')
 
             chosen_img_feats = img_feats
             chosen_img_lbls = img_lbls
@@ -1614,9 +1619,11 @@ def get_logname(args, model):
 
     if args.cuda and args.gpu_ids != '':
         gpus_num = len(args.gpu_ids.split(','))
-        name += f'-{gpus_num}gpus'
+        gpu_info = f'-{gpus_num}gpus'
     else:
-        name += f'-cpu'
+        gpu_info = f'-cpu'
+
+    name += gpu_info
 
     if args.extra_name != '':
         name += '-' + args.extra_name
@@ -1697,6 +1704,12 @@ def get_logname(args, model):
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'
+
+    if args.baseline_model != '':
+        name = 'baseline_' + args.baseline_model + '-' + args.loss + gpu_info
+
+    if args.loss == 'batchhard':
+        name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
     name += id_str
 
@@ -1881,3 +1894,19 @@ def get_valid_negative_mask(labels):
 #
 #     mask = torch.logical_and(distinct_indices, valid_labels)
 #     return mask
+def get_resnet(args, model_name):
+    from torchvision.models import resnet50
+
+    pretrained_path = os.path.join(args.project_path, f'models/pretrained_{model_name}.pt')
+    state_dict = None
+    if os.path.exists(pretrained_path):
+        print(f'loading {model_name} from pretrained')
+        state_dict = torch.load(pretrained_path)['model_state_dict']
+    else:
+        raise Exception("Baseline model not found in models/ dir")
+
+    model = resnet50(pretrained=False)
+    model.load_state_dict(state_dict)
+    model.fc = torch.nn.Linear(2048, 256)
+
+    return model
