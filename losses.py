@@ -48,10 +48,12 @@ class BatchHard(nn.Module):
 
         distances = utils.squared_pairwise_distances(batch)
 
-        mask_positive = utils.get_valid_positive_mask(labels)
+        gpu = labels.device.type == 'cuda'
+
+        mask_positive = utils.get_valid_positive_mask(labels, gpu)
         hardest_positive_dist = (distances * mask_positive.float()).max(dim=1)[0]
 
-        mask_negative = utils.get_valid_negative_mask(labels)
+        mask_negative = utils.get_valid_negative_mask(labels, gpu)
         max_negative_dist = distances.max(dim=1, keepdim=True)[0]
         distances = distances + max_negative_dist * (~mask_negative).float()
         hardest_negative_dist = distances.min(dim=1)[0]

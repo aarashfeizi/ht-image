@@ -1841,7 +1841,7 @@ def squared_pairwise_distances(embeddings):
     return distances
 
 
-def get_valid_positive_mask(labels):
+def get_valid_positive_mask(labels, gpu=False):
     """
     To be a valid positive pair (a,p),
         - a and p are different embeddings
@@ -1852,12 +1852,15 @@ def get_valid_positive_mask(labels):
 
     label_equal = torch.eq(labels.unsqueeze(1), labels.unsqueeze(0))
 
+    if gpu:
+        indices_not_equal = indices_not_equal.cuda()
+
     mask = torch.logical_and(indices_not_equal, label_equal)
 
     return mask
 
 
-def get_valid_negative_mask(labels):
+def get_valid_negative_mask(labels, gpu=False):
     """
     To be a valid negative pair (a,n),
         - a and n are different embeddings
@@ -1867,6 +1870,9 @@ def get_valid_negative_mask(labels):
     indices_not_equal = torch.logical_not(indices_equal)
 
     label_not_equal = torch.ne(labels.unsqueeze(1), labels.unsqueeze(0))
+
+    if gpu:
+        indices_not_equal = indices_not_equal.cuda()
 
     mask = torch.logical_and(indices_not_equal, label_not_equal)
 

@@ -360,3 +360,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# python3 /home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/train.py -cuda     -env beluga     -dsp ~/scratch/aarash/     -dsn hotels     -fe resnet50     -tbp tensorboard_hlr/         -sp savedmodels         -gpu 0         -wr 10     -pim     -w 10         -bs 10         -tf 1         -sf 1         -ep 5         -lrs 0.1     -lrr 0.03     -por 5000     -es 20     -cbir     -dbb 60     -el 0     -nor 200     -ls 4     -mtlr     -lss batchhard     -mg 1              -bco 1   -ppth ./     -lpth ./     -jid $SLURM_JOB_ID -bm resnet50 -k 4 -p 18
