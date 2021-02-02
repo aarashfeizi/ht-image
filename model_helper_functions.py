@@ -1881,12 +1881,21 @@ class BaslineModel:
     def train(self, args, train_loader, val_loader):
 
         epochs = args.epochs
-        if args.aug_mask:
-            opt = torch.optim.Adam([{'params': self.model.parameters()}],
-                                   lr=args.lr_resnet)
-        else:
-            opt = torch.optim.Adam([{'params': self.model.parameters()}],
-                                   lr=args.lr_resnet)
+
+        opt = torch.optim.Adam([{'params': self.model.conv1.parameters()},
+                                {'params': self.model.bn1.parameters()},
+                                {'params': self.model.relu.parameters()},
+                                {'params': self.model.maxpool.parameters()},
+                                {'params': self.model.layer1.parameters()},
+                                {'params': self.model.layer2.parameters()},
+                                {'params': self.model.layer3.parameters()},
+                                {'params': self.model.layer4.parameters()},
+                                {'params': self.model.avgpool.parameters()},
+                                {'params': self.model.fc.parameters(), 'lr': args.lr_siamese}],
+                               lr=args.lr_resnet)
+
+        # opt = torch.optim.Adam([{'params': self.model.parameters()}],
+        #                        lr=args.lr_resnet)
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt.zero_grad()
 

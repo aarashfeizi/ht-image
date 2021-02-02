@@ -173,3 +173,4 @@ model_shapes/
 scripts/
 plots_FUCKING_NEW/
 models/*.pt
+scripts/*
