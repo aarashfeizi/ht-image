@@ -1,6 +1,6 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
 
 import utils
 
@@ -32,6 +32,7 @@ class TripletLoss(nn.Module):
 
         return loss
 
+
 class BatchHard(nn.Module):
     # https://github.com/Yuol96/pytorch-triplet-loss/blob/master/model/triplet_loss.py
 
@@ -43,8 +44,7 @@ class BatchHard(nn.Module):
         self.margin = margin
         self.soft = soft
 
-
-    def forward(self, batch, labels):
+    def forward(self, batch, labels, get_idx=False):
 
         distances = utils.squared_pairwise_distances(batch)
 
@@ -52,12 +52,13 @@ class BatchHard(nn.Module):
 
         mask_positive = utils.get_valid_positive_mask(labels, gpu)
         hardest_positive_dist = (distances * mask_positive.float()).max(dim=1)[0]
+        hardest_positive_dist_idx = (distances * mask_positive.float()).max(dim=1)[1]
 
         mask_negative = utils.get_valid_negative_mask(labels, gpu)
         max_negative_dist = distances.max(dim=1, keepdim=True)[0]
         distances = distances + max_negative_dist * (~mask_negative).float()
         hardest_negative_dist = distances.min(dim=1)[0]
-
+        hardest_negative_dist_idx = distances.min(dim=1)[1]
 
         if self.soft:
             loss = F.softplus(hardest_positive_dist - hardest_negative_dist)
@@ -66,7 +67,11 @@ class BatchHard(nn.Module):
 
         loss = loss.mean()
 
-        return loss
+        if get_idx:
+            return loss, (hardest_positive_dist_idx,
+                          hardest_negative_dist_idx)
+        else:
+            return loss
 
 
 class MaxMarginLoss(nn.Module):
@@ -76,9 +81,7 @@ class MaxMarginLoss(nn.Module):
         self.loss = 0
         self.pd = torch.nn.PairwiseDistance(p=2)
 
-
     def forward(self, pos_dist, neg_dist):
-
         # pos_dist = self.pd(anch, pos)
         # neg_dist = self.pd(anch, neg)
 

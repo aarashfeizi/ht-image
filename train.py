@@ -126,16 +126,16 @@ def main():
     logger.info('*' * 10)
     if args.metric_learning:
         train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train',
-                                         save_pictures = False, overfit = True,
-                                         batchhard = [is_batchhard, args.bh_P, args.bh_K])
+                                         save_pictures=False, overfit=True,
+                                         batchhard=[is_batchhard, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
                                                     save_pictures=False, overfit=False,
-                                                    batchhard = [is_batchhard, args.bh_P, args.bh_K])
+                                                    batchhard=[is_batchhard, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                    save_pictures=False, overfit=False,
-                                                    batchhard = [is_batchhard, args.bh_P, args.bh_K])
+                                                      save_pictures=False, overfit=False,
+                                                      batchhard=[is_batchhard, args.bh_P, args.bh_K])
 
 
     else:
@@ -247,8 +247,6 @@ def main():
 
     cam_images_len = len(cam_img_paths) if cam_img_paths is not None else 0
 
-
-
     if args.baseline_model != '':
         net = utils.get_resnet(args, args.baseline_model)
         model_methods_top = model_helper_functions.BaslineModel(args=args, logger=logger, model=net, loss_fn=loss_fn,
@@ -282,24 +280,23 @@ def main():
         logger.info('Training')
         model_methods_top.train(args, train_loader, val_db_loader)
 
-
     if args.pretrained_model_name == '':
         logger.info('Training')
         if args.metric_learning:
             net, best_model_top = model_methods_top.train_metriclearning(net=net, loss_fn=loss_fn,
-                                                                            bce_loss=loss_fn_bce, args=args,
-                                                                            train_loader=train_loader,
-                                                                            val_loaders=val_loaders_metric,
-                                                                            val_loaders_fewshot=val_loaders_fewshot,
-                                                                            train_loader_fewshot=train_loader_fewshot,
-                                                                            cam_args=[cam_img_paths,
-                                                                                      data_transforms_val,
-                                                                                      cam_data_transforms],
-                                                                            db_loaders=[train_db_loader, val_db_loader])
+                                                                         bce_loss=loss_fn_bce, args=args,
+                                                                         train_loader=train_loader,
+                                                                         val_loaders=val_loaders_metric,
+                                                                         val_loaders_fewshot=val_loaders_fewshot,
+                                                                         train_loader_fewshot=train_loader_fewshot,
+                                                                         cam_args=[cam_img_paths,
+                                                                                   data_transforms_val,
+                                                                                   cam_data_transforms],
+                                                                         db_loaders=[train_db_loader, val_db_loader])
         else:
             net, best_model_top = model_methods_top.train_fewshot(net=net, loss_fn=loss_fn, args=args,
-                                                                     train_loader=train_loader,
-                                                                     val_loaders=val_loaders_fewshot)
+                                                                  train_loader=train_loader,
+                                                                  val_loaders=val_loaders_fewshot)
         logger.info('Calculating K@Ns for Validation')
 
         # model_methods_top.make_emb_db(args, tm_net, db_loader_train,

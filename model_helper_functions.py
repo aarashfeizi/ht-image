@@ -637,10 +637,19 @@ class ModelMethods:
 
                 utils.print_gpu_stuff(args.cuda, 'before train epoch')
 
-                t, (train_loss, train_bce_loss, train_triplet_loss), (
-                    pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss, metric_ACC,
-                                                                                loss_fn, train_loader, epoch,
-                                                                                grad_save_path, drew_graph)
+                if args.loss == 'batchhard':
+                    t, (train_loss, train_bce_loss, train_triplet_loss), (
+                        _, _) = self.train_metriclearning_one_epoch_batchhard(args, t, net, opt, bce_loss,
+                                                                              metric_ACC,
+                                                                              loss_fn, train_loader, epoch,
+                                                                              grad_save_path, drew_graph)
+
+                else:
+                    t, (train_loss, train_bce_loss, train_triplet_loss), (
+                        pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss,
+                                                                                    metric_ACC,
+                                                                                    loss_fn, train_loader, epoch,
+                                                                                    grad_save_path, drew_graph)
                 utils.print_gpu_stuff(args.cuda, 'after train epoch')
 
                 all_batches_end = time.time()
@@ -1728,7 +1737,7 @@ class ModelMethods:
         if self.merge_method == 'diff-sim':
 
             merged_vectors['pos-diff'] = pos_all_merged_vectors[:, :(pos_all_merged_vectors.shape[1] // 2)]
-            merged_vectors['pos-sim'] =pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
+            merged_vectors['pos-sim'] = pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
 
             merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
             merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
@@ -1741,6 +1750,205 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
+
+    def train_metriclearning_one_epoch_batchhard(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
+                                                 epoch,
+                                                 grad_save_path, drew_graph):
+        train_loss = 0
+        train_bce_loss = 0
+        train_batchhard_loss = 0
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+
+        pos_all_merged_vectors = None
+        neg_all_merged_vectors = None
+
+        labels = torch.Tensor([[i for _ in range(args.bh_K)] for i in range(args.bh_P)]).flatten()
+        if args.cuda:
+            labels = Variable(labels.cuda())
+        else:
+            labels = Variable(labels)
+
+        for batch_id, imgs in enumerate(train_loader, 1):
+            imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(imgs.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
+
+            if args.cuda:
+                imgs, one_labels, zero_labels = Variable(imgs.cuda()), \
+                                                Variable(one_labels.cuda()), \
+                                                Variable(zero_labels.cuda())
+            else:
+                imgs, one_labels, zero_labels = Variable(imgs), \
+                                                Variable(one_labels), \
+                                                Variable(zero_labels)
+
+            if not drew_graph:
+                self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+                self.writer.flush()
+                drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+            opt.zero_grad()
+            forward_start = time.time()
+            imgs_f, imgs_l = net.ft_net(imgs, is_feat=True)
+            forward_end = time.time()
+
+            imgs_f = imgs_f.view(imgs_f.size()[0], -1)
+
+            ext_loss, (hard_pos_idx, hard_neg_idx) = loss_fn(imgs_f, labels, get_idx=True)
+
+            pos_f = imgs_f[hard_pos_idx, :]
+            neg_f = imgs_f[hard_neg_idx, :]
+
+            pos_f = pos_f.view(pos_f.size()[0], -1)
+            neg_f = pos_f.view(neg_f.size()[0], -1)
+
+            pos_pred, pos_dist = net.sm_net(imgs_f, pos_f)
+
+            neg_pred, neg_dist = net.sm_net(imgs_f, neg_f)
+
+            if pos_all_merged_vectors is None:
+                pos_all_merged_vectors = pos_dist.data.cpu()
+            else:
+                pos_all_merged_vectors = torch.cat([pos_all_merged_vectors, pos_dist.data.cpu()], dim=0)
+
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+
+            # if args.verbose:
+            #     self.logger.info(f'norm pos: {pos_dist}')
+            class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
+
+            if neg_all_merged_vectors is None:
+                neg_all_merged_vectors = neg_dist.data.cpu()
+            else:
+                neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+
+            forward_end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+            # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+            # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+
+            # if args.verbose:
+            #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+
+            metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+
+            class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+
+            if loss_fn is not None:
+
+                loss = ext_loss + self.bce_weight * class_loss
+                train_batchhard_loss += ext_loss.item()
+
+            else:
+                loss = self.bce_weight * class_loss
+
+            train_loss += loss.item()
+            train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                raise Exception('Debug grad not implemented for batchhard')
+                # lambda_class_loss = self.bce_weight * class_loss
+                # lambda_class_loss.backward(retain_graph=True)
+                #
+                # bce_named_parameters = net.named_parameters()
+                # bce_named_parameters = {k: v for k, v in bce_named_parameters}
+                #
+                # bce_ave_grads = []
+                # bce_max_grads = []
+                # for n, p in net.named_parameters():
+                #     if (p.requires_grad) and ("bias" not in n):
+                #         if n == 'ft_net.fc.weight':
+                #             continue
+                #         if p.grad is None:
+                #             continue
+                #
+                #         bce_ave_grads.append(p.grad.abs().mean())
+                #         bce_max_grads.append(p.grad.abs().max())
+                #
+                # # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
+                # #                          epoch, grad_save_path)
+                # #
+                # # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
+                # #                          grad_save_path)
+                #
+                # self.logger.info('got bce grads')
+                #
+                # if loss_fn is None:
+                #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                #                              grad_save_path)
+                #     utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                #                               grad_save_path)
+                # else:
+                #     # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
+                #     #                          'TRIPLET', batch_id, epoch, grad_save_path)
+                #     # utils.bar_plot_grad_flow(args, bce_named_parameters,
+                #     #                          'BCE', batch_id, epoch, grad_save_path)
+                #     utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                #                                   [bce_ave_grads, bce_max_grads, layers],
+                #                                   'BOTH', batch_id, epoch, grad_save_path)
+                #     # import pdb
+                #     # pdb.set_trace()
+                #     utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                #                                  [bce_ave_grads, bce_max_grads, layers],
+                #                                  'BOTH', batch_id, epoch, grad_save_path)
+                #
+                # opt.zero_grad()
+
+            loss.backward()  # training with triplet loss
+
+            # if debug_grad:
+            #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+            #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
+            #                               grad_save_path)
+
+            opt.step()
+
+            if loss_fn is not None:
+                t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                              bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                              batchhard=f'{train_batchhard_loss / batch_id:.4f}',
+                              train_acc=f'{metric_ACC.get_acc():.4f}'
+                              )
+            else:
+                t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                              bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                              train_acc=f'{metric_ACC.get_acc():.4f}'
+                              )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        if self.merge_method == 'diff-sim':
+
+            merged_vectors['pos-diff'] = pos_all_merged_vectors[:, :(pos_all_merged_vectors.shape[1] // 2)]
+            merged_vectors['pos-sim'] = pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
+
+            merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
+            merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
+        else:
+            merged_vectors[f'pos-{self.merge_method}'] = pos_all_merged_vectors
+            merged_vectors[f'neg-{self.merge_method}'] = neg_all_merged_vectors
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, (train_loss, train_bce_loss, train_batchhard_loss), ([], [])
 
     def plot_classifier_hist(self, classifier_weights_methods, titles, plot_title, save_path):
         plt.figure(figsize=(15, 15))
@@ -1777,11 +1985,12 @@ class ModelMethods:
         plt.savefig(save_path)
         plt.close('all')
 
+
 class BaslineModel:
     def __init__(self, args, model, logger, loss_fn, model_name, id_str=''):
         self.logger = logger
         self.model = model
-        self.loss_fn = loss_fn # batch hard
+        self.loss_fn = loss_fn  # batch hard
         self.bh_k = args.bh_K
         self.bh_p = args.bh_P
         self.model_name = model_name
@@ -1824,7 +2033,6 @@ class BaslineModel:
     def train_epoch(self, t, args, train_loader, opt, epoch):
         train_loss = 0
 
-
         labels = torch.Tensor([[i for _ in range(self.bh_k)] for i in range(self.bh_p)]).flatten()
         if args.cuda:
             labels = Variable(labels.cuda())
@@ -1853,7 +2061,6 @@ class BaslineModel:
             forward_start = time.time()
             feats = self.model.forward(imgs)
             forward_end = time.time()
-
 
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### baseline forward time: {forward_end - forward_start}')
@@ -1908,7 +2115,6 @@ class BaslineModel:
 
                 t, train_loss = self.train_epoch(t, args, train_loader, opt, epoch)
 
-
             if (epoch) % args.test_freq == 0:
                 self.logger.info(f'Eval: epoch {epoch}')
                 print(f'Eval: epoch {epoch}')
@@ -1921,7 +2127,6 @@ class BaslineModel:
                                  epoch=epoch,
                                  k_at_n=True)
 
-
             # self.logger.info(
             #     f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
             #     f'Train_Fewshot _Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
@@ -1931,8 +2136,6 @@ class BaslineModel:
         # self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
         # self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
         self.writer.flush()
-
-
 
     def make_emb_db(self, args, data_loader, eval_sampled, eval_per_class,
                     mode='val', epoch=-1, k_at_n=True):
