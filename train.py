@@ -131,11 +131,11 @@ def main():
         logger.info('*' * 10)
         val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
                                                     save_pictures=False, overfit=False,
-                                                    batchhard=[is_batchhard, args.bh_P, args.bh_K])
+                                                    batchhard=[False, args.bh_P, args.bh_K])
         logger.info('*' * 10)
         val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
                                                       save_pictures=False, overfit=False,
-                                                      batchhard=[is_batchhard, args.bh_P, args.bh_K])
+                                                      batchhard=[False, args.bh_P, args.bh_K])
 
 
     else:

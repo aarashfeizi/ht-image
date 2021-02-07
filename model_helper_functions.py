@@ -1810,7 +1810,7 @@ class ModelMethods:
             neg_f = imgs_f[hard_neg_idx, :]
 
             pos_f = pos_f.view(pos_f.size()[0], -1)
-            neg_f = pos_f.view(neg_f.size()[0], -1)
+            neg_f = neg_f.view(neg_f.size()[0], -1)
 
             pos_pred, pos_dist = net.sm_net(imgs_f, pos_f)
 
