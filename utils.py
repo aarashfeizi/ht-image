@@ -211,6 +211,8 @@ def get_args():
     parser.add_argument('-jid', '--job_id', default='')
     parser.add_argument('-bm', '--baseline_model', default='')
 
+    parser.add_argument('-trf', '--train_fewshot', default=False, action='store_true')
+
     args = parser.parse_args()
 
     return args

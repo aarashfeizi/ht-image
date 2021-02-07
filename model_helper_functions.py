@@ -671,28 +671,32 @@ class ModelMethods:
 
                     utils.print_gpu_stuff(args.cuda, 'before train few_shot')
 
-                    start = time.time()
-                    train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error, train_fewshot_predictions = self.apply_fewshot_eval(
-                        args, net, train_loader_fewshot, bce_loss)
-                    end = time.time()
+                    if args.train_fewshot:
+                        start = time.time()
+                        train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error, train_fewshot_predictions = self.apply_fewshot_eval(
+                            args, net, train_loader_fewshot, bce_loss)
+                        end = time.time()
 
-                    utils.print_gpu_stuff(args.cuda, 'after train few_shot')
+                        utils.print_gpu_stuff(args.cuda, 'after train few_shot')
 
-                    if utils.MY_DEC.enabled:
-                        self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
+                        if utils.MY_DEC.enabled:
+                            self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
 
-                    self.logger.info(
-                        f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
-                        f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
+                        self.logger.info(
+                            f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
+                            f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
 
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
                     if loss_fn is not None:
                         self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
-                    self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
-                    self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
 
+                    self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                     self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
-                    self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
+
+                    if args.train_fewshot:
+                        self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
+                        self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
+
                     self.writer.flush()
 
                     if val_loaders is not None and (epoch) % args.test_freq == 0:
