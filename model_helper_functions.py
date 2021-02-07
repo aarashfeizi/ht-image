@@ -771,8 +771,9 @@ class ModelMethods:
                     if val_acc > max_val_acc:
                         utils.print_gpu_stuff(args.cuda, 'Before saving model')
                         val_counter = 0
-                        np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
-                                 np.array(train_fewshot_predictions))
+                        if args.train_fewshot:
+                            np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
+                                     np.array(train_fewshot_predictions))
                         np.savez(os.path.join(self.save_path, f'val_preds_knwn_epoch{epoch}'), np.array(val_preds_knwn))
                         np.savez(os.path.join(self.save_path, f'val_preds_unknwn_epoch{epoch}'),
                                  np.array(val_preds_unknwn))
