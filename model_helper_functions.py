@@ -23,6 +23,7 @@ import utils
 #     t = t.numpy()
 #     t = np.moveaxis(t.squeeze(), 0, -1)
 #     return t
+from losses import TripletLoss
 
 
 class ModelMethods:
@@ -1442,9 +1443,12 @@ class ModelMethods:
             parts = []
         elif args.loss == 'maxmargin':
             loss, parts = loss_fn(pos_dist, neg_dist)
+        elif args.loss == 'batchhard':
+            loss_fn_trpl = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)
+            loss = loss_fn_trpl(pos_dist, neg_dist)
+            parts = []
         else:
-            loss = None
-            parts = None
+            raise Exception('Loss function not supported in get_loss_value() method')
 
         return loss, parts
 
