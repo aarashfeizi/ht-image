@@ -29,12 +29,21 @@ class LiSiamese(nn.Module):
         layers = []
         input_size = self.input_shape
         if self.extra_layer > 0:
+
+
             for i in range(self.extra_layer):
-                layers.append(nn.Linear(input_size, input_size // 2))
-                layers.append(nn.ReLU())
-                if args.normalize:
-                    layers.append(nn.BatchNorm1d(input_size // 2))
-                input_size = input_size // 2
+                if args.static_size != 0:
+                    layers.append(nn.Linear(input_size, args.static_size))
+                    layers.append(nn.ReLU())
+                    if args.normalize:
+                        layers.append(nn.BatchNorm1d(args.static_size))
+                    input_size = args.static_size
+                else:
+                    layers.append(nn.Linear(input_size, input_size // 2))
+                    layers.append(nn.ReLU())
+                    if args.normalize:
+                        layers.append(nn.BatchNorm1d(input_size // 2))
+                    input_size = input_size // 2
 
             # self.layer1 = nn.Sequential(*layers)
 
@@ -43,6 +52,7 @@ class LiSiamese(nn.Module):
 
         # self.bn_for_classifier = nn.BatchNorm1d(self.input_shape)
         self.classifier = nn.Sequential(*layers)  # no sigmoid for bce_with_crossentorpy loss!!!!
+
         # return -1 if (a, n) and 1 if (a, p). Should learn a "distance function"
         # self.out = nn.Sequential(nn.Linear(self.input_shape, 1), nn.Tanh())
 

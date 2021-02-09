@@ -210,6 +210,7 @@ def get_args():
                         default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
     parser.add_argument('-jid', '--job_id', default='')
     parser.add_argument('-bm', '--baseline_model', default='')
+    parser.add_argument('-ss', '--static_size', default=0, type=int, help="number of neurons in classifier network")
 
     parser.add_argument('-trf', '--train_fewshot', default=False, action='store_true')
 
