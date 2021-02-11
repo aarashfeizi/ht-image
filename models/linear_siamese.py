@@ -28,6 +28,10 @@ class LiSiamese(nn.Module):
         # self.layer = nn.Sequential(nn.Linear(25088, 512))
         layers = []
         input_size = self.input_shape
+
+        if args.bn_before_classifier:
+            layers.append(nn.BatchNorm1d(input_size))
+
         if self.extra_layer > 0:
 
 

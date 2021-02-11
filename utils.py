@@ -213,6 +213,7 @@ def get_args():
     parser.add_argument('-ss', '--static_size', default=0, type=int, help="number of neurons in classifier network")
 
     parser.add_argument('-trf', '--train_fewshot', default=False, action='store_true')
+    parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -1800,15 +1801,26 @@ def sigmoid(x):
 def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist'):
     plt.figure(figsize=(10, 10))
     plt.hist(sigmoid(pos_preds), alpha=0.5, bins=bins, color='g')
+
+    lines = [Line2D([0], [0], color="g", lw=4)]
+
+    plt.legend(lines, ['Positive'])
+    plt.title(title + 'POS')
+
+    plt.savefig(savepath + '_pos')
+    plt.close('all')
+
+    plt.figure(figsize=(10, 10))
+
     plt.hist(sigmoid(neg_preds), alpha=0.5, bins=bins, color='r')
 
-    lines = [Line2D([0], [0], color="g", lw=4),
+    lines = [
              Line2D([0], [0], color="r", lw=4)]
 
-    plt.legend(lines, ['Positive', 'Negative'])
-    plt.title(title)
+    plt.legend(lines, ['Negative'])
+    plt.title(title + 'NEG')
 
-    plt.savefig(savepath)
+    plt.savefig(savepath + '_neg')
     plt.close('all')
 
 
