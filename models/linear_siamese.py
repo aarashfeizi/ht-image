@@ -18,16 +18,25 @@ class LiSiamese(nn.Module):
             method_coefficient = 1
 
         if args.feat_extractor == 'resnet50':
-            self.input_shape = method_coefficient * 2048
+            self.input_shape = 2048
         elif args.feat_extractor == 'vgg16':
-            self.input_shape = method_coefficient * 4096
+            self.input_shape = 4096
         else:
-            self.input_shape = method_coefficient * 512
+            self.input_shape = 512
+
+        self.merge_input_shape = method_coefficient * self.input_shape
 
         self.extra_layer = args.extra_layer
         # self.layer = nn.Sequential(nn.Linear(25088, 512))
         layers = []
-        input_size = self.input_shape
+        input_size = self.merge_input_shape
+
+        if args.dim_reduction != 0:
+            self.dim_reduction_layer = nn.Sequential(nn.Linear(self.input_shape, args.dim_reduction),
+                                                     nn.ReLU())
+            input_size = args.dim_reduction * method_coefficient
+        else:
+            self.dim_reduction_layer = None
 
         if args.bn_before_classifier:
             layers.append(nn.BatchNorm1d(input_size))
@@ -62,6 +71,8 @@ class LiSiamese(nn.Module):
 
     def forward_one(self, x):
         x = x.view(x.size()[0], -1)
+        if self.dim_reduction_layer:
+            x = self.dim_reduction_layer(x)
         # if self.extra_layer > 0:
         #     x = self.layer1(x)
 

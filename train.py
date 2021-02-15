@@ -94,16 +94,19 @@ def main():
         train_metric_dataset = HotelTrain_Metric
         train_few_shot_dataset = HotelTrain_FewShot
         test_few_shot_dataset = HotelTest_FewShot
+        test_edgepred_dataset = HotelTest_EdgePred
         db_dataset = Hotel_DB
     elif args.dataset_name == 'cub':
         train_metric_dataset = CUBTrain_Metric
         train_few_shot_dataset = CUBTrain_FewShot
         test_few_shot_dataset = CUBTest_FewShot
+        test_edgepred_dataset = CUBTest_EdgePred
         db_dataset = CUB_DB
     else:
         logger.error(f'Dataset not suppored:  {args.dataset_name}')
 
     # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
+
 
     logger.info('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
@@ -148,6 +151,12 @@ def main():
                                                   save_pictures=False)
     logger.info('*' * 10)
     val_set_unknown_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_unseen',
+                                                    save_pictures=False)
+
+    val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
+                                                  save_pictures=False)
+    logger.info('*' * 10)
+    val_set_unknown_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_unseen',
                                                     save_pictures=False)
 
     if args.test:
@@ -199,6 +208,9 @@ def main():
 
     val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
+
+    val_loaders_edgepred = utils.get_val_loaders(args, val_set, val_set_known_edgepred, val_set_unknown_edgepred, workers,
+                                                pin_memory, batch_size=args.way * args.test_k)
 
     dl_cam_train = dl_cam_val_known = dl_cam_val_unknown = None
     # if args.cam:
@@ -292,7 +304,8 @@ def main():
                                                                          cam_args=[cam_img_paths,
                                                                                    data_transforms_val,
                                                                                    cam_data_transforms],
-                                                                         db_loaders=[train_db_loader, val_db_loader])
+                                                                         db_loaders=[train_db_loader, val_db_loader],
+                                                                         val_loaders_edgepred=val_loaders_edgepred)
         else:
             net, best_model_top = model_methods_top.train_fewshot(net=net, loss_fn=loss_fn, args=args,
                                                                   train_loader=train_loader,

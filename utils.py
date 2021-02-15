@@ -163,7 +163,9 @@ def get_args():
 
     parser.add_argument('-s', '--seed', default=402, type=int, help="random seed")
     parser.add_argument('-w', '--way', default=20, type=int, help="how much way one-shot learning")
-    parser.add_argument('-t', '--times', default=400, type=int, help="number of samples to test accuracy")
+    parser.add_argument('-tk', '--test_k', default=4, type=int, help="how many images per class for teseting")
+
+    parser.add_argument('-t', '--times', default=1000, type=int, help="number of samples to test accuracy")
     parser.add_argument('-wr', '--workers', default=4, type=int, help="number of dataLoader workers")
     parser.add_argument('-pim', '--pin_memory', default=False, action='store_true')
     parser.add_argument('-fbw', '--find_best_workers', default=False, action='store_true')
@@ -211,8 +213,11 @@ def get_args():
     parser.add_argument('-jid', '--job_id', default='')
     parser.add_argument('-bm', '--baseline_model', default='')
     parser.add_argument('-ss', '--static_size', default=0, type=int, help="number of neurons in classifier network")
+    parser.add_argument('-dr', '--dim_reduction', default=0, type=int, help="dim reduction after feature extractor")
 
     parser.add_argument('-trf', '--train_fewshot', default=False, action='store_true')
+    parser.add_argument('-tdp', '--train_diff_plot', default=False, action='store_true')
+
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
 
     args = parser.parse_args()
@@ -1799,8 +1804,13 @@ def sigmoid(x):
 
 
 def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist'):
+
+    pos_preds = np.repeat(pos_preds, 9) # normalize
+
+    b = np.arange(0, 1.01, 1/bins)
+
     plt.figure(figsize=(10, 10))
-    plt.hist(sigmoid(pos_preds), alpha=0.5, bins=bins, color='g')
+    plt.hist(sigmoid(pos_preds), alpha=0.5, bins=b, color='g')
 
     lines = [Line2D([0], [0], color="g", lw=4)]
 
@@ -1812,16 +1822,32 @@ def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savep
 
     plt.figure(figsize=(10, 10))
 
-    plt.hist(sigmoid(neg_preds), alpha=0.5, bins=bins, color='r')
+    plt.hist(sigmoid(neg_preds), alpha=0.5, bins=b, color='r')
 
-    lines = [
-             Line2D([0], [0], color="r", lw=4)]
+    lines = [Line2D([0], [0], color="r", lw=4)]
 
     plt.legend(lines, ['Negative'])
     plt.title(title + 'NEG')
 
     plt.savefig(savepath + '_neg')
     plt.close('all')
+
+
+    plt.figure(figsize=(10, 10))
+
+    plt.hist(sigmoid(neg_preds), alpha=0.5, bins=b, color='r')
+    plt.hist(sigmoid(pos_preds), alpha=0.5, bins=b, color='g')
+
+    lines = [Line2D([0], [0], color="g", lw=4),
+             Line2D([0], [0], color="r", lw=4)]
+
+    plt.legend(lines, ['Positive', 'Negative'])
+    plt.xlim(-0.01, 1.01)
+    plt.title(title)
+
+    plt.savefig(savepath)
+    plt.close('all')
+
 
 
 def get_pos_neg_preds(file_path, pos_freq=10):

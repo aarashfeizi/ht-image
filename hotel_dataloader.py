@@ -28,7 +28,7 @@ class HotelTrain_Metric(Dataset):
         self.batchhard = batchhard[0]
         self.bh_P = batchhard[1]
         self.bh_K = batchhard[2]
-        
+
         start = time.time()
         self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                   mode=mode,
@@ -445,7 +445,7 @@ class HotelTest_FewShot(Dataset):
             c2 = list(self.datas_bg.keys())[random.randint(0, len(self.datas_bg.keys()) - 1)]
             while self.c1 == c2:
                 c2 = list(self.datas_bg.keys())[random.randint(0, len(self.datas_bg.keys()) - 1)]
-
+            # print(f'idx = {idx}, c1 was {self.c1} and negative c2 is {c2}')
             if self.mode == 'train':
                 img2 = Image.open(random.choice(self.datas_bg[c2])).convert('RGB')
             else:
@@ -480,6 +480,106 @@ class HotelTest_FewShot(Dataset):
                 save_image(img2, f'hotel_imagesamples/val/val_{c2}_{img2_random}_after.png')
 
         return img1, img2
+
+    def do_transform(self, img):
+        img = self.transform(img)
+        img = self.normalize(img)
+        return img
+
+
+class HotelTest_EdgePred(Dataset):
+
+    def __init__(self, args, transform=None, mode='test_seen', save_pictures=False):
+        np.random.seed(args.seed)
+        super(HotelTest_EdgePred, self).__init__()
+        self.transform = transform
+        self.save_pictures = save_pictures
+        self.times = args.times
+        self.way = args.way  # number of classes
+        self.k = args.test_k  # number of images per class
+
+        self.img_idx = 0
+        self.class_idx = 0
+        self.imgs = []
+        self.classes = []
+
+        self.mode = mode
+        self.normalize = utils.TransformLoader(-1).transform_normalize
+        self.fourth_dim = args.fourth_dim
+        self.colored_mask = args.colored_mask
+
+        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
+                                                                                    args.dataset_name,
+                                                                                    mode=mode,
+                                                                                    split_file_path=args.splits_file_path,
+                                                                                    portion=args.portion,
+                                                                                    dataset_folder=args.dataset_folder)
+
+        self.aug_mask = args.aug_mask
+
+        if self.aug_mask:
+            self.masks = get_masks(args.dataset_path, args.dataset_folder,
+                                   os.path.join(args.project_path, args.mask_path))
+
+        else:
+            self.masks = []
+
+        print(f'HotelTest_EdgePred hotel {mode} classes: ', self.num_classes)
+        print(f'HotelTest_EdgePred hotel {mode} length: ', self.__len__())
+
+    def __len__(self):
+        return self.times * self.way * self.k
+
+    def __getitem__(self, index):
+
+        # generate image pair from same class
+        if index % (self.way * self.k) == 0:
+            self.classes = self.labels[np.random.randint(0, self.num_classes, size=self.way)]
+            self.class_idx = 0
+            self.img_idx = 0
+            label = self.classes[self.class_idx]
+            self.imgs = self.datas[label][
+                np.random.randint(0, len(self.datas[label]),
+                                  size=self.way)]
+
+        else:
+            label = self.classes[self.class_idx]
+
+        if self.img_idx == self.k:
+            self.class_idx += 1
+            self.img_idx = 0
+            label = self.classes[self.class_idx]
+            self.imgs = self.datas[label][
+                np.random.randint(0, len(self.datas[label]),
+                                  size=self.way)]
+        else:
+            self.img_idx += 1
+
+        img = Image.open(self.imgs[self.img_idx]).convert('RGB')
+
+        save = False
+
+        if self.transform:
+            if self.save_pictures and random.random() < 0.001:
+                save = True
+                img_random = random.randint(0, 1000)
+
+                img.save(f'hotel_imagesamples/val/val_{label}_{img_random}_before.png')
+
+            if self.aug_mask:
+                img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                img, masked_img, img_mask, _ = utils.add_mask(img, img_mask, colored=self.colored_mask)
+
+                if not self.fourth_dim:
+                    img = masked_img
+
+            img = self.do_transform(img)
+
+            if save:
+                save_image(img, f'hotel_imagesamples/val/val_{label}_{img_random}_after.png')
+
+        return img
 
     def do_transform(self, img):
         img = self.transform(img)

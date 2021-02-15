@@ -565,7 +565,7 @@ class ModelMethods:
         self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
 
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
-                             train_loader_fewshot, cam_args=None, db_loaders=None):
+                             train_loader_fewshot, cam_args=None, db_loaders=None, val_loaders_edgepred=None):
         net.train()
         # device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
@@ -739,6 +739,40 @@ class ModelMethods:
 
                             utils.print_gpu_stuff(args.cuda, 'after all validation')
 
+                        elif args.eval_mode == 'edgepred':
+                            utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
+                            val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_edgepred(args, net,
+                                                                                                         val_loaders_edgepred[
+                                                                                                             0],
+                                                                                                         bce_loss,
+                                                                                                         val=True,
+                                                                                                         epoch=epoch,
+                                                                                                         comment='known')
+
+                            utils.print_gpu_stuff(args.cuda, 'after test_edgepred 1 and before test_metric')
+
+                            self.test_metric(args, net, val_loaders[0],
+                                             loss_fn, bce_loss, val=True,
+                                             epoch=epoch, comment='known')
+
+                            utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
+
+                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_edgepred(args,
+                                                                                                                 net,
+                                                                                                                 val_loaders_edgepred[
+                                                                                                                     1],
+                                                                                                                 bce_loss,
+                                                                                                                 val=True,
+                                                                                                                 epoch=epoch,
+                                                                                                                 comment='unknown')
+                            utils.print_gpu_stuff(args.cuda, 'after test_edgepred 2 and before test_metric 2')
+
+                            self.test_metric(args, net, val_loaders[1],
+                                             loss_fn, bce_loss, val=True,
+                                             epoch=epoch, comment='unknown')
+
+                            utils.print_gpu_stuff(args.cuda, 'after all validation')
+
                         elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
                             val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
                                                                          epoch=epoch)
@@ -768,36 +802,39 @@ class ModelMethods:
 
                         val_rgt = (val_rgt_knwn + val_rgt_unknwn)
                         val_err = (val_err_knwn + val_err_unknwn)
-                    if val_acc > max_val_acc:
-                        utils.print_gpu_stuff(args.cuda, 'Before saving model')
-                        val_counter = 0
-                        if args.train_fewshot:
-                            np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
-                                     np.array(train_fewshot_predictions))
-                        np.savez(os.path.join(self.save_path, f'val_preds_knwn_epoch{epoch}'), np.array(val_preds_knwn))
-                        np.savez(os.path.join(self.save_path, f'val_preds_unknwn_epoch{epoch}'),
-                                 np.array(val_preds_unknwn))
-                        self.logger.info(
-                            f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
-                        best_model = self.save_model(args, net, epoch, val_acc)
-                        max_val_acc = val_acc
-                        utils.print_gpu_stuff(args.cuda, 'Before saving model')
 
-                        queue.append(val_rgt * 1.0 / (val_rgt + val_err))
+                        if val_acc >= max_val_acc:
+                            utils.print_gpu_stuff(args.cuda, 'Before saving model')
+                            val_counter = 0
+                            if args.train_fewshot:
+                                np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
+                                         np.array(train_fewshot_predictions))
+                            np.savez(os.path.join(self.save_path, f'val_preds_knwn_epoch{epoch}'),
+                                     np.array(val_preds_knwn))
+                            np.savez(os.path.join(self.save_path, f'val_preds_unknwn_epoch{epoch}'),
+                                     np.array(val_preds_unknwn))
+                            self.logger.info(
+                                f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
+                            best_model = self.save_model(args, net, epoch, val_acc)
+                            max_val_acc = val_acc
+                            utils.print_gpu_stuff(args.cuda, 'Before saving model')
+
+                            queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (after batch loop) time: {epoch_end - epoch_start}')
 
-            self.logger.info('plotting train class diff plot...')
-            self.make_emb_db(args, net, train_db_loader,
-                             eval_sampled=args.sampled_results,
-                             eval_per_class=args.per_class_results,
-                             newly_trained=True,
-                             batch_size=args.db_batch,
-                             mode='train',
-                             epoch=epoch,
-                             k_at_n=False)
+            if args.train_diff_plot:
+                self.logger.info('plotting train class diff plot...')
+                self.make_emb_db(args, net, train_db_loader,
+                                 eval_sampled=args.sampled_results,
+                                 eval_per_class=args.per_class_results,
+                                 newly_trained=True,
+                                 batch_size=args.db_batch,
+                                 mode='train',
+                                 epoch=epoch,
+                                 k_at_n=False)
 
             self.logger.info('plotting val class diff plot...')
             self.make_emb_db(args, net, val_db_loader,
@@ -809,7 +846,7 @@ class ModelMethods:
                              epoch=epoch,
                              k_at_n=False)
 
-            if max_val_between_epochs < max_val_acc:
+            if max_val_between_epochs <= max_val_acc:
                 max_val_between_epochs = max_val_acc
                 if args.cam:
                     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
@@ -1118,6 +1155,29 @@ class ModelMethods:
 
         return
 
+    def test_edgepred(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
+        net.eval()
+        # device = f'cuda:{net.device_ids[0]}'
+        if val:
+            prompt_text = comment + f' VAL EDGE PRED epoch {epoch}:\tcorrect:\t%d\terror:\t%d\tval_auc:%f\tval_loss:%f\t'
+            prompt_text_tb = comment + '_Val'
+        else:
+            prompt_text = comment + ' TEST EDGE PRED:\tcorrect:\t%d\terror:\t%d\ttest_auc:%f\ttest_loss:%f\t'
+            prompt_text_tb = comment + '_Test'
+
+        test_auc, test_loss, tests_right, tests_error, tests_predictions = self.apply_edgepred_eval(args, net,
+                                                                                                    data_loader)
+
+        self.logger.info('$' * 70)
+        self.logger.info(prompt_text % (tests_right, tests_error, test_auc, test_loss))
+        self.logger.info('$' * 70)
+
+        self.writer.add_scalar(f'{prompt_text_tb}/Edgepred_Loss', test_loss, epoch)
+        self.writer.add_scalar(f'{prompt_text_tb}/Edgepred_AUC', test_auc, epoch)
+        self.writer.flush()
+
+        return tests_right, tests_error, test_auc, tests_predictions
+
     def test_fewshot(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
@@ -1406,6 +1466,40 @@ class ModelMethods:
 
         return embs, labels, seen
 
+    def apply_edgepred_eval(self, args, net, data_loader):
+
+        right, error = 0, 0
+        net.eval()
+        # device = f'cuda:{net.device_ids[0]}'
+        label = np.zeros(shape=args.way, dtype=np.float32)
+        label[0] = 1
+        label = torch.from_numpy(label)
+        loss = 0
+        if args.cuda:
+            label = Variable(label.cuda())
+        else:
+            label = Variable(label)
+        all_predictions = []
+
+        for _, img in enumerate(data_loader, 1):
+            if args.cuda:
+                img = img.cuda()
+            img1 = Variable(img)
+            # pred_vector, dist = net.forward(img1, img2)
+            # loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
+            pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
+            all_predictions.extend(pred_vector)
+            # high_confidence_false_positives_idxs = utils.sigmoid(pred_vector) > 0.8
+            pred = np.argmax(pred_vector)
+            if pred == 0:
+                right += 1
+            else:
+                error += 1
+
+        acc = right * 1.0 / (right + error)
+
+        return acc, loss, right, error, all_predictions
+
     def apply_fewshot_eval(self, args, net, data_loader, loss_fn):
 
         right, error = 0, 0
@@ -1428,6 +1522,7 @@ class ModelMethods:
             loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
             pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
             all_predictions.extend(pred_vector)
+            # high_confidence_false_positives_idxs = utils.sigmoid(pred_vector) > 0.8
             pred = np.argmax(pred_vector)
             if pred == 0:
                 right += 1
