@@ -1240,6 +1240,9 @@ class ModelMethods:
             else:
                 raise Exception('Not handled feature extractor')
 
+            if args.dim_reduction != 0:
+                test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction))
+
             for idx, tpl in enumerate(data_loader):
 
                 end = min((idx + 1) * batch_size, len(test_feats))
