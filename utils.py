@@ -1659,7 +1659,9 @@ def get_logname(args, model):
                          'image_size': 'igsz',
                          'pooling': 'pool',
                          'merge_method': 'mm',
-                         'softmargin': 'softm'}
+                         'softmargin': 'softm',
+                         'static_size': 'fcsize',
+                         'dim_reduction': 'fdim'}
 
     important_args = ['dataset_name',
                       'batch_size',
