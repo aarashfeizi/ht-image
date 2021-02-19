@@ -14,11 +14,12 @@ model_paths = {
     # 'el4_2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/4el2',
     # 'el2_1': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/2el1',
     # 'el2_2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/2el2',
-    # 'bn_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_3el',
-    # 'bn_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_4el',
-    'gem_el2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el2',
-    'gem_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el3',
-    'gem_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el4',
+    'bn_el2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_2el',
+    'bn_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_3el',
+    'bn_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_4el',
+    # 'gem_el2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el2',
+    # 'gem_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el3',
+    # 'gem_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el4',
 
 }
 
@@ -28,13 +29,16 @@ for k, v in model_paths.items():
         val_known_path = os.path.join(v, f'val_preds_knwn_epoch{ep}.npz')
         val_unknown_path = os.path.join(v, f'val_preds_unknwn_epoch{ep}.npz')
         if os.path.exists(val_known_path):
-            print(train_path)
-            # t_pos_preds, t_neg_preds = utils.get_pos_neg_preds(train_path)
+            print(val_known_path)
+
             vk_pos_preds, vk_neg_preds = utils.get_pos_neg_preds(val_known_path)
             vu_pos_preds, vu_neg_preds = utils.get_pos_neg_preds(val_unknown_path)
 
-            # utils.plot_pred_hist(t_pos_preds, t_neg_preds, title=f'Train Ep {ep} model {k}',
-            #                      savepath=os.path.join(v, f't_ep{ep}_{k}'))
+            if os.path.exists(train_path):
+                t_pos_preds, t_neg_preds = utils.get_pos_neg_preds(train_path)
+                utils.plot_pred_hist(t_pos_preds, t_neg_preds, title=f'Train Ep {ep} model {k}',
+                                     savepath=os.path.join(v, f't_ep{ep}_{k}'))
+
             utils.plot_pred_hist(vk_pos_preds, vk_neg_preds, title=f'Val seen Ep {ep} model {k}',
                                  savepath=os.path.join(v, f'vk_ep{ep}_{k}'))
             utils.plot_pred_hist(vu_pos_preds, vu_neg_preds, title=f'Val unseen Ep {ep} model {k}',

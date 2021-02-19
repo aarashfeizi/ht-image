@@ -531,31 +531,33 @@ class HotelTest_EdgePred(Dataset):
         return self.times * self.way * self.k
 
     def __getitem__(self, index):
-
         # generate image pair from same class
         if index % (self.way * self.k) == 0:
             self.classes = self.labels[np.random.randint(0, self.num_classes, size=self.way)]
             self.class_idx = 0
             self.img_idx = 0
+            # import pdb
+            # pdb.set_trace()
             label = self.classes[self.class_idx]
-            self.imgs = self.datas[label][
+            self.imgs = np.array(self.datas[label])[
                 np.random.randint(0, len(self.datas[label]),
-                                  size=self.way)]
+                                  size=self.k)]
 
         else:
             label = self.classes[self.class_idx]
 
-        if self.img_idx == self.k:
+        img_label = self.classes[self.class_idx]
+        img = Image.open(self.imgs[self.img_idx]).convert('RGB')
+
+        self.img_idx += 1
+        if self.img_idx == self.k and self.class_idx < len(self.classes) - 1:
             self.class_idx += 1
             self.img_idx = 0
             label = self.classes[self.class_idx]
-            self.imgs = self.datas[label][
+            self.imgs = np.array(self.datas[label])[
                 np.random.randint(0, len(self.datas[label]),
-                                  size=self.way)]
-        else:
-            self.img_idx += 1
+                                  size=self.k)]
 
-        img = Image.open(self.imgs[self.img_idx]).convert('RGB')
 
         save = False
 
@@ -579,7 +581,7 @@ class HotelTest_EdgePred(Dataset):
             if save:
                 save_image(img, f'hotel_imagesamples/val/val_{label}_{img_random}_after.png')
 
-        return img
+        return img, torch.Tensor([img_label])
 
     def do_transform(self, img):
         img = self.transform(img)

@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from PIL import Image
 from matplotlib.lines import Line2D
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_auc_score
 from sklearn.metrics import silhouette_score, silhouette_samples
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
@@ -717,7 +717,7 @@ class ModelMethods:
 
                             utils.print_gpu_stuff(args.cuda, 'after test few_shot 1 and before test_metric')
 
-                            self.test_metric(args, net, val_loaders[0],
+                            seen_val_auc = self.test_metric(args, net, val_loaders[0],
                                              loss_fn, bce_loss, val=True,
                                              epoch=epoch, comment='known')
 
@@ -733,7 +733,7 @@ class ModelMethods:
                                                                                                                  comment='unknown')
                             utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
 
-                            self.test_metric(args, net, val_loaders[1],
+                            unseen_val_auc = self.test_metric(args, net, val_loaders[1],
                                              loss_fn, bce_loss, val=True,
                                              epoch=epoch, comment='unknown')
 
@@ -1092,11 +1092,16 @@ class ModelMethods:
 
         tests_right, tests_error = 0, 0
 
+        metric_ACC = metrics.Metric_Accuracy()
+
+        metric_ACC.reset_acc()
+
         test_loss = 0
         test_bce_loss = 0
         test_triplet_loss = 0
         loss = 0
-
+        true_label_auc = []
+        pred_label_auc = []
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
             one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
@@ -1111,13 +1116,22 @@ class ModelMethods:
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
 
+            pred_label_auc.extend(pos_pred.data.cpu().numpy())
+            true_label_auc.extend(one_labels.data.cpu().numpy())
+
+            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())
+
             for neg_iter in range(self.no_negative):
                 # self.logger.info(anch.shape)
                 # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
+                pred_label_auc.extend(neg_pred.data.cpu().numpy())
+                true_label_auc.extend(zero_labels.data.cpu().numpy())
+
                 class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())
 
                 if loss_fn is not None:
                     ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
@@ -1139,6 +1153,9 @@ class ModelMethods:
 
             test_bce_loss += class_loss.item()
 
+
+        roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(pred_label_auc))
+
         self.logger.info('$' * 70)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
@@ -1150,10 +1167,16 @@ class ModelMethods:
         self.logger.error(f'{prompt_text_tb}/BCE_Loss: {test_bce_loss / len(data_loader)}, epoch: {epoch}')
         self.writer.add_scalar(f'{prompt_text_tb}/BCE_Loss', test_bce_loss / len(data_loader), epoch)
 
+        self.logger.error(f'{prompt_text_tb}/ROC_AUC: {roc_auc}, epoch: {epoch}')
+        self.writer.add_scalar(f'{prompt_text_tb}/ROC_AUC', roc_auc, epoch)
+
+        self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')
+        self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
+
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
 
-        return
+        return roc_auc
 
     def test_edgepred(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
@@ -1474,22 +1497,30 @@ class ModelMethods:
         right, error = 0, 0
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
-        label = np.zeros(shape=args.way, dtype=np.float32)
-        label[0] = 1
-        label = torch.from_numpy(label)
+        # true_label = torch.Tensor([[i for _ in range(args.test_k)] for i in range(args.way)]).flatten()
         loss = 0
         if args.cuda:
-            label = Variable(label.cuda())
+            true_label = Variable(true_label.cuda())
         else:
-            label = Variable(label)
+            true_label = Variable(true_label)
         all_predictions = []
 
-        for _, img in enumerate(data_loader, 1):
+        for _, (img, labels) in enumerate(data_loader, 1):
             if args.cuda:
                 img = img.cuda()
-            img1 = Variable(img)
-            # pred_vector, dist = net.forward(img1, img2)
+            img = Variable(img)
+
+
+            features = net.forward(img, None, single=True)
+
+
             # loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
+
+            true_edge_probs = []
+
+
+            pred_edge_probs = []
+
             pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
             all_predictions.extend(pred_vector)
             # high_confidence_false_positives_idxs = utils.sigmoid(pred_vector) > 0.8
@@ -1533,6 +1564,7 @@ class ModelMethods:
                 error += 1
 
         acc = right * 1.0 / (right + error)
+        loss /= len(data_loader)
 
         return acc, loss, right, error, all_predictions
 
