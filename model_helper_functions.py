@@ -1154,7 +1154,7 @@ class ModelMethods:
             test_bce_loss += class_loss.item()
 
 
-        roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(pred_label_auc))
+        roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
 
         self.logger.info('$' * 70)
 
