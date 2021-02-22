@@ -45,15 +45,21 @@ class LiSiamese(nn.Module):
 
 
             for i in range(self.extra_layer):
+
+                if args.leaky_relu:
+                    relu = nn.LeakyReLU(0.1)
+                else:
+                    relu = nn.ReLU()
+
                 if args.static_size != 0:
                     layers.append(nn.Linear(input_size, args.static_size))
-                    layers.append(nn.ReLU())
+                    layers.append(relu)
                     if args.normalize:
                         layers.append(nn.BatchNorm1d(args.static_size))
                     input_size = args.static_size
                 else:
                     layers.append(nn.Linear(input_size, input_size // 2))
-                    layers.append(nn.ReLU())
+                    layers.append(relu)
                     if args.normalize:
                         layers.append(nn.BatchNorm1d(input_size // 2))
                     input_size = input_size // 2

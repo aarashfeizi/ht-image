@@ -193,6 +193,8 @@ def get_args():
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim', 'concat'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
+    parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help="Decoupled Weight Decay Regularization")
+    
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
@@ -219,6 +221,7 @@ def get_args():
     parser.add_argument('-tdp', '--train_diff_plot', default=False, action='store_true')
 
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
+    parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -1661,7 +1664,10 @@ def get_logname(args, model):
                          'merge_method': 'mm',
                          'softmargin': 'softm',
                          'static_size': 'fcsize',
-                         'dim_reduction': 'fdim'}
+                         'dim_reduction': 'fdim',
+                         'leaky_relu': 'lrel',
+                         'bn_before_classifier': 'bnbc',
+                         'weight_decay': 'decay'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1683,7 +1689,10 @@ def get_logname(args, model):
                       'pooling',
                       'merge_method',
                       'colored_mask',
-                      'softmargin']
+                      'softmargin',
+                      'bn_before_classifier',
+                      'leaky_relu',
+                      'weight_decay']
 
     if args.loss != 'bce':
         important_args.extend(['bcecoefficient',
@@ -1704,6 +1713,10 @@ def get_logname(args, model):
             elif str(arg) == 'colored_mask' and not getattr(args, arg):
                 continue
             elif str(arg) == 'softmargin' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'leaky_relu' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'bn_before_classifier' and not getattr(args, arg):
                 continue
             elif str(arg) == 'normalize' and not getattr(args, arg):
                 continue

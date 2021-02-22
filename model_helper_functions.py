@@ -582,23 +582,23 @@ class ModelMethods:
                 opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
                                         {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
                                         {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese)
+                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
             else:
                 opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
                                         {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
                                         {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese)
+                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
         else:
             if net.aug_mask:
                 opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
                                         {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
                                         {'params': net.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese)
+                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
             else:
                 opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
                                         {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
                                         {'params': net.ft_net.pool.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese)
+                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt.zero_grad()
 
@@ -2238,7 +2238,7 @@ class BaslineModel:
                                 {'params': self.model.layer4.parameters()},
                                 {'params': self.model.avgpool.parameters()},
                                 {'params': self.model.fc.parameters(), 'lr': args.lr_siamese}],
-                               lr=args.lr_resnet)
+                               lr=args.lr_resnet, weight_decay=args.weight_decay)
 
         # opt = torch.optim.Adam([{'params': self.model.parameters()}],
         #                        lr=args.lr_resnet)
