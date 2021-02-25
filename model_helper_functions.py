@@ -17,8 +17,6 @@ from tqdm import tqdm
 
 import metrics
 import utils
-
-
 # def to_numpy_axis_order_change(t):
 #     t = t.numpy()
 #     t = np.moveaxis(t.squeeze(), 0, -1)
@@ -694,7 +692,8 @@ class ModelMethods:
                     self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
 
                     if args.train_fewshot:
-                        self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
+                        self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot),
+                                               epoch)
                         self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
 
                     self.writer.flush()
@@ -707,47 +706,61 @@ class ModelMethods:
                         if args.eval_mode == 'fewshot':
 
                             utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
-                            val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_fewshot(args, net,
-                                                                                                         val_loaders_fewshot[
-                                                                                                             0],
-                                                                                                         bce_loss,
-                                                                                                         val=True,
-                                                                                                         epoch=epoch,
-                                                                                                         comment='known')
+                            _, _, val_acc_knwn_fewshot, _ = self.test_fewshot(args, net,
+                                                                              val_loaders_fewshot[
+                                                                                  0],
+                                                                              bce_loss,
+                                                                              val=True,
+                                                                              epoch=epoch,
+                                                                              comment='known')
 
                             utils.print_gpu_stuff(args.cuda, 'after test few_shot 1 and before test_metric')
 
-                            seen_val_auc = self.test_metric(args, net, val_loaders[0],
-                                             loss_fn, bce_loss, val=True,
-                                             epoch=epoch, comment='known')
+                            seen_val_auc, val_acc_knwn, val_rgt_err_knwn, val_preds_knwn_pos_neg = self.test_metric(
+                                args, net, val_loaders[0],
+                                loss_fn, bce_loss, val=True,
+                                epoch=epoch, comment='known')
+
+                            val_err_knwn = val_rgt_err_knwn['wrong']
+                            val_rgt_knwn = val_rgt_err_knwn['right']
+
+                            val_preds_knwn_pos = val_preds_knwn_pos_neg['pos']
+                            val_preds_knwn_neg = val_preds_knwn_pos_neg['neg']
 
                             utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
 
-                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_fewshot(args,
-                                                                                                                 net,
-                                                                                                                 val_loaders_fewshot[
-                                                                                                                     1],
-                                                                                                                 bce_loss,
-                                                                                                                 val=True,
-                                                                                                                 epoch=epoch,
-                                                                                                                 comment='unknown')
+                            _, _, val_acc_unknwn_fewshot, _ = self.test_fewshot(args,
+                                                                                net,
+                                                                                val_loaders_fewshot[
+                                                                                    1],
+                                                                                bce_loss,
+                                                                                val=True,
+                                                                                epoch=epoch,
+                                                                                comment='unknown')
                             utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
 
-                            unseen_val_auc = self.test_metric(args, net, val_loaders[1],
-                                             loss_fn, bce_loss, val=True,
-                                             epoch=epoch, comment='unknown')
+                            unseen_val_auc, val_acc_unknwn, val_rgt_err_unknwn, val_preds_unknwn_pos_neg = self.test_metric(
+                                args, net, val_loaders[1],
+                                loss_fn, bce_loss, val=True,
+                                epoch=epoch, comment='unknown')
+
+                            val_err_unknwn = val_rgt_err_unknwn['wrong']
+                            val_rgt_unknwn = val_rgt_err_unknwn['right']
+
+                            val_preds_unknwn_pos = val_preds_unknwn_pos_neg['pos']
+                            val_preds_unknwn_neg = val_preds_unknwn_pos_neg['neg']
 
                             utils.print_gpu_stuff(args.cuda, 'after all validation')
 
                         elif args.eval_mode == 'edgepred':
                             utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
                             val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_edgepred(args, net,
-                                                                                                         val_loaders_edgepred[
-                                                                                                             0],
-                                                                                                         bce_loss,
-                                                                                                         val=True,
-                                                                                                         epoch=epoch,
-                                                                                                         comment='known')
+                                                                                                          val_loaders_edgepred[
+                                                                                                              0],
+                                                                                                          bce_loss,
+                                                                                                          val=True,
+                                                                                                          epoch=epoch,
+                                                                                                          comment='known')
 
                             utils.print_gpu_stuff(args.cuda, 'after test_edgepred 1 and before test_metric')
 
@@ -758,13 +771,13 @@ class ModelMethods:
                             utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
 
                             val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_edgepred(args,
-                                                                                                                 net,
-                                                                                                                 val_loaders_edgepred[
-                                                                                                                     1],
-                                                                                                                 bce_loss,
-                                                                                                                 val=True,
-                                                                                                                 epoch=epoch,
-                                                                                                                 comment='unknown')
+                                                                                                                  net,
+                                                                                                                  val_loaders_edgepred[
+                                                                                                                      1],
+                                                                                                                  bce_loss,
+                                                                                                                  val=True,
+                                                                                                                  epoch=epoch,
+                                                                                                                  comment='unknown')
                             utils.print_gpu_stuff(args.cuda, 'after test_edgepred 2 and before test_metric 2')
 
                             self.test_metric(args, net, val_loaders[1],
@@ -809,10 +822,17 @@ class ModelMethods:
                             if args.train_fewshot:
                                 np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
                                          np.array(train_fewshot_predictions))
-                            np.savez(os.path.join(self.save_path, f'val_preds_knwn_epoch{epoch}'),
-                                     np.array(val_preds_knwn))
-                            np.savez(os.path.join(self.save_path, f'val_preds_unknwn_epoch{epoch}'),
-                                     np.array(val_preds_unknwn))
+
+                            np.savez(os.path.join(self.save_path, f'val_preds_knwn_neg_epoch{epoch}'),
+                                     np.array(val_preds_knwn_neg))
+                            np.savez(os.path.join(self.save_path, f'val_preds_knwn_pos_epoch{epoch}'),
+                                     np.array(val_preds_knwn_pos))
+
+                            np.savez(os.path.join(self.save_path, f'val_preds_unknwn_neg_epoch{epoch}'),
+                                     np.array(val_preds_unknwn_neg))
+                            np.savez(os.path.join(self.save_path, f'val_preds_unknwn_pos_epoch{epoch}'),
+                                     np.array(val_preds_unknwn_pos))
+
                             self.logger.info(
                                 f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
                             best_model = self.save_model(args, net, epoch, val_acc)
@@ -1102,6 +1122,8 @@ class ModelMethods:
         loss = 0
         true_label_auc = []
         pred_label_auc = []
+        all_pos_predictions = []
+        all_neg_predictions = []
         for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
             one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
@@ -1118,7 +1140,7 @@ class ModelMethods:
 
             pred_label_auc.extend(pos_pred.data.cpu().numpy())
             true_label_auc.extend(one_labels.data.cpu().numpy())
-
+            all_pos_predictions.extend(pos_pred)
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())
 
             for neg_iter in range(self.no_negative):
@@ -1127,6 +1149,7 @@ class ModelMethods:
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
+                all_neg_predictions.extend(neg_pred)
                 pred_label_auc.extend(neg_pred.data.cpu().numpy())
                 true_label_auc.extend(zero_labels.data.cpu().numpy())
 
@@ -1153,7 +1176,6 @@ class ModelMethods:
 
             test_bce_loss += class_loss.item()
 
-
         roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
 
         self.logger.info('$' * 70)
@@ -1176,7 +1198,8 @@ class ModelMethods:
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
 
-        return roc_auc
+        return roc_auc, metric_ACC.get_acc(), metric_ACC.get_right_wrong(), {'pos': all_pos_predictions,
+                                                                             'neg': all_neg_predictions}
 
     def test_edgepred(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
@@ -1510,14 +1533,11 @@ class ModelMethods:
                 img = img.cuda()
             img = Variable(img)
 
-
             features = net.forward(img, None, single=True)
-
 
             # loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
 
             true_edge_probs = []
-
 
             pred_edge_probs = []
 

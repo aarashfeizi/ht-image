@@ -14,12 +14,13 @@ model_paths = {
     # 'el4_2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/4el2',
     # 'el2_1': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/2el1',
     # 'el2_2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/2el2',
-    'bn_el2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_2el',
-    'bn_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_3el',
-    'bn_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_4el',
+    # 'bn_el2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_2el',
+    # 'bn_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_3el',
+    # 'bn_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/30epochs_extra_layers_npzs/bn_4el',
     # 'gem_el2': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el2',
     # 'gem_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el3',
     # 'gem_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el4',
+    '16472008': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/16472008'
 
 }
 
