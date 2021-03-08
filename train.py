@@ -40,9 +40,9 @@ def main():
     if args_dict['loss'] == 'batchhard':
         args_dict['batch_size'] = args_dict['bh_P'] * args_dict['bh_K']
 
-    max = max(args_dict['bcecoefficient'], args_dict['trplcoefficient'])
-    bco = np.round(args_dict['bcecoefficient'] / max, 2)
-    tco = np.round(args_dict['trplcoefficient'] / max, 2)
+    max_bt = max(args_dict['bcecoefficient'], args_dict['trplcoefficient'])
+    bco = np.round(args_dict['bcecoefficient'] / max_bt, 2)
+    tco = np.round(args_dict['trplcoefficient'] / max_bt, 2)
 
     args_dict['bcecoefficient'] = bco
     args_dict['trplcoefficient'] = tco
