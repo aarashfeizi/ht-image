@@ -193,6 +193,7 @@ def get_args():
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim', 'concat'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
+    parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help="Decoupled Weight Decay Regularization")
     
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
@@ -1654,6 +1655,7 @@ def get_logname(args, model):
                          'loss': 'loss',
                          'overfit_num': 'on',
                          'bcecoefficient': 'bco',
+                         'trplcoefficient': 'tco',
                          'debug_grad': 'dg',
                          'aug_mask': 'am',
                          'colored_mask': 'colmask',
@@ -1695,7 +1697,8 @@ def get_logname(args, model):
                       'weight_decay']
 
     if args.loss != 'bce':
-        important_args.extend(['bcecoefficient',
+        important_args.extend(['trplcoefficient',
+                               'bcecoefficient',
                                'margin'])
 
     for arg in vars(args):
@@ -1818,9 +1821,9 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
-def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist'):
+def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist', normalizefactor=9):
 
-    pos_preds = np.repeat(pos_preds, 9) # normalize
+    pos_preds = np.repeat(pos_preds, normalizefactor) # normalize
 
     b = np.arange(0, 1.01, 1/bins)
 

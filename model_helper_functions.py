@@ -35,6 +35,7 @@ class ModelMethods:
 
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
+        self.trpl_weight = args.trplcoefficient
 
         self.draw_all_thresh = args.draw_all_thresh
 
@@ -147,58 +148,6 @@ class ModelMethods:
                 self.writer.add_histogram(name, param.flatten(), epoch)
 
         self.writer.flush()
-
-    def train_classify(self, net, loss_fn, args, trainLoader, valLoader):
-        net.train()
-        # device = f'cuda:{net.device_ids[0]}'
-
-        opt = torch.optim.Adam(net.parameters(), lr=args.lr_siamese)
-        opt.zero_grad()
-
-        time_start = time.time()
-        queue = deque(maxlen=20)
-
-        # self.logger.info('steps:', args.max_steps)
-
-        # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
-        epochs = 1
-
-        total_batch_id = 0
-        metric = metrics.Metric_Accuracy()
-
-        for epoch in range(1, epochs + 1):
-
-            train_loss = 0
-            metric.reset_acc()
-
-            with tqdm(total=len(trainLoader), desc=f'Epoch {epoch}/{epochs}') as t:
-                for batch_id, (img, label) in enumerate(trainLoader, 1):
-
-                    # self.logger.info('input: ', img1.size())
-
-                    if args.cuda:
-                        img, label = Variable(img.cuda()), Variable(label.cuda())
-                    else:
-                        img, label = Variable(img), Variable(label)
-
-                    net.train()
-                    # device = f'cuda:{net.device_ids[0]}'
-                    opt.zero_grad()
-
-                    output = net.forward(img)
-                    metric.update_acc(output, label)
-                    loss = loss_fn(output, label)
-                    # self.logger.info('loss: ', loss.item())
-                    train_loss += loss.item()
-                    loss.backward()
-
-                    opt.step()
-                    total_batch_id += 1
-                    t.set_postfix(loss=f'{train_loss / batch_id:.4f}', train_acc=f'{metric.get_acc():.4f}')
-
-                    t.update()
-
-        return net
 
     @utils.MY_DEC
     def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
@@ -541,7 +490,7 @@ class ModelMethods:
 
                 class_loss /= (self.no_negative + 1)
 
-                loss = ext_loss + self.bce_weight * class_loss
+                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
 
             else:
 
@@ -902,157 +851,6 @@ class ModelMethods:
 
         return net, best_model
 
-    def train_fewshot(self, net, loss_fn, args, train_loader, val_loaders):
-        net.train()
-        # device = f'cuda:{net.device_ids[0]}'
-        val_tol = args.early_stopping
-        opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
-                                {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}], lr=args.lr_siamese)
-
-        opt.zero_grad()
-
-        time_start = time.time()
-        queue = deque(maxlen=20)
-
-        # self.logger.info('steps:', args.max_steps)
-
-        # epochs = int(np.ceil(args.max_steps / len(trainLoader)))
-        epochs = args.epochs
-
-        metric = metrics.Metric_Accuracy()
-
-        max_val_acc = 0
-        max_val_acc_knwn = 0
-        max_val_acc_unknwn = 0
-        best_model = ''
-
-        drew_graph = False
-
-        val_counter = 0
-
-        for epoch in range(1, epochs + 1):
-
-            train_loss = 0
-            metric.reset_acc()
-
-            with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
-                for batch_id, (img1, img2, label) in enumerate(train_loader, 1):
-
-                    # self.logger.info('input: ', img1.size())
-
-                    if args.cuda:
-                        img1, img2, label = Variable(img1.cuda()), Variable(img2.cuda()), Variable(label.cuda())
-                    else:
-                        img1, img2, label = Variable(img1), Variable(img2), Variable(label)
-
-                    if not drew_graph:
-                        self.writer.add_graph(net, (img1, img2), verbose=True)
-                        self.writer.flush()
-                        drew_graph = True
-
-                    net.train()
-                    # device = f'cuda:{net.device_ids[0]}'
-                    opt.zero_grad()
-
-                    output = net.forward(img1, img2)
-                    metric.update_acc(output.squeeze(), label.squeeze())
-                    loss = loss_fn(output, label)
-                    # self.logger.info('loss: ', loss.item())
-                    train_loss += loss.item()
-                    loss.backward()
-                    # plt = self.plot_grad_flow(net.named_parameters())
-                    # import pdb
-                    # pdb.set_trace()
-                    opt.step()
-                    t.set_postfix(loss=f'{train_loss / batch_id:.4f}', train_acc=f'{metric.get_acc():.4f}')
-
-                    # if total_batch_id % args.log_freq == 0:
-                    #     logger.info('epoch: %d, batch: [%d]\tacc:\t%.5f\tloss:\t%.5f\ttime lapsed:\t%.2f s' % (
-                    #         epoch, batch_id, metric.get_acc(), train_loss / args.log_freq, time.time() - time_start))
-                    #     train_loss = 0
-                    #     metric.reset_acc()
-                    #     time_start = time.time()
-
-                    t.update()
-
-                self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
-                self.writer.add_scalar('Train/Acc', metric.get_acc(), epoch)
-                self.writer.flush()
-
-                if val_loaders is not None and (epoch) % args.test_freq == 0:
-                    net.eval()
-                    # device = f'cuda:{net.device_ids[0]}'
-                    val_acc_unknwn, val_acc_knwn = -1, -1
-
-                    if args.eval_mode == 'fewshot':
-
-                        val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_fewshot(args, net,
-                                                                                                     val_loaders[0],
-                                                                                                     loss_fn, val=True,
-                                                                                                     epoch=epoch,
-                                                                                                     comment='known')
-                        val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_fewshot(args, net,
-                                                                                                             val_loaders[
-                                                                                                                 1],
-                                                                                                             loss_fn,
-                                                                                                             val=True,
-                                                                                                             epoch=epoch,
-                                                                                                             comment='unknown')
-
-                    elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
-                        val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
-                                                                     epoch=epoch)
-                    else:
-                        raise Exception('Unsupporeted eval mode')
-
-                    self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
-                    self.logger.info('*' * 30)
-                    if val_acc_knwn > max_val_acc_knwn:
-                        self.logger.info(
-                            'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
-                        self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
-                        max_val_acc_knwn = val_acc_knwn
-
-                    if val_acc_unknwn > max_val_acc_unknwn:
-                        self.logger.info(
-                            'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
-                        self.logger.info(
-                            'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
-                        max_val_acc_unknwn = val_acc_unknwn
-
-                    val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
-                            val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
-
-                    self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
-                    self.writer.flush()
-
-                    val_rgt = (val_rgt_knwn + val_rgt_unknwn)
-                    val_err = (val_err_knwn + val_err_unknwn)
-
-                if val_acc > max_val_acc:
-                    val_counter = 0
-                    self.logger.info(
-                        'saving model... current val acc: [%f], previous val acc [%f]' % (val_acc, max_val_acc))
-                    best_model = self.save_model(args, net, epoch, val_acc)
-                    max_val_acc = val_acc
-
-                    queue.append(val_rgt * 1.0 / (val_rgt + val_err))
-
-            self._tb_draw_histograms(args, net, epoch)
-
-        acc = 0.0
-        for d in queue:
-            acc += d
-        self.logger.info("#" * 70)
-        self.logger.info(f'queue len: {len(queue)}')
-
-        if args.project_tb:
-            self.logger.info("Start projecting")
-            # self._tb_project_embeddings(args, net.ft_net, train_loader, 1000)
-            self.logger.info("Projecting done")
-
-        return net, best_model
-
     def test_simple(self, args, net, data_loader, loss_fn, val=False, epoch=0):
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
@@ -1140,7 +938,7 @@ class ModelMethods:
 
             pred_label_auc.extend(pos_pred.data.cpu().numpy())
             true_label_auc.extend(one_labels.data.cpu().numpy())
-            all_pos_predictions.extend(pos_pred)
+            all_pos_predictions.extend(pos_pred.data.cpu().numpy())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())
 
             for neg_iter in range(self.no_negative):
@@ -1149,7 +947,7 @@ class ModelMethods:
                 neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                               feats=True)
 
-                all_neg_predictions.extend(neg_pred)
+                all_neg_predictions.extend(neg_pred.data.cpu().numpy())
                 pred_label_auc.extend(neg_pred.data.cpu().numpy())
                 true_label_auc.extend(zero_labels.data.cpu().numpy())
 
@@ -1168,7 +966,7 @@ class ModelMethods:
             if loss_fn is not None:
                 ext_loss /= self.no_negative
                 test_triplet_loss += ext_loss.item()
-                loss = ext_loss + self.bce_weight * class_loss
+                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
             else:
                 loss = self.bce_weight * class_loss
 
@@ -1784,7 +1582,7 @@ class ModelMethods:
 
             if loss_fn is not None:
                 ext_loss /= self.no_negative
-                loss = ext_loss + self.bce_weight * class_loss
+                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
                 train_triplet_loss += ext_loss.item()
 
                 if debug_grad:
@@ -2008,7 +1806,7 @@ class ModelMethods:
 
             if loss_fn is not None:
 
-                loss = ext_loss + self.bce_weight * class_loss
+                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
                 train_batchhard_loss += ext_loss.item()
 
             else:
@@ -2028,7 +1826,7 @@ class ModelMethods:
                 # bce_ave_grads = []
                 # bce_max_grads = []
                 # for n, p in net.named_parameters():
-                #     if (p.requires_grad) and ("bias" not in n):
+                #     if (p.requires_grad) and ("bias" not inmodel-bs20-1gpus-10epochs_bco-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.003-lrr_3e-06-m_0.0-loss_trpl-softm-mm_diff-sim-bco_2.0-decay_0.0-igsz_224-time_2021-02-26_14-53-58-293578_16551383 n):
                 #         if n == 'ft_net.fc.weight':
                 #             continue
                 #         if p.grad is None:
