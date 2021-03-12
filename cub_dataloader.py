@@ -13,7 +13,7 @@ from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
 
 
 class CUBTrain_Metric(Dataset):
-    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False):
+    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False, batchhard=None):
         super(CUBTrain_Metric, self).__init__()
         np.random.seed(args.seed)
         self.transform = transform
@@ -110,6 +110,7 @@ class CUBTrain_Metric(Dataset):
                 random_path = random.choice(self.datas[neg_class])
                 paths.append(random_path)
                 neg = Image.open(random_path)
+
                 neg = neg.convert('RGB')
                 negs.append(neg)
 

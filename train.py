@@ -101,13 +101,13 @@ def main():
         train_metric_dataset = HotelTrain_Metric
         train_few_shot_dataset = HotelTrain_FewShot
         test_few_shot_dataset = HotelTest_FewShot
-        test_edgepred_dataset = HotelTest_EdgePred
+        # test_edgepred_dataset = HotelTest_EdgePred
         db_dataset = Hotel_DB
     elif args.dataset_name == 'cub':
         train_metric_dataset = CUBTrain_Metric
         train_few_shot_dataset = CUBTrain_FewShot
         test_few_shot_dataset = CUBTest_FewShot
-        test_edgepred_dataset = CUBTest_EdgePred
+        # test_edgepred_dataset = CUBTest_EdgePred
         db_dataset = CUB_DB
     else:
         logger.error(f'Dataset not suppored:  {args.dataset_name}')
@@ -160,11 +160,11 @@ def main():
     val_set_unknown_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_unseen',
                                                     save_pictures=False)
 
-    val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
-                                                  save_pictures=False)
-    logger.info('*' * 10)
-    val_set_unknown_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                    save_pictures=False)
+    # val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
+    #                                               save_pictures=False)
+    # logger.info('*' * 10)
+    # val_set_unknown_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_unseen',
+    #                                                 save_pictures=False)
 
     if args.test:
         test_set_known = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_seen')
@@ -216,8 +216,9 @@ def main():
     val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
 
-    val_loaders_edgepred = utils.get_val_loaders(args, val_set, val_set_known_edgepred, val_set_unknown_edgepred, workers,
-                                                pin_memory, batch_size=args.way * args.test_k)
+    val_loaders_edgepred = None
+    # val_loaders_edgepred = utils.get_val_loaders(args, val_set, val_set_known_edgepred, val_set_unknown_edgepred, workers,
+    #                                             pin_memory, batch_size=args.way * args.test_k)
 
     dl_cam_train = dl_cam_val_known = dl_cam_val_unknown = None
     # if args.cam:
