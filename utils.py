@@ -1740,9 +1740,9 @@ def get_logname(args, model):
                 name += '-' + name_replace_dict[str(arg)]
 
             if str(arg) == 'bcecoefficient':
-                name += f'({args.bcotco_freq}-{args.bco_base})'
+                name += f'#{args.bcotco_freq}-{args.bco_base}#'
             if str(arg) == 'trplcoefficient':
-                name += f'({args.bcotco_freq}-{args.tco_base})'
+                name += f'#{args.bcotco_freq}-{args.tco_base}#'
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'
