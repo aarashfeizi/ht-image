@@ -23,17 +23,17 @@ model_paths = {
     # 'gem_el3': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el3',
     # 'gem_el4': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/gem_el/el4',
     # '16472008': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/16472008'
-    # 'best?diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/new_eval_npz/model-bs20-1gpus-10epochs_smallerhp_onlybce-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.01-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-03_20-52-10-867248_16699114',
-    'best_diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/new_eval_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.03-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-14-22-060388_16807500',
-    'secondbest_diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/new_eval_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.01-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-12-50-126889_16807499',
-    'thirdbest_diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/new_eval_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.1-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-14-22-060221_16807501',
+    'best_diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/40epochs/hotels_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.03-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-14-22-060388_16807500',
+    'secondbest_diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/40epochs/hotels_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.01-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-12-50-126889_16807499',
+    'thirdbest_diff-sim': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/40epochs/hotels_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.1-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-14-22-060221_16807501',
 
-
+    # 'cub_best_diff-sim-bce': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/40epochs/cub_npz/model-bs20-1gpus-2bestBCEmodelcub-dsn_cub-nor_200-fe_resnet50-pool_spoc-el_1-nn_1-bs_20-lrs_0.001-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-13_04-36-39-219678',
+    # 'hotels_best_diff-sim-bce': '/Users/aarash/files/courses/mcgill_courses/mila/research/projects/ht-image/40epochs/hotels_npz/model-bs20-1gpus-40epochs_bestbces-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.03-lrr_3e-06-loss_bce-mm_diff-sim-decay_0.0-igsz_224-time_2021-03-07_02-14-22-060388_16807500'
 
 }
 
 for k, v in model_paths.items():
-    for ep in range(31, 0, -1):
+    for ep in range(100, 0, -1):
         train_path = os.path.join(v, f'train_preds_epoch{ep}.npz')
         val_known_path = os.path.join(v, f'val_preds_knwn_epoch{ep}.npz')
         val_unknown_path = os.path.join(v, f'val_preds_unknwn_epoch{ep}.npz')
@@ -57,7 +57,7 @@ for k, v in model_paths.items():
                                  savepath=os.path.join(v, f'vu_ep{ep}_{k}'))
 
             # break
-    for ep in range(31, 0, -1):
+    for ep in range(100, 0, -1):
         train_path_neg = os.path.join(v, f'train_preds_neg_epoch{ep}.npz')
         val_known_path_neg = os.path.join(v, f'val_preds_knwn_neg_epoch{ep}.npz')
         val_unknown_path_neg = os.path.join(v, f'val_preds_unknwn_neg_epoch{ep}.npz')

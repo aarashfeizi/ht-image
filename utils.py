@@ -200,6 +200,7 @@ def get_args():
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
+    parser.add_argument('-dl', '--drop_last', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
     parser.add_argument('-dat', '--draw_all_thresh', default=32, type=int, help="threshold for drawing all heatmaps")
     parser.add_argument('-p', '--bh_P', default=18, type=int, help="number of classes for batchhard")
@@ -291,10 +292,10 @@ def get_val_loaders(args, val_set, val_set_known, val_set_unknown, workers, pin_
 
         val_loaders.append(
             DataLoader(val_set_known, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory, drop_last=True))
+                       pin_memory=pin_memory, drop_last=args.drop_last))
         val_loaders.append(
             DataLoader(val_set_unknown, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory, drop_last=True))
+                       pin_memory=pin_memory, drop_last=args.drop_last))
     else:
         raise Exception('No validation data is set!')
 
@@ -1669,7 +1670,8 @@ def get_logname(args, model):
                          'dim_reduction': 'fdim',
                          'leaky_relu': 'lrel',
                          'bn_before_classifier': 'bnbc',
-                         'weight_decay': 'decay'}
+                         'weight_decay': 'decay',
+                         'drop_last': 'dl'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1694,7 +1696,8 @@ def get_logname(args, model):
                       'softmargin',
                       'bn_before_classifier',
                       'leaky_relu',
-                      'weight_decay']
+                      'weight_decay',
+                      'drop_last']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -1722,6 +1725,8 @@ def get_logname(args, model):
             elif str(arg) == 'bn_before_classifier' and not getattr(args, arg):
                 continue
             elif str(arg) == 'normalize' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'drop_last' and not getattr(args, arg):
                 continue
 
             if type(getattr(args, arg)) is not bool:

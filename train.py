@@ -187,9 +187,9 @@ def main():
 
     if args.test:
         test_loaders.append(
-            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=True))
+            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
         test_loaders.append(
-            DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=True))
+            DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
 
     # workers = 4
     # pin_memory = False
@@ -208,10 +208,10 @@ def main():
         bs = args.batch_size
 
     train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
-                              pin_memory=pin_memory, drop_last=True)
+                              pin_memory=pin_memory, drop_last=args.drop_last)
 
     train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
-                                      pin_memory=pin_memory, drop_last=True)
+                                      pin_memory=pin_memory, drop_last=args.drop_last)
 
     val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
@@ -241,10 +241,10 @@ def main():
 
     if args.cbir:
         val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                   pin_memory=pin_memory, drop_last=True)
+                                   pin_memory=pin_memory, drop_last=args.drop_last)
 
         train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                     pin_memory=pin_memory, drop_last=True)
+                                     pin_memory=pin_memory, drop_last=args.drop_last)
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')

@@ -1074,7 +1074,7 @@ class ModelMethods:
 
             test_classes = np.zeros(((len(data_loader.dataset))))
             test_seen = np.zeros(((len(data_loader.dataset))))
-            test_paths = np.empty(dtype='S20', shape=((len(data_loader.dataset))))
+            test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
             if args.feat_extractor == 'resnet50':
                 test_feats = np.zeros((len(data_loader.dataset), 2048))
             elif args.feat_extractor == 'resnet18':
