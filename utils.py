@@ -219,6 +219,11 @@ def get_args():
     parser.add_argument('-ss', '--static_size', default=0, type=int, help="number of neurons in classifier network")
     parser.add_argument('-dr', '--dim_reduction', default=0, type=int, help="dim reduction after feature extractor")
 
+    parser.add_argument('-btf', '--bcotco_freq', default=0, type=int, help="frequency for bco dand tripl scheduler")
+    parser.add_argument('-bcob', '--bco_base', default=1.0, type=float, help="bco divide by ... every bcotco_freq epochs")
+    parser.add_argument('-tcob', '--tco_base', default=1.0, type=float, help="tco divide by ... every bcotco_freq epochs")
+
+
     parser.add_argument('-trf', '--train_fewshot', default=False, action='store_true')
     parser.add_argument('-tdp', '--train_diff_plot', default=False, action='store_true')
 
@@ -1733,6 +1738,11 @@ def get_logname(args, model):
                 name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
             else:
                 name += '-' + name_replace_dict[str(arg)]
+
+            if str(arg) == 'bcecoefficient':
+                name += f'({args.bcotco_freq}-{args.bco_base})'
+            if str(arg) == 'trplcoefficient':
+                name += f'({args.bcotco_freq}-{args.tco_base})'
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'

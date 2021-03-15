@@ -33,6 +33,10 @@ class ModelMethods:
         self.model_name = model_name
         self.colored_mask = args.colored_mask
 
+        self.bcotco_freq = args.bcotco_freq
+        self.bco_base = args.bco_base
+        self.tco_base = args.tco_base
+
         self.no_negative = args.no_negative
         self.bce_weight = args.bcecoefficient
         self.trpl_weight = args.trplcoefficient
@@ -831,6 +835,8 @@ class ModelMethods:
                                        draw_all_thresh=self.draw_all_thresh)
 
                     self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
+
+            self.update_bce_tco(epoch)
 
             self._tb_draw_histograms(args, net, epoch)
 
@@ -1941,6 +1947,14 @@ class ModelMethods:
         plt.title(plot_title)
         plt.savefig(save_path)
         plt.close('all')
+
+    def update_bce_tco(self, epoch):
+        if self.bcotco_freq != 0 and epoch % self.bcotco_freq == 0:
+            self.bce_weight /= self.bco_base
+            self.trpl_weight /= self.tco_base
+            self.logger.info(f'epoch: {epoch}, bce weight: {self.bce_weight}, tco weight: {self.trpl_weight}')
+            print(f'epoch: {epoch}, bce weight: {self.bce_weight}, tco weight: {self.trpl_weight}')
+        return
 
 
 class BaslineModel:

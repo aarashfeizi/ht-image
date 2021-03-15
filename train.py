@@ -302,22 +302,18 @@ def main():
 
     if args.pretrained_model_name == '':
         logger.info('Training')
-        if args.metric_learning:
-            net, best_model_top = model_methods_top.train_metriclearning(net=net, loss_fn=loss_fn,
-                                                                         bce_loss=loss_fn_bce, args=args,
-                                                                         train_loader=train_loader,
-                                                                         val_loaders=val_loaders_metric,
-                                                                         val_loaders_fewshot=val_loaders_fewshot,
-                                                                         train_loader_fewshot=train_loader_fewshot,
-                                                                         cam_args=[cam_img_paths,
-                                                                                   data_transforms_val,
-                                                                                   cam_data_transforms],
-                                                                         db_loaders=[train_db_loader, val_db_loader],
-                                                                         val_loaders_edgepred=val_loaders_edgepred)
-        else:
-            net, best_model_top = model_methods_top.train_fewshot(net=net, loss_fn=loss_fn, args=args,
-                                                                  train_loader=train_loader,
-                                                                  val_loaders=val_loaders_fewshot)
+
+        net, best_model_top = model_methods_top.train_metriclearning(net=net, loss_fn=loss_fn,
+                                                                     bce_loss=loss_fn_bce, args=args,
+                                                                     train_loader=train_loader,
+                                                                     val_loaders=val_loaders_metric,
+                                                                     val_loaders_fewshot=val_loaders_fewshot,
+                                                                     train_loader_fewshot=train_loader_fewshot,
+                                                                     cam_args=[cam_img_paths,
+                                                                               data_transforms_val,
+                                                                               cam_data_transforms],
+                                                                     db_loaders=[train_db_loader, val_db_loader],
+                                                                     val_loaders_edgepred=val_loaders_edgepred)
         logger.info('Calculating K@Ns for Validation')
 
         # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
