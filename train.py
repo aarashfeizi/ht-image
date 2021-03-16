@@ -147,6 +147,16 @@ def main():
                                                       save_pictures=False, overfit=False,
                                                       batchhard=[False, args.bh_P, args.bh_K])
 
+        if args.test:
+            logger.info('*' * 10)
+            test_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='test_seen',
+                                                        save_pictures=False, overfit=False,
+                                                        batchhard=[False, args.bh_P, args.bh_K])
+            logger.info('*' * 10)
+            test_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='test_unseen',
+                                                          save_pictures=False, overfit=False,
+                                                          batchhard=[False, args.bh_P, args.bh_K])
+
 
     else:
         train_set = train_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
@@ -232,6 +242,9 @@ def main():
 
     if args.metric_learning:
         val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
+                                                   pin_memory, batch_size=args.batch_size)
+        if args.test:
+            test_loaders_metric = utils.get_val_loaders(args, test_set, test_set_known_metric, test_set_unknown_metric, workers,
                                                    pin_memory, batch_size=args.batch_size)
 
         # train_loader_classify = DataLoader(train_classify, batch_size=args.batch_size, shuffle=False,
@@ -369,8 +382,8 @@ def main():
         logger.info(f"Loading {best_model_top} model...")
         net = model_methods_top.load_model(args, net, best_model_top)
 
-        model_methods_top.test_metric(args, net, test_loaders[0], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='known')
-        model_methods_top.test_metric(args, net, test_loaders[1], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='unknown')
+        model_methods_top.test_metric(args, net, test_loaders_metric[0], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='known')
+        model_methods_top.test_metric(args, net, test_loaders_metric[1], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='unknown')
 
         if args.katn:
             logger.info('Calculating K@Ns for Test')
