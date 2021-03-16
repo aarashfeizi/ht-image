@@ -356,7 +356,7 @@ def main():
         #                               mode='train_sampled')
         model_methods_top.make_emb_db(args, net, val_db_loader,
                                       eval_sampled=args.sampled_results,
-                                      eval_per_class=args.per_class_results, newly_trained=False,
+                                      eval_per_class=args.per_class_results, newly_trained=True,
                                       batch_size=args.db_batch,
                                       mode='val')
 

@@ -419,17 +419,26 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
 
     k1s = []
+    k2s = []
+    k4s = []
     k5s = []
+    k8s = []
     k10s = []
     k100s = []
 
     k1s_s = []
+    k2s_s = []
+    k4s_s = []
     k5s_s = []
+    k8s_s = []
     k10s_s = []
     k100s_s = []
 
     k1s_u = []
+    k2s_u = []
+    k4s_u = []
     k5s_u = []
+    k8s_u = []
     k10s_u = []
     k100s_u = []
 
@@ -490,27 +499,36 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
 
         logger.info('Total: ' + str(metric_total.n))
         logger.info(metric_total)
-        k1, k5, k10, k100 = metric_total.get_tot_metrics()
+        k1, k2, k4, k5, k8, k10, k100 = metric_total.get_tot_metrics()
         k1s.append(k1)
+        k2s.append(k2)
+        k4s.append(k4)
         k5s.append(k5)
+        k8s.append(k8)
         k10s.append(k10)
         k100s.append(k100)
         logger.info("*" * 50)
 
         logger.info('Seen: ' + str(metric_seen.n))
         logger.info(metric_seen)
-        k1, k5, k10, k100 = metric_seen.get_tot_metrics()
+        k1, k2, k4, k5, k8, k10, k100 = metric_seen.get_tot_metrics()
         k1s_s.append(k1)
+        k2s_s.append(k2)
+        k4s_s.append(k4)
         k5s_s.append(k5)
+        k8s_s.append(k8)
         k10s_s.append(k10)
         k100s_s.append(k100)
         logger.info("*" * 50)
 
         logger.info('Unseen: ' + str(metric_unseen.n))
         logger.info(metric_unseen)
-        k1, k5, k10, k100 = metric_unseen.get_tot_metrics()
+        k1, k2, k4, k5, k8, k10, k100 = metric_unseen.get_tot_metrics()
         k1s_u.append(k1)
+        k2s_u.append(k2)
+        k4s_u.append(k4)
         k5s_u.append(k5)
+        k8s_u.append(k8)
         k10s_u.append(k10)
         k100s_u.append(k100)
         logger.info("*" * 50)
@@ -525,49 +543,76 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
 
     logger.info('Avg Total: ' + str(metric_total.n))
     logger.info('k@1: ' + str(np.array(k1s).mean()))
+    logger.info('k@2: ' + str(np.array(k2s).mean()))
+    logger.info('k@4: ' + str(np.array(k4s).mean()))
     logger.info('k@5: ' + str(np.array(k5s).mean()))
+    logger.info('k@8: ' + str(np.array(k8s).mean()))
     logger.info('k@10: ' + str(np.array(k10s).mean()))
     logger.info('k@100: ' + str(np.array(k100s).mean()))
     logger.info("*" * 50)
 
     logger.info('Avg Seen: ' + str(metric_seen.n))
     logger.info('k@1: ' + str(np.array(k1s_s).mean()))
+    logger.info('k@2: ' + str(np.array(k2s_s).mean()))
+    logger.info('k@4: ' + str(np.array(k4s_s).mean()))
     logger.info('k@5: ' + str(np.array(k5s_s).mean()))
+    logger.info('k@8: ' + str(np.array(k8s_s).mean()))
     logger.info('k@10: ' + str(np.array(k10s_s).mean()))
     logger.info('k@100: ' + str(np.array(k100s_s).mean()))
     logger.info("*" * 50)
 
     logger.info('Avg Unseen: ' + str(metric_unseen.n))
     logger.info('k@1: ' + str(np.array(k1s_u).mean()))
+    logger.info('k@2: ' + str(np.array(k2s_u).mean()))
+    logger.info('k@4: ' + str(np.array(k4s_u).mean()))
     logger.info('k@5: ' + str(np.array(k5s_u).mean()))
+    logger.info('k@8: ' + str(np.array(k8s_u).mean()))
     logger.info('k@10: ' + str(np.array(k10s_u).mean()))
     logger.info('k@100: ' + str(np.array(k100s_u).mean()))
     logger.info("*" * 50)
 
     d = {'run': [i for i in range(run_number)],
          'kAT1': k1s,
+         'kAT2': k2s,
+         'kAT4': k4s,
          'kAT5': k5s,
+         'kAT8': k8s,
          'kAT10': k10s,
          'kAT100': k100s,
          'kAT1_seen': k1s_s,
+         'kAT2_seen': k2s_s,
+         'kAT4_seen': k4s_s,
          'kAT5_seen': k5s_s,
+         'kAT8_seen': k8s_s,
          'kAT10_seen': k10s_s,
          'kAT100_seen': k100s_s,
          'kAT1_unseen': k1s_u,
+         'kAT2_unseen': k2s_u,
+         'kAT4_unseen': k4s_u,
          'kAT5_unseen': k5s_u,
+         'kAT8_unseen': k8s_u,
          'kAT10_unseen': k10s_u,
          'kAT100_unseen': k100s_u}
 
     average_tot = pd.DataFrame(data={'avg_kAT1': [np.array(k1s).mean()],
+                                     'avg_kAT2': [np.array(k2s).mean()],
+                                     'avg_kAT4': [np.array(k4s).mean()],
                                      'avg_kAT5': [np.array(k5s).mean()],
+                                     'avg_kAT8': [np.array(k8s).mean()],
                                      'avg_kAT10': [np.array(k10s).mean()],
                                      'avg_kAT100': [np.array(k100s).mean()],
                                      'avg_kAT1_seen': [np.array(k1s_s).mean()],
+                                     'avg_kAT2_seen': [np.array(k2s_s).mean()],
+                                     'avg_kAT4_seen': [np.array(k4s_s).mean()],
                                      'avg_kAT5_seen': [np.array(k5s_s).mean()],
+                                     'avg_kAT8_seen': [np.array(k8s_s).mean()],
                                      'avg_kAT10_seen': [np.array(k10s_s).mean()],
                                      'avg_kAT100_seen': [np.array(k100s_s).mean()],
                                      'avg_kAT1_unseen': [np.array(k1s_u).mean()],
+                                     'avg_kAT2_unseen': [np.array(k2s_u).mean()],
+                                     'avg_kAT4_unseen': [np.array(k4s_u).mean()],
                                      'avg_kAT5_unseen': [np.array(k5s_u).mean()],
+                                     'avg_kAT8_unseen': [np.array(k8s_u).mean()],
                                      'avg_kAT10_unseen': [np.array(k10s_u).mean()],
                                      'avg_kAT100_unseen': [np.array(k100s_u).mean()]})
 
