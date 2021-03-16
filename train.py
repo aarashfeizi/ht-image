@@ -177,6 +177,7 @@ def main():
     if args.cbir:
         train_db_set = db_dataset(args, transform=data_transforms_val, mode='train')
         val_db_set = db_dataset(args, transform=data_transforms_val, mode='val')
+        test_db_set = db_dataset(args, transform=data_transforms_val, mode='test')
         # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
@@ -240,6 +241,9 @@ def main():
         #                                  pin_memory=pin_memory)
 
     if args.cbir:
+        test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                   pin_memory=pin_memory, drop_last=args.drop_last)
+
         val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                    pin_memory=pin_memory, drop_last=args.drop_last)
 
@@ -365,8 +369,22 @@ def main():
         logger.info(f"Loading {best_model_top} model...")
         net = model_methods_top.load_model(args, net, best_model_top)
 
-        model_methods_top.test_fewshot(args, net, test_loaders[0], loss_fn, comment='known')
-        model_methods_top.test_fewshot(args, net, test_loaders[1], loss_fn, comment='unknown')
+        model_methods_top.test_metric(args, net, test_loaders[0], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='known')
+        model_methods_top.test_metric(args, net, test_loaders[1], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='unknown')
+
+        if args.katn:
+            logger.info('Calculating K@Ns for Test')
+            # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+            #                               eval_sampled=False,
+            #                               eval_per_class=True, newly_trained=True,
+            #                               batch_size=args.db_batch,
+            #                               mode='train_sampled')
+            model_methods_top.make_emb_db(args, net, test_db_loader,
+                                          eval_sampled=args.sampled_results,
+                                          eval_per_class=args.per_class_results, newly_trained=True,
+                                          batch_size=args.db_batch,
+                                          mode='test')
+
     else:
         logger.info("NO TESTING DONE.")
     #  learning_rate = learning_rate * 0.95
