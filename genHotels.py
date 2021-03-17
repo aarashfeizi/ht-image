@@ -35,7 +35,7 @@ def restructure(dataset_path, target_path, path_csv, prefix):
             ddr = os.path.join(target_path, prefix, str(classInd))
             if not os.path.exists(ddr):
                 os.makedirs(ddr)
-            shutil.move(os.path.join(dataset_path, im), os.path.join(ddr, fname))
+            shutil.copy(os.path.join(dataset_path, im), os.path.join(ddr, fname))
             t.update()
 
 
