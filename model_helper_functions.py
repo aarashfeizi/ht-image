@@ -103,7 +103,8 @@ class ModelMethods:
                                  'in_class_min': [],
                                  'in_class_max': []}}
         self.silhouette_scores = {'train': [],
-                                  'val': []}
+                                  'val': [],
+                                  'test': []}
 
         self.aug_mask = args.aug_mask
 
@@ -928,57 +929,60 @@ class ModelMethods:
         pred_label_auc = []
         all_pos_predictions = []
         all_neg_predictions = []
-        for _, (anch, pos, neg) in enumerate(data_loader, 1):
+        with tqdm(total=len(data_loader), desc=f'{prompt_text_tb}') as t:
+            for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
-            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
-            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+                one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+                zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
 
-            if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
-            anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
-                one_labels), Variable(zero_labels)
+                if args.cuda:
+                    anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
+                    one_labels), Variable(zero_labels)
 
-            ###
-            pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-            class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+                ###
+                pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
 
-            pred_label_auc.extend(pos_pred.data.cpu().numpy())
-            true_label_auc.extend(one_labels.data.cpu().numpy())
-            all_pos_predictions.extend(pos_pred.data.cpu().numpy())
-            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())
+                pred_label_auc.extend(pos_pred.data.cpu().numpy())
+                true_label_auc.extend(one_labels.data.cpu().numpy())
+                all_pos_predictions.extend(pos_pred.data.cpu().numpy())
+                metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())
 
-            for neg_iter in range(self.no_negative):
-                # self.logger.info(anch.shape)
-                # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                              feats=True)
+                for neg_iter in range(self.no_negative):
+                    # self.logger.info(anch.shape)
+                    # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                    neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                                                                  feats=True)
 
-                all_neg_predictions.extend(neg_pred.data.cpu().numpy())
-                pred_label_auc.extend(neg_pred.data.cpu().numpy())
-                true_label_auc.extend(zero_labels.data.cpu().numpy())
+                    all_neg_predictions.extend(neg_pred.data.cpu().numpy())
+                    pred_label_auc.extend(neg_pred.data.cpu().numpy())
+                    true_label_auc.extend(zero_labels.data.cpu().numpy())
 
-                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())
+                    class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+                    metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())
 
+                    if loss_fn is not None:
+                        ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+
+                        if neg_iter == 0:
+                            ext_loss = ext_batch_loss
+                        else:
+                            ext_loss += ext_batch_loss
+
+                class_loss /= (self.no_negative + 1)
                 if loss_fn is not None:
-                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+                    ext_loss /= self.no_negative
+                    test_triplet_loss += ext_loss.item()
+                    loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                else:
+                    loss = self.bce_weight * class_loss
 
-                    if neg_iter == 0:
-                        ext_loss = ext_batch_loss
-                    else:
-                        ext_loss += ext_batch_loss
+                test_loss += loss.item()
 
-            class_loss /= (self.no_negative + 1)
-            if loss_fn is not None:
-                ext_loss /= self.no_negative
-                test_triplet_loss += ext_loss.item()
-                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
-            else:
-                loss = self.bce_weight * class_loss
+                test_bce_loss += class_loss.item()
 
-            test_loss += loss.item()
-
-            test_bce_loss += class_loss.item()
+                t.update()
 
         roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
 

@@ -5,17 +5,13 @@ import argparse
 import pandas as pd
 from tqdm import tqdm
 
-SPLITS = ['hotels_train',
-          'hotels_val_seen',
-          'hotels_val_unseen',
-          'hotels_test_seen',
-          'hotels_test_unseen']
 
-trainPrefix = 'train/'
-test_seen_Prefix = 'test_seen/'
-test_umseen_Prefix = 'test_unseen/'
-val_seen_Prefix = 'val_seen/'
-val_unseen_Prefix = 'val_unseen/'
+
+SPLITS = ['train',
+          'val_seen',
+          'val_unseen',
+          'test_seen',
+          'test_unseen']
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -23,6 +19,7 @@ def get_args():
     parser.add_argument('--split_path', type=str)
     parser.add_argument('--dataset_path', type=str)
     parser.add_argument('--target_path', type=str)
+    parser.add_argument('--dataset', default='hotels', choices=['hotels', 'cub'])
 
     return parser.parse_args()
 
@@ -43,8 +40,8 @@ def main():
     args = get_args()
 
     for prefix in SPLITS:
-        print(f'Doing {prefix}')
-        p = os.path.join(args.split_path, prefix)
+        print(f'Doing {args.dataset + "_" + prefix}')
+        p = os.path.join(args.split_path, args.dataset + "_" + prefix)
         path_csv = pd.read_csv(p + '.csv')
         restructure(args.dataset_path, args.target_path, path_csv, prefix)
 
