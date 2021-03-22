@@ -137,7 +137,7 @@ def get_args():
     parser.add_argument('-env', '--env', default='local',
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
-    parser.add_argument('-dsn', '--dataset_name', default='hotels', choices=['omniglot', 'cub', 'hotels', 'cars', 'sop'])
+    parser.add_argument('-dsn', '--dataset_name', default='hotels', choices=['omniglot', 'cub', 'cub_standard', 'hotels', 'cars', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
