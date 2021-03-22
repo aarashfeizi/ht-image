@@ -23,6 +23,9 @@ import utils
 #     return t
 from losses import TripletLoss
 
+EVAL_SET_NAMES = {1: ['total'],
+                  2: ['seen', 'unseen']}
+
 
 class ModelMethods:
 
@@ -562,6 +565,7 @@ class ModelMethods:
         metric_ACC = metrics.Metric_Accuracy()
 
         max_val_acc = 0
+
         max_val_acc_knwn = 0
         max_val_acc_unknwn = 0
         val_acc = 0
@@ -656,53 +660,66 @@ class ModelMethods:
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
-
+                        results = {}
+                        results_to_save = {}
                         if args.eval_mode == 'fewshot':
 
-                            utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
-                            _, _, val_acc_knwn_fewshot, _ = self.test_fewshot(args, net,
-                                                                              val_loaders_fewshot[
-                                                                                  0],
-                                                                              bce_loss,
-                                                                              val=True,
-                                                                              epoch=epoch,
-                                                                              comment='known')
+                            for fewshot_loader, loader, comm in zip(val_loaders_fewshot, val_loaders,
+                                                                    EVAL_SET_NAMES[len(val_loaders)]):
 
-                            utils.print_gpu_stuff(args.cuda, 'after test few_shot 1 and before test_metric')
+                                utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
+                                _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
+                                                                             fewshot_loader,
+                                                                             bce_loss,
+                                                                             val=True,
+                                                                             epoch=epoch,
+                                                                             comment=comm)
 
-                            seen_val_auc, val_acc_knwn, val_rgt_err_knwn, val_preds_knwn_pos_neg = self.test_metric(
-                                args, net, val_loaders[0],
-                                loss_fn, bce_loss, val=True,
-                                epoch=epoch, comment='known')
+                                utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
 
-                            val_err_knwn = val_rgt_err_knwn['wrong']
-                            val_rgt_knwn = val_rgt_err_knwn['right']
+                                val_auc, val_acc, val_rgt_err, val_preds_pos_neg = self.test_metric(
+                                    args, net, loader,
+                                    loss_fn, bce_loss, val=True,
+                                    epoch=epoch, comment=comm)
 
-                            val_preds_knwn_pos = val_preds_knwn_pos_neg['pos']
-                            val_preds_knwn_neg = val_preds_knwn_pos_neg['neg']
+                                if comm not in results.keys():
+                                    results[comm] = {}
+                                    results_to_save[comm] = {}
+                                #
+                                results[comm]['right'] = val_rgt_err['right']
+                                results[comm]['wrong'] = val_rgt_err['wrong']
+                                results[comm]['val_auc'] = val_auc
+                                results[comm]['val_acc'] = val_acc
+                                results[comm]['val_acc_fewshot'] = val_acc_fewshot
+                                # val_err_knwn = val_rgt_err_knwn['wrong']
+                                # val_rgt_knwn = val_rgt_err_knwn['right']
 
-                            utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
+                                results_to_save = val_preds_pos_neg
+                                # val_preds_knwn_pos = val_preds_knwn_pos_neg['pos']
+                                # val_preds_knwn_neg = val_preds_knwn_pos_neg['neg']
 
-                            _, _, val_acc_unknwn_fewshot, _ = self.test_fewshot(args,
-                                                                                net,
-                                                                                val_loaders_fewshot[
-                                                                                    1],
-                                                                                bce_loss,
-                                                                                val=True,
-                                                                                epoch=epoch,
-                                                                                comment='unknown')
-                            utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
+                                utils.print_gpu_stuff(args.cuda, f'after test_metric {comm}')
 
-                            unseen_val_auc, val_acc_unknwn, val_rgt_err_unknwn, val_preds_unknwn_pos_neg = self.test_metric(
-                                args, net, val_loaders[1],
-                                loss_fn, bce_loss, val=True,
-                                epoch=epoch, comment='unknown')
-
-                            val_err_unknwn = val_rgt_err_unknwn['wrong']
-                            val_rgt_unknwn = val_rgt_err_unknwn['right']
-
-                            val_preds_unknwn_pos = val_preds_unknwn_pos_neg['pos']
-                            val_preds_unknwn_neg = val_preds_unknwn_pos_neg['neg']
+                            # _, _, val_acc_unknwn_fewshot, _ = self.test_fewshot(args,
+                            #                                                     net,
+                            #                                                     val_loaders_fewshot[
+                            #                                                         1],
+                            #                                                     bce_loss,
+                            #                                                     val=True,
+                            #                                                     epoch=epoch,
+                            #                                                     comment='unknown')
+                            # utils.print_gpu_stuff(args.cuda, 'after test_fewshot 2 and before test_metric 2')
+                            #
+                            # unseen_val_auc, val_acc_unknwn, val_rgt_err_unknwn, val_preds_unknwn_pos_neg = self.test_metric(
+                            #     args, net, val_loaders[1],
+                            #     loss_fn, bce_loss, val=True,
+                            #     epoch=epoch, comment='unknown')
+                            #
+                            # val_err_unknwn = val_rgt_err_unknwn['wrong']
+                            # val_rgt_unknwn = val_rgt_err_unknwn['right']
+                            #
+                            # val_preds_unknwn_pos = val_preds_unknwn_pos_neg['pos']
+                            # val_preds_unknwn_neg = val_preds_unknwn_pos_neg['neg']
 
                             utils.print_gpu_stuff(args.cuda, 'after all validation')
 
@@ -746,29 +763,45 @@ class ModelMethods:
                         else:
                             raise Exception('Unsupporeted eval mode')
 
-                        self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
+                        val_acc_str = ''
+
+                        for key, value in results.items():
+                            val_acc_str += f'{key} val acc: {value["val_acc"]}, '
+
+                        # self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
+                        self.logger.info(val_acc_str)
                         self.logger.info('*' * 30)
-                        if val_acc_knwn > max_val_acc_knwn:
-                            self.logger.info(
-                                'known val acc: [%f], beats previous max [%f]' % (val_acc_knwn, max_val_acc_knwn))
-                            self.logger.info('known rights: [%d], known errs [%d]' % (val_rgt_knwn, val_err_knwn))
-                            max_val_acc_knwn = val_acc_knwn
+                        if len(val_loaders) == 2:  # validation has seen and unseen sets
+                            if results['seen']['val_acc'] > max_val_acc_knwn:
+                                self.logger.info(
+                                    'known val acc: [%f], beats previous max [%f]' % (
+                                        results['seen']['val_acc'], max_val_acc_knwn))
+                                self.logger.info('known rights: [%d], known errs [%d]' % (results['seen']['right'],
+                                                                                          results['seen']['wrong']))
+                                max_val_acc_knwn = results['seen']['val_acc']
 
-                        if val_acc_unknwn > max_val_acc_unknwn:
-                            self.logger.info(
-                                'unknown val acc: [%f], beats previous max [%f]' % (val_acc_unknwn, max_val_acc_unknwn))
-                            self.logger.info(
-                                'unknown rights: [%d], unknown errs [%d]' % (val_rgt_unknwn, val_err_unknwn))
-                            max_val_acc_unknwn = val_acc_unknwn
+                            if results['unseen']['val_acc'] > max_val_acc_unknwn:
+                                self.logger.info(
+                                    'unknown val acc: [%f], beats previous max [%f]' % (
+                                        results['unseen']['val_acc'], max_val_acc_unknwn))
+                                self.logger.info(
+                                    'unknown rights: [%d], unknown errs [%d]' % (results['unseen']['right'],
+                                                                                 results['unseen']['wrong']))
+                                max_val_acc_unknwn = results['unseen']['val_acc']
 
-                        val_acc = ((val_rgt_knwn + val_rgt_unknwn) * 1.0) / (
-                                val_rgt_knwn + val_rgt_unknwn + val_err_knwn + val_err_unknwn)
+                            val_rgt = (results['seen']['right'] + results['unseen']['right'])
+                            val_err = (results['seen']['wrong'] + results['unseen']['wrong'])
+
+                            val_acc = (val_rgt * 1.0) / (val_rgt + val_err)
+
+
+                        else:  # no seen and unseen dataset for validation
+                            val_acc = results['total']['val_acc']
+                            val_rgt = results['total']['right']
+                            val_err = results['total']['wrong']
 
                         self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
                         self.writer.flush()
-
-                        val_rgt = (val_rgt_knwn + val_rgt_unknwn)
-                        val_err = (val_err_knwn + val_err_unknwn)
 
                         if val_acc >= max_val_acc:
                             utils.print_gpu_stuff(args.cuda, 'Before saving model')
@@ -777,15 +810,16 @@ class ModelMethods:
                                 np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
                                          np.array(train_fewshot_predictions))
 
-                            np.savez(os.path.join(self.save_path, f'val_preds_knwn_neg_epoch{epoch}'),
-                                     np.array(val_preds_knwn_neg))
-                            np.savez(os.path.join(self.save_path, f'val_preds_knwn_pos_epoch{epoch}'),
-                                     np.array(val_preds_knwn_pos))
+                            for key, value in results_to_save.items():
+                                np.savez(os.path.join(self.save_path, f'val_preds_{key}_neg_epoch{epoch}'),
+                                         np.array(value['neg']))
+                                np.savez(os.path.join(self.save_path, f'val_preds_{key}_pos_epoch{epoch}'),
+                                         np.array(value['pos']))
 
-                            np.savez(os.path.join(self.save_path, f'val_preds_unknwn_neg_epoch{epoch}'),
-                                     np.array(val_preds_unknwn_neg))
-                            np.savez(os.path.join(self.save_path, f'val_preds_unknwn_pos_epoch{epoch}'),
-                                     np.array(val_preds_unknwn_pos))
+                            # np.savez(os.path.join(self.save_path, f'val_preds_unknwn_neg_epoch{epoch}'),
+                            #          np.array(val_preds_unknwn_neg))
+                            # np.savez(os.path.join(self.save_path, f'val_preds_unknwn_pos_epoch{epoch}'),
+                            #          np.array(val_preds_unknwn_pos))
 
                             self.logger.info(
                                 f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
@@ -810,15 +844,16 @@ class ModelMethods:
                                  epoch=epoch,
                                  k_at_n=False)
 
-            self.logger.info('plotting val class diff plot...')
-            self.make_emb_db(args, net, val_db_loader,
-                             eval_sampled=args.sampled_results,
-                             eval_per_class=args.per_class_results,
-                             newly_trained=True,
-                             batch_size=args.db_batch,
-                             mode='val',
-                             epoch=epoch,
-                             k_at_n=False)
+            if val_db_loader:
+                self.logger.info('plotting val class diff plot...')
+                self.make_emb_db(args, net, val_db_loader,
+                                 eval_sampled=args.sampled_results,
+                                 eval_per_class=args.per_class_results,
+                                 newly_trained=True,
+                                 batch_size=args.db_batch,
+                                 mode='val',
+                                 epoch=epoch,
+                                 k_at_n=False)
 
             if max_val_between_epochs <= max_val_acc:
                 max_val_between_epochs = max_val_acc
@@ -845,11 +880,11 @@ class ModelMethods:
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (complete) time: {epoch_end - epoch_start}')
 
-        acc = 0.0
-        for d in queue:
-            acc += d
-        self.logger.info("#" * 70)
-        self.logger.info(f'queue len: {len(queue)}')
+        # acc = 0.0
+        # for d in queue:
+        #     acc += d
+        # self.logger.info("#" * 70)
+        # self.logger.info(f'queue len: {len(queue)}')
 
         if args.project_tb:
             self.logger.info("Start projecting")
@@ -1152,7 +1187,8 @@ class ModelMethods:
         silhouette_path[0] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_plot.png')
         silhouette_path[1] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_dist_plot_{epoch}.png')
 
-        self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
+        if mode != 'test':
+            self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
 
         # import pdb
         # pdb.set_trace()

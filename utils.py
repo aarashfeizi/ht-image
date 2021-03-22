@@ -137,7 +137,7 @@ def get_args():
     parser.add_argument('-env', '--env', default='local',
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
-    parser.add_argument('-dsn', '--dataset_name', default='omniglot', choices=['omniglot', 'cub', 'hotels'])
+    parser.add_argument('-dsn', '--dataset_name', default='hotels', choices=['omniglot', 'cub', 'hotels', 'cars', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -181,13 +181,11 @@ def get_args():
     parser.add_argument('-es', '--early_stopping', default=20, type=int, help="number of tol for validation acc")
     parser.add_argument('-tst', '--test', default=False, action='store_true')
     parser.add_argument('-katn', '--katn', default=False, action='store_true')
-    parser.add_argument('-cbir', '--cbir', default=False, action='store_true')
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
     parser.add_argument('-sr', '--sampled_results', default=True, action='store_true')
     parser.add_argument('-pcr', '--per_class_results', default=True, action='store_true')
     parser.add_argument('-ptb', '--project_tb', default=False, action='store_true')
 
-    parser.add_argument('-mtlr', '--metric_learning', default=False, action='store_true')
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
@@ -210,6 +208,11 @@ def get_args():
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
+    parser.add_argument('--train_folder_name', default='train')
+    parser.add_argument('--vs_folder_name', default='val_seen')
+    parser.add_argument('--vu_folder_name', default='val_unseen')
+    parser.add_argument('--ts_folder_name', default='test_seen')
+    parser.add_argument('--tu_folder_name', default='test_unseen')
     parser.add_argument('-ppth', '--project_path',
                         default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
     parser.add_argument('-lpth', '--local_path',
@@ -289,20 +292,22 @@ def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], star
     return workers, pin_memory
 
 
-def get_val_loaders(args, val_set, val_set_known, val_set_unknown, workers, pin_memory, batch_size=None):
+def get_val_loaders(args, val_set_known, val_set_unknown, workers, pin_memory, batch_size=None):
     val_loaders = []
-    if batch_size is None:
-        batch_size = args.way
-    if (val_set is not None) or (val_set_known is not None):
 
-        val_loaders.append(
-            DataLoader(val_set_known, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory, drop_last=args.drop_last))
+    if not val_set_known:
+        return None
+
+    if not batch_size:
+        batch_size = args.way
+
+    val_loaders.append(
+        DataLoader(val_set_known, batch_size=batch_size, shuffle=False, num_workers=workers,
+                   pin_memory=pin_memory, drop_last=args.drop_last))
+    if val_set_unknown:
         val_loaders.append(
             DataLoader(val_set_unknown, batch_size=batch_size, shuffle=False, num_workers=workers,
                        pin_memory=pin_memory, drop_last=args.drop_last))
-    else:
-        raise Exception('No validation data is set!')
 
     return val_loaders
 
@@ -638,7 +643,7 @@ def get_shuffled_data(datas, seed=0, one_hot=True, both_seen_unseen=False, shuff
             lbl = key
 
         if both_seen_unseen:
-            ls = [(lbl, value, bl) for value, bl in value_list]  # todo to be able to separate seen and unseen in k@n
+            ls = [(lbl, value, bl) for value, bl in value_list]
         else:
             ls = [(lbl, value) for value in value_list]
 
@@ -689,6 +694,104 @@ def _read_new_split(dataset_path, mode,
 
     return image_path, image_labels
 
+
+def _get_imgs_labels(dataset_path, extensions):
+    classes = [d.name for d in os.scandir(dataset_path) if d.is_dir()]
+    classes.sort()
+    mode = dataset_path.split('/')[-1]
+    try:
+        class_to_idx = {cls_name: int(cls_name) for _, cls_name in enumerate(classes)}
+    except ValueError:
+        print('** Relabeling classes to integers')
+        class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
+
+    image_path = []
+    image_labels = []
+    for c in classes:
+        imgs = [os.path.join(mode, c, d.name) for d in os.scandir(os.path.join(dataset_path, c)) if d.name.lower().endswith(extensions)]
+        image_path.extend(imgs)
+        image_labels.extend([class_to_idx[c] for _ in range(len(imgs))])
+
+    image_path = np.array(image_path)
+    image_labels = np.array(image_labels)
+    return image_path, image_labels
+
+
+def loadDataToMem_2(dataPath, dataset_name, mode='train',
+                  portion=0, return_bg=True,
+                    extensions=('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')):
+
+    dataset_path = os.path.join(dataPath, dataset_name)
+
+    return_bg = return_bg and (mode.startswith('train'))
+
+    background_datasets = {'val_seen': 'val_unseen',
+                           'val_unseen': 'val_seen',
+                           'test_seen': 'test_unseen',
+                           'test_unseen': 'test_seen',
+                           'train_seen': 'train_seen'}
+
+    print("begin loading dataset to memory")
+    datas = {}
+    datas_bg = {}  # in case of mode == val/test_seen/unseen
+
+    image_path, image_labels = _get_imgs_labels(os.path.join(dataset_path, mode), extensions)
+
+    if return_bg:
+        image_path_bg, image_labels_bg = _get_imgs_labels(os.path.join(dataset_path, background_datasets[mode]), extensions)
+
+    if portion > 0:
+        image_path = image_path[image_labels < portion]
+        image_labels = image_labels[image_labels < portion]
+
+        if return_bg:
+            image_path_bg = image_path_bg[image_labels_bg < portion]
+            image_labels_bg = image_labels_bg[image_labels_bg < portion]
+
+    print(f'{mode} number of imgs:', len(image_labels))
+    print(f'{mode} number of labels:', len(np.unique(image_labels)))
+
+    if return_bg:
+        print(f'{mode} number of bg imgs:', len(image_labels_bg))
+        print(f'{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
+    else:
+        print(f'Just {mode}, background not required.')
+
+    num_instances = len(image_labels)
+
+    num_classes = len(np.unique(image_labels))
+
+    for idx, path in zip(image_labels, image_path):
+        if idx not in datas.keys():
+            datas[idx] = []
+            if return_bg:
+                datas_bg[idx] = []
+
+        datas[idx].append(os.path.join(dataset_path, path))
+        if return_bg:
+            datas_bg[idx].append((os.path.join(dataset_path, path), True))
+
+
+    if return_bg:
+        for idx, path in zip(image_labels_bg, image_path_bg):
+            if idx not in datas_bg.keys():
+                datas_bg[idx] = []
+            if (os.path.join(dataset_path, path), False) not in datas_bg[idx] and \
+                    (os.path.join(dataset_path, path), True) not in datas_bg[idx]:
+                datas_bg[idx].append((os.path.join(dataset_path, path), False))
+
+    labels = np.unique(image_labels)
+    print(f'Number of labels in {mode}: ', len(labels))
+
+    if return_bg:
+        all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
+        print(f'Number of all labels (bg + fg) in {mode} and {background_datasets[mode]}: ', len(all_labels))
+
+    if not return_bg:
+        datas_bg = datas
+
+    print(f'finish loading {mode} dataset to memory')
+    return datas, num_classes, num_instances, labels, datas_bg
 
 def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
                   portion=0, return_bg=True, dataset_folder=''):

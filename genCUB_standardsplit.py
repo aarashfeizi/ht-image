@@ -7,7 +7,7 @@ from tqdm import tqdm
 train_prefix = 'train'
 val_prefix = 'val'
 trainval_prefix = 'trainval'
-test_prefix = 'test '
+test_prefix = 'test'
 
 
 def get_args():

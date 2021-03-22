@@ -9,11 +9,11 @@ from torch.utils.data import Dataset
 from torchvision.utils import save_image
 
 import utils
-from utils import get_shuffled_data, loadDataToMem, get_overfit, get_masks
+from utils import get_shuffled_data, loadDataToMem, loadDataToMem_2, get_overfit, get_masks
 
 
 class HotelTrain_Metric(Dataset):
-    def __init__(self, args, transform=None, mode='f', save_pictures=False, overfit=False, return_paths=False,
+    def __init__(self, args, transform=None, mode='', save_pictures=False, overfit=False, return_paths=False,
                  batchhard=[False, 0, 0]):
         super(HotelTrain_Metric, self).__init__()
         self.fourth_dim = args.fourth_dim
@@ -30,11 +30,27 @@ class HotelTrain_Metric(Dataset):
         self.bh_K = batchhard[2]
 
         start = time.time()
-        self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
-                                                                                  mode=mode,
-                                                                                  split_file_path=args.splits_file_path,
-                                                                                  portion=args.portion,
-                                                                                  dataset_folder=args.dataset_folder)
+
+        return_bg = (mode.startswith('val') and
+                     args.vu_folder_name != 'none') \
+                    or \
+                    (mode.startswith('test') and
+                     args.tu_folder_name != 'none')
+
+        # self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
+        #                                                                           mode=mode,
+        #                                                                           split_file_path=args.splits_file_path,
+        #                                                                           portion=args.portion,
+        #                                                                           dataset_folder=args.dataset_folder,
+        #                                                                           return_bg=return_bg)
+
+        self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+                                                                mode=mode,
+                                                                portion=args.portion,
+                                                                return_bg=return_bg)
+        #
+        # pdb.set_trace()
+
         end = time.time()
         if utils.MY_DEC.enabled:
             print(f'HotelTrain_Metric loadDataToMem time: {end - start}')
@@ -218,7 +234,6 @@ class HotelTrain_Metric(Dataset):
         if utils.MY_DEC.enabled:
             print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
 
-
         # import pdb
         # pdb.set_trace()
 
@@ -259,134 +274,6 @@ class HotelTrain_Metric(Dataset):
         else:
             return self.__triplet_getitem__(index)
 
-
-    def do_transform(self, img):
-        img = self.transform(img)
-        img = self.normalize(img)
-        return img
-
-
-class HotelTrain_FewShot(Dataset):
-    def __init__(self, args, transform=None, mode='train', save_pictures=False):
-        super(HotelTrain_FewShot, self).__init__()
-        np.random.seed(args.seed)
-        self.fourth_dim = args.fourth_dim
-        self.transform = transform
-        self.save_pictures = save_pictures
-        self.class1 = 0
-        self.image1 = None
-        self.no_negative = args.no_negative
-        self.normalize = utils.TransformLoader(-1).transform_normalize
-        self.colored_mask = args.colored_mask
-
-        self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
-                                                                                  mode=mode,
-                                                                                  split_file_path=args.splits_file_path,
-                                                                                  portion=args.portion,
-                                                                                  dataset_folder=args.dataset_folder)
-
-        self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
-
-        self.aug_mask = args.aug_mask
-
-        if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder,
-                                   os.path.join(args.project_path, args.mask_path))
-
-        else:
-            self.masks = []
-
-        print('HotelTrain_FewShot hotel train classes: ', self.num_classes)
-        print('HotelTrain_FewShot hotel train length: ', self.length)
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, index):
-        # image1 = random.choice(self.dataset.imgs)
-        label = None  # label is the distance between the two image. 1: same, 0: different
-        img1 = None
-        img2 = None
-
-        # get image from same class
-        if index % (self.no_negative + 1) == 0:
-            label = 1.0
-            idx1 = random.randint(0, self.num_classes - 1)
-            self.class1 = self.labels[idx1]
-            class2 = self.class1
-            self.image1 = Image.open(random.choice(self.datas[self.class1]))
-            image2 = Image.open(random.choice(self.datas[class2]))
-        # get image from different class
-        else:
-            label = 0.0
-            # idx1 = random.randint(0, self.num_classes - 1)
-            idx2 = random.randint(0, self.num_classes - 1)
-            class2 = self.labels[idx2]
-
-            while self.class1 == class2:
-                idx2 = random.randint(0, self.num_classes - 1)
-                class2 = self.labels[idx2]
-
-            # class1 = self.labels[idx1]
-
-            # image1 = Image.open(random.choice(self.datas[self.class1]))
-            image2 = Image.open(random.choice(self.datas[class2]))
-
-        image1 = self.image1.convert('RGB')
-        image2 = image2.convert('RGB')
-        save = False
-        if self.transform:
-            if self.save_pictures and random.random() < 0.0001:
-                save = True
-                img1_random = random.randint(0, 1000)
-                img2_random = random.randint(0, 1000)
-                image1.save(f'hotel_imagesamples/train/train_{self.class1}_{img1_random}_before.png')
-                image2.save(f'hotel_imagesamples/train/train_{class2}_{img2_random}_before.png')
-
-            if self.aug_mask:
-                image1_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-
-                image2_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-
-                image1, masked_img1, image1_mask, _ = utils.add_mask(image1, image1_mask, colored=self.colored_mask)
-                image2, masked_img2, image2_mask, _ = utils.add_mask(image2, image2_mask, colored=self.colored_mask)
-
-                if not self.fourth_dim:
-                    image1 = masked_img1
-                    image2 = masked_img2
-
-            image1 = self.do_transform(image1)
-            image2 = self.do_transform(image2)
-
-            if save:
-                save_image(image1, f'hotel_imagesamples/train/train_{self.class1}_{img1_random}_after.png')
-                save_image(image2, f'hotel_imagesamples/train/train_{class2}_{img2_random}_after.png')
-
-        return image1, image2, torch.from_numpy(np.array([label], dtype=np.float32))
-
-    def _get_single_item(self, index):
-        label, image_path = self.shuffled_data[index]
-
-        image = Image.open(image_path)
-
-        image = image.convert('RGB')
-
-        if self.transform:
-            image = self.do_transform(image)
-
-        return image, torch.from_numpy(np.array(label, dtype=np.float32))
-
-    def get_k_samples(self, k=100):
-        ks = np.random.randint(len(self.shuffled_data), size=k)
-        imgs = []
-        lbls = []
-        for i in ks:
-            img, lbl = self._get_single_item(i)
-            imgs.append(img)
-            lbls.append(lbl)
-
-        return imgs, lbls
-
     def do_transform(self, img):
         img = self.transform(img)
         img = self.normalize(img)
@@ -409,12 +296,24 @@ class HotelTest_FewShot(Dataset):
         self.fourth_dim = args.fourth_dim
         self.colored_mask = args.colored_mask
 
-        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
-                                                                                    args.dataset_name,
-                                                                                    mode=mode,
-                                                                                    split_file_path=args.splits_file_path,
-                                                                                    portion=args.portion,
-                                                                                    dataset_folder=args.dataset_folder)
+        return_bg = (mode.startswith('val') and
+                     args.vu_folder_name != 'none') \
+                    or \
+                    (mode.startswith('test') and
+                     args.tu_folder_name != 'none')
+
+        # self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
+        #                                                                             args.dataset_name,
+        #                                                                             mode=mode,
+        #                                                                             split_file_path=args.splits_file_path,
+        #                                                                             portion=args.portion,
+        #                                                                             dataset_folder=args.dataset_folder,
+        #                                                                             return_bg=return_bg)
+
+        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+                                                                                      mode=mode,
+                                                                                      portion=args.portion,
+                                                                                      return_bg=return_bg)
 
         self.aug_mask = args.aug_mask
 
@@ -558,7 +457,6 @@ class HotelTest_EdgePred(Dataset):
                 np.random.randint(0, len(self.datas[label]),
                                   size=self.k)]
 
-
         save = False
 
         if self.transform:
@@ -608,17 +506,31 @@ class Hotel_DB(Dataset):
             self.mode_tmp = self.mode
             total = False
 
-        self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
-                                                                                    args.dataset_name,
-                                                                                    mode=self.mode_tmp,
-                                                                                    split_file_path=args.splits_file_path,
-                                                                                    portion=args.portion,
-                                                                                    dataset_folder=args.dataset_folder,
-                                                                                    return_bg=(self.mode != 'train'))
+        return_bg = (mode.startswith('val') and
+                     args.vu_folder_name != 'none') \
+                    or \
+                    (mode.startswith('test') and
+                     args.tu_folder_name != 'none')
+
+        # self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
+        #                                                                             args.dataset_name,
+        #                                                                             mode=self.mode_tmp,
+        #                                                                             split_file_path=args.splits_file_path,
+        #                                                                             portion=args.portion,
+        #                                                                             dataset_folder=args.dataset_folder,
+        #                                                                             return_bg=(self.mode != 'train'))
+
+        self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+
+                                                                                      mode=mode,
+                                                                                      portion=args.portion,
+                                                                                      return_bg=return_bg)
+        #
+        # pdb.set_trace()
         self.all_shuffled_data = get_shuffled_data(self.all_data,
                                                    seed=args.seed,
                                                    one_hot=False,
-                                                   both_seen_unseen=(self.mode != 'train'),
+                                                   both_seen_unseen=(return_bg and (self.mode != 'train')),
                                                    shuffle=False)
 
         self.aug_mask = args.aug_mask

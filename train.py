@@ -17,6 +17,10 @@ from models.top_model import *
 
 # Average per class for metrics (k@n) ???
 
+EVAL_SET_NAMES = {1: ['total'],
+                 2: ['seen', 'unseen']}
+
+
 @utils.MY_DEC
 def _logger(logname, env):
     if env == 'hlr' or env == 'local':
@@ -97,20 +101,18 @@ def main():
     test_few_shot_dataset = None
     db_dataset = None
 
-    if args.dataset_name == 'hotels':
-        train_metric_dataset = HotelTrain_Metric
-        train_few_shot_dataset = HotelTrain_FewShot
-        test_few_shot_dataset = HotelTest_FewShot
+    # if args.dataset_name == 'hotels':
+        # train_metric_dataset = HotelTrain_Metric
+        # test_few_shot_dataset = HotelTest_FewShot
         # test_edgepred_dataset = HotelTest_EdgePred
-        db_dataset = Hotel_DB
-    elif args.dataset_name == 'cub':
-        train_metric_dataset = CUBTrain_Metric
-        train_few_shot_dataset = CUBTrain_FewShot
-        test_few_shot_dataset = CUBTest_FewShot
+        # db_dataset = Hotel_DB
+    # elif args.dataset_name == 'cub':
+        # train_metric_dataset = HotelTrain_Metric
+        # test_few_shot_dataset = HotelTest_FewShot
         # test_edgepred_dataset = CUBTest_EdgePred
-        db_dataset = CUB_DB
-    else:
-        logger.error(f'Dataset not suppored:  {args.dataset_name}')
+        # db_dataset = Hotel_DB
+    # else:
+    #     logger.error(f'Dataset not suppored:  {args.dataset_name}')
 
     # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
 
@@ -134,41 +136,49 @@ def main():
     #                                                   save_pictures=False, overfit=False, return_paths=True)
     is_batchhard = (args.loss == 'batchhard')
     logger.info('*' * 10)
-    if args.metric_learning:
-        train_set = train_metric_dataset(args, transform=data_transforms_train, mode='train',
-                                         save_pictures=False, overfit=True,
-                                         batchhard=[is_batchhard, args.bh_P, args.bh_K])
-        logger.info('*' * 10)
-        val_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_seen',
+
+    train_set = HotelTrain_Metric(args, transform=data_transforms_train, mode='train',
+                                     save_pictures=False, overfit=True,
+                                     batchhard=[is_batchhard, args.bh_P, args.bh_K])
+
+
+    logger.info('*' * 10)
+    val_set_known_metric = None
+    if args.vs_folder_name != 'none':
+        val_set_known_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.vs_folder_name,
                                                     save_pictures=False, overfit=False,
                                                     batchhard=[False, args.bh_P, args.bh_K])
+    val_set_unknown_metric = None
+    if args.vu_folder_name != 'none':
         logger.info('*' * 10)
-        val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
+        val_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.vu_folder_name,
                                                       save_pictures=False, overfit=False,
                                                       batchhard=[False, args.bh_P, args.bh_K])
-
-        if args.test:
-            logger.info('*' * 10)
-            test_set_known_metric = train_metric_dataset(args, transform=data_transforms_val, mode='test_seen',
-                                                        save_pictures=False, overfit=False,
-                                                        batchhard=[False, args.bh_P, args.bh_K])
-            logger.info('*' * 10)
-            test_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='test_unseen',
-                                                          save_pictures=False, overfit=False,
-                                                          batchhard=[False, args.bh_P, args.bh_K])
-
-
-    else:
-        train_set = train_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
+    test_set_known_metric = None
+    test_set_unknown_metric = None
+    if args.test:
         logger.info('*' * 10)
+        test_set_known_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.ts_folder_name,
+                                                     save_pictures=False, overfit=False,
+                                                     batchhard=[False, args.bh_P, args.bh_K])
 
-    train_set_fewshot = test_few_shot_dataset(args, transform=data_transforms_train, mode='train', save_pictures=False)
+        if args.tu_folder_name != 'none':
+            logger.info('*' * 10)
+            test_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.tu_folder_name,
+                                                           save_pictures=False, overfit=False,
+                                                           batchhard=[False, args.bh_P, args.bh_K])
 
-    val_set_known_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_seen',
-                                                  save_pictures=False)
-    logger.info('*' * 10)
-    val_set_unknown_fewshot = test_few_shot_dataset(args, transform=data_transforms_val, mode='val_unseen',
-                                                    save_pictures=False)
+
+
+    train_set_fewshot = HotelTest_FewShot(args, transform=data_transforms_train, mode=args.train_folder_name, save_pictures=False)
+
+    if args.vs_folder_name != 'none':
+        val_set_known_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.vs_folder_name,
+                                                      save_pictures=False)
+    if args.vu_folder_name != 'none':
+        logger.info('*' * 10)
+        val_set_unknown_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.vu_folder_name,
+                                                        save_pictures=False)
 
     # val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
     #                                               save_pictures=False)
@@ -177,18 +187,24 @@ def main():
     #                                                 save_pictures=False)
 
     if args.test:
-        test_set_known = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_seen')
+        test_set_known = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.ts_folder_name)
         logger.info('*' * 10)
-        test_set_unknown = test_few_shot_dataset(args, transform=data_transforms_val, mode='test_unseen')
-        logger.info('*' * 10)
+        if args.tu_folder_name != 'none':
+            test_set_unknown = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.tu_folder_name)
+            logger.info('*' * 10)
 
         # todo test not supported for metric learning
 
-    if args.cbir:
-        train_db_set = db_dataset(args, transform=data_transforms_val, mode='train')
-        val_db_set = db_dataset(args, transform=data_transforms_val, mode='val')
-        test_db_set = db_dataset(args, transform=data_transforms_val, mode='test')
-        # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
+    val_db_set = None
+
+    train_db_set = Hotel_DB(args, transform=data_transforms_val, mode=args.train_folder_name)
+
+    if args.vs_folder_name != 'none':
+        val_db_set = Hotel_DB(args, transform=data_transforms_val, mode=args.vs_folder_name)
+
+    if args.test:
+        test_db_set = Hotel_DB(args, transform=data_transforms_val, mode=args.ts_folder_name)
+    # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
 
@@ -199,8 +215,9 @@ def main():
     if args.test:
         test_loaders.append(
             DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
-        test_loaders.append(
-            DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
+        if args.tu_folder_name != 'none':
+            test_loaders.append(
+                DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
 
     # workers = 4
     # pin_memory = False
@@ -224,7 +241,7 @@ def main():
     train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
                                       pin_memory=pin_memory, drop_last=args.drop_last)
 
-    val_loaders_fewshot = utils.get_val_loaders(args, val_set, val_set_known_fewshot, val_set_unknown_fewshot, workers,
+    val_loaders_fewshot = utils.get_val_loaders(args, val_set_known_fewshot, val_set_unknown_fewshot, workers,
                                                 pin_memory)
 
     val_loaders_edgepred = None
@@ -240,28 +257,30 @@ def main():
     # dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
     #                                 pin_memory=pin_memory)
 
-    if args.metric_learning:
-        val_loaders_metric = utils.get_val_loaders(args, val_set, val_set_known_metric, val_set_unknown_metric, workers,
-                                                   pin_memory, batch_size=args.batch_size)
-        if args.test:
-            test_loaders_metric = utils.get_val_loaders(args, test_set, test_set_known_metric, test_set_unknown_metric, workers,
-                                                   pin_memory, batch_size=args.batch_size)
+
+    val_loaders_metric = utils.get_val_loaders(args, val_set_known_metric, val_set_unknown_metric, workers,
+                                               pin_memory, batch_size=args.batch_size)
+    if args.test:
+        test_loaders_metric = utils.get_val_loaders(args, test_set_known_metric, test_set_unknown_metric, workers,
+                                                    pin_memory, batch_size=args.batch_size)
 
         # train_loader_classify = DataLoader(train_classify, batch_size=args.batch_size, shuffle=False,
         #                                    num_workers=workers,
         #                                    pin_memory=pin_memory)
         # val_loader_classify = DataLoader(val_classify, batch_size=args.batch_size, shuffle=False, num_workers=workers,
         #                                  pin_memory=pin_memory)
-
-    if args.cbir:
-        test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                   pin_memory=pin_memory, drop_last=args.drop_last)
-
+    val_db_loader = None
+    if val_db_set:
         val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                    pin_memory=pin_memory, drop_last=args.drop_last)
 
-        train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                     pin_memory=pin_memory, drop_last=args.drop_last)
+    train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                 pin_memory=pin_memory, drop_last=args.drop_last)
+
+    if args.test:
+        test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                    pin_memory=pin_memory, drop_last=args.drop_last)
+
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
@@ -382,8 +401,9 @@ def main():
         logger.info(f"Loading {best_model_top} model...")
         net = model_methods_top.load_model(args, net, best_model_top)
 
-        model_methods_top.test_metric(args, net, test_loaders_metric[0], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='known')
-        model_methods_top.test_metric(args, net, test_loaders_metric[1], loss_fn, loss_fn_bce, val=False, epoch=-1, comment='unknown')
+        for tlm, comm in zip(test_loaders_metric, EVAL_SET_NAMES[len(test_loaders_metric)]):
+            model_methods_top.test_metric(args, net, tlm, loss_fn, loss_fn_bce, val=False, epoch=-1, comment=comm)
+
 
         if args.katn:
             logger.info('Calculating K@Ns for Test')

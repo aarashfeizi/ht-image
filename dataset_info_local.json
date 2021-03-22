@@ -1,12 +1,12 @@
 {
   "cub": {
-    "dataset_folder": "CUB/images",
+    "dataset_folder": "CUB/",
     "splits_file_path": "../../dataset/CUB/splits_cub",
     "image_size": 224
   },
   "hotels": {
     "splits_file_path": "../../dataset/hotels_trainval/dummy_splits_50k",
-    "dataset_folder": "hotels_trainval/",
+    "dataset_folder": "hotels2/",
     "image_size": 224,
     "mask_path": "mask_paths.csv"
   },
