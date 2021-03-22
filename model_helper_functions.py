@@ -1113,6 +1113,12 @@ class ModelMethods:
         :return: None
         """
 
+        return_bg = (mode.startswith('val') and
+                     args.vu_folder_name != 'none') \
+                    or \
+                    (mode.startswith('test') and
+                     args.tu_folder_name != 'none')
+
         if newly_trained or \
                 (not os.path.exists(os.path.join(self.save_path, f'{mode}Feats.h5'))):
             net.eval()
@@ -1141,7 +1147,7 @@ class ModelMethods:
 
                 end = min((idx + 1) * batch_size, len(test_feats))
 
-                if mode != 'train':
+                if return_bg and mode != 'train':
                     (img, lbl, seen, path) = tpl
                 else:
                     (img, lbl, path) = tpl
@@ -1158,18 +1164,18 @@ class ModelMethods:
                 test_classes[idx * batch_size:end] = lbl
                 test_paths[idx * batch_size:end] = path
 
-                if mode != 'train':
+                if return_bg and mode != 'train':
                     test_seen[idx * batch_size:end] = seen.to(int)
 
             utils.save_h5(f'{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{mode}Ids.h5'))
             utils.save_h5(f'{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{mode}Classes.h5'))
             utils.save_h5(f'{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{mode}Feats.h5'))
-            if mode != 'train':
+            if return_bg and mode != 'train':
                 utils.save_h5(f'{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{mode}Seen.h5'))
 
         test_feats = utils.load_h5(f'{mode}_feats', os.path.join(self.save_path, f'{mode}Feats.h5'))
         test_classes = utils.load_h5(f'{mode}_classes', os.path.join(self.save_path, f'{mode}Classes.h5'))
-        if mode != 'train':
+        if return_bg and mode != 'train':
             test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
 
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
