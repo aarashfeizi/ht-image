@@ -972,8 +972,8 @@ class ModelMethods:
         with tqdm(total=len(data_loader), desc=f'{prompt_text_tb}') as t:
             for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
-                one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
-                zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+                one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float).reshape(-1, 1)
+                zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float).reshape(-1, 1)
 
                 if args.cuda:
                     anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
@@ -982,12 +982,12 @@ class ModelMethods:
 
                 ###
                 pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+                class_loss = bce_loss(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
 
                 pred_label_auc.extend(pos_pred.data.cpu().numpy())
                 true_label_auc.extend(one_labels.data.cpu().numpy())
                 all_pos_predictions.extend(pos_pred.data.cpu().numpy())
-                metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())
+                metric_ACC.update_acc(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
 
                 for neg_iter in range(self.no_negative):
                     # self.logger.info(anch.shape)
@@ -999,8 +999,8 @@ class ModelMethods:
                     pred_label_auc.extend(neg_pred.data.cpu().numpy())
                     true_label_auc.extend(zero_labels.data.cpu().numpy())
 
-                    class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-                    metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())
+                    class_loss += bce_loss(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
 
                     if loss_fn is not None:
                         ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
