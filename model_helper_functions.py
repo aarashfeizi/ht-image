@@ -829,6 +829,11 @@ class ModelMethods:
 
                             queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
+                    elif (epoch) % args.test_freq or epoch == epochs:
+                        self.logger.info(
+                            f'[epoch {epoch}] saving model...')
+                        best_model = self.save_model(args, net, epoch, 0.0)
+
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (after batch loop) time: {epoch_end - epoch_start}')
