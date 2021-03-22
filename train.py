@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 import model_helper_functions
 from cub_dataloader import *
-from hotel_dataloader import *
+from my_datasets import *
 from losses import TripletLoss, MaxMarginLoss, BatchHard
 from models.top_model import *
 
@@ -137,7 +137,7 @@ def main():
     is_batchhard = (args.loss == 'batchhard')
     logger.info('*' * 10)
 
-    train_set = HotelTrain_Metric(args, transform=data_transforms_train, mode='train',
+    train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode='train',
                                      save_pictures=False, overfit=True,
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K])
 
@@ -145,40 +145,40 @@ def main():
     logger.info('*' * 10)
     val_set_known_metric = None
     if args.vs_folder_name != 'none':
-        val_set_known_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.vs_folder_name,
+        val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
                                                     save_pictures=False, overfit=False,
                                                     batchhard=[False, args.bh_P, args.bh_K])
     val_set_unknown_metric = None
     if args.vu_folder_name != 'none':
         logger.info('*' * 10)
-        val_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.vu_folder_name,
+        val_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vu_folder_name,
                                                       save_pictures=False, overfit=False,
                                                       batchhard=[False, args.bh_P, args.bh_K])
     test_set_known_metric = None
     test_set_unknown_metric = None
     if args.test:
         logger.info('*' * 10)
-        test_set_known_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.ts_folder_name,
+        test_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.ts_folder_name,
                                                      save_pictures=False, overfit=False,
                                                      batchhard=[False, args.bh_P, args.bh_K])
 
         if args.tu_folder_name != 'none':
             logger.info('*' * 10)
-            test_set_unknown_metric = HotelTrain_Metric(args, transform=data_transforms_val, mode=args.tu_folder_name,
+            test_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.tu_folder_name,
                                                            save_pictures=False, overfit=False,
                                                            batchhard=[False, args.bh_P, args.bh_K])
 
 
 
-    train_set_fewshot = HotelTest_FewShot(args, transform=data_transforms_train, mode=args.train_folder_name, save_pictures=False)
+    train_set_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_train, mode=args.train_folder_name, save_pictures=False)
 
     if args.vs_folder_name != 'none':
-        val_set_known_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.vs_folder_name,
-                                                      save_pictures=False)
+        val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vs_folder_name,
+                                                     save_pictures=False)
     if args.vu_folder_name != 'none':
         logger.info('*' * 10)
-        val_set_unknown_fewshot = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.vu_folder_name,
-                                                        save_pictures=False)
+        val_set_unknown_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vu_folder_name,
+                                                       save_pictures=False)
 
     # val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
     #                                               save_pictures=False)
@@ -187,23 +187,23 @@ def main():
     #                                                 save_pictures=False)
 
     if args.test:
-        test_set_known = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.ts_folder_name)
+        test_set_known = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.ts_folder_name)
         logger.info('*' * 10)
         if args.tu_folder_name != 'none':
-            test_set_unknown = HotelTest_FewShot(args, transform=data_transforms_val, mode=args.tu_folder_name)
+            test_set_unknown = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.tu_folder_name)
             logger.info('*' * 10)
 
         # todo test not supported for metric learning
 
     val_db_set = None
 
-    train_db_set = Hotel_DB(args, transform=data_transforms_val, mode=args.train_folder_name)
+    train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name)
 
     if args.vs_folder_name != 'none':
-        val_db_set = Hotel_DB(args, transform=data_transforms_val, mode=args.vs_folder_name)
+        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name)
 
     if args.test:
-        test_db_set = Hotel_DB(args, transform=data_transforms_val, mode=args.ts_folder_name)
+        test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name)
     # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')

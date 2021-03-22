@@ -12,10 +12,10 @@ import utils
 from utils import get_shuffled_data, loadDataToMem, loadDataToMem_2, get_overfit, get_masks
 
 
-class HotelTrain_Metric(Dataset):
+class Metric_Dataset_Train(Dataset):
     def __init__(self, args, transform=None, mode='', save_pictures=False, overfit=False, return_paths=False,
                  batchhard=[False, 0, 0]):
-        super(HotelTrain_Metric, self).__init__()
+        super(Metric_Dataset_Train, self).__init__()
         self.fourth_dim = args.fourth_dim
         np.random.seed(args.seed)
         self.transform = transform
@@ -280,11 +280,11 @@ class HotelTrain_Metric(Dataset):
         return img
 
 
-class HotelTest_FewShot(Dataset):
+class FewShot_Dataset_Test(Dataset):
 
     def __init__(self, args, transform=None, mode='test_seen', save_pictures=False):
         np.random.seed(args.seed)
-        super(HotelTest_FewShot, self).__init__()
+        super(FewShot_Dataset_Test, self).__init__()
         self.transform = transform
         self.save_pictures = save_pictures
         self.times = args.times
@@ -487,10 +487,10 @@ class HotelTest_EdgePred(Dataset):
         return img
 
 
-class Hotel_DB(Dataset):
+class DB_Dataset(Dataset):
     def __init__(self, args, transform=None, mode='test'):
         np.random.seed(args.seed)
-        super(Hotel_DB, self).__init__()
+        super(DB_Dataset, self).__init__()
         self.transform = transform
         self.fourth_dim = args.fourth_dim
 
