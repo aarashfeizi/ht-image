@@ -506,7 +506,7 @@ class DB_Dataset(Dataset):
             self.mode_tmp = self.mode
             total = False
 
-        return_bg = (mode.startswith('val') and
+        self.return_bg = (mode.startswith('val') and
                      args.vu_folder_name != 'none') \
                     or \
                     (mode.startswith('test') and
@@ -524,13 +524,13 @@ class DB_Dataset(Dataset):
 
                                                                                       mode=mode,
                                                                                       portion=args.portion,
-                                                                                      return_bg=return_bg)
+                                                                                      return_bg=self.return_bg)
         #
         # pdb.set_trace()
         self.all_shuffled_data = get_shuffled_data(self.all_data,
                                                    seed=args.seed,
                                                    one_hot=False,
-                                                   both_seen_unseen=(return_bg and (self.mode != 'train')),
+                                                   both_seen_unseen=(self.return_bg and (self.mode != 'train')),
                                                    shuffle=False)
 
         self.aug_mask = args.aug_mask
@@ -554,7 +554,7 @@ class DB_Dataset(Dataset):
     def __getitem__(self, index):
         lbl = self.all_shuffled_data[index][0]
         img = Image.open(self.all_shuffled_data[index][1]).convert('RGB')
-        if self.mode != 'train':
+        if self.mode != 'train' and self.return_bg:
             bl = self.all_shuffled_data[index][2]
 
         path = self.all_shuffled_data[index][1].split('/')
@@ -573,7 +573,7 @@ class DB_Dataset(Dataset):
 
             img = self.do_transform(img)
 
-        if self.mode != 'train':
+        if self.mode != 'train' and self.return_bg:
             return img, lbl, bl, id
         else:
             return img, lbl, id
