@@ -36,18 +36,18 @@ class Metric_Dataset_Train(Dataset):
                     or \
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
-
-        # self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
-        #                                                                           mode=mode,
-        #                                                                           split_file_path=args.splits_file_path,
-        #                                                                           portion=args.portion,
-        #                                                                           dataset_folder=args.dataset_folder,
-        #                                                                           return_bg=return_bg)
-
-        self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem_2(args.dataset_path, args.dataset_folder,
-                                                                mode=mode,
-                                                                portion=args.portion,
-                                                                return_bg=return_bg)
+        if args.dataset_name == 'hotels':
+            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
+                                                                                      mode=mode,
+                                                                                      split_file_path=args.splits_file_path,
+                                                                                      portion=args.portion,
+                                                                                      dataset_folder=args.dataset_folder,
+                                                                                      return_bg=return_bg)
+        else:
+            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+                                                                    mode=mode,
+                                                                    portion=args.portion,
+                                                                    return_bg=return_bg)
         #
         # pdb.set_trace()
 
@@ -302,18 +302,19 @@ class FewShot_Dataset_Test(Dataset):
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
 
-        # self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
-        #                                                                             args.dataset_name,
-        #                                                                             mode=mode,
-        #                                                                             split_file_path=args.splits_file_path,
-        #                                                                             portion=args.portion,
-        #                                                                             dataset_folder=args.dataset_folder,
-        #                                                                             return_bg=return_bg)
-
-        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem_2(args.dataset_path, args.dataset_folder,
-                                                                                      mode=mode,
-                                                                                      portion=args.portion,
-                                                                                      return_bg=return_bg)
+        if args.dataset_name == 'hotels':
+            self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
+                                                                                        args.dataset_name,
+                                                                                        mode=mode,
+                                                                                        split_file_path=args.splits_file_path,
+                                                                                        portion=args.portion,
+                                                                                        dataset_folder=args.dataset_folder,
+                                                                                        return_bg=return_bg)
+        else:
+            self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+                                                                                          mode=mode,
+                                                                                          portion=args.portion,
+                                                                                          return_bg=return_bg)
 
         self.aug_mask = args.aug_mask
 
@@ -345,7 +346,7 @@ class FewShot_Dataset_Test(Dataset):
             while self.c1 == c2:
                 c2 = list(self.datas_bg.keys())[random.randint(0, len(self.datas_bg.keys()) - 1)]
             # print(f'idx = {idx}, c1 was {self.c1} and negative c2 is {c2}')
-            if self.mode == 'train':
+            if type(self.datas_bg[c2]) is not tuple:
                 img2 = Image.open(random.choice(self.datas_bg[c2])).convert('RGB')
             else:
                 img2 = Image.open(random.choice(self.datas_bg[c2])[0]).convert('RGB')
@@ -511,20 +512,19 @@ class DB_Dataset(Dataset):
                     or \
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
-
-        # self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
-        #                                                                             args.dataset_name,
-        #                                                                             mode=self.mode_tmp,
-        #                                                                             split_file_path=args.splits_file_path,
-        #                                                                             portion=args.portion,
-        #                                                                             dataset_folder=args.dataset_folder,
-        #                                                                             return_bg=(self.mode != 'train'))
-
-        self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path, args.dataset_folder,
-
-                                                                                      mode=mode,
-                                                                                      portion=args.portion,
-                                                                                      return_bg=self.return_bg)
+        if args.dataset_name == 'hotels':
+            self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
+                                                                                        args.dataset_name,
+                                                                                        mode=self.mode_tmp,
+                                                                                        split_file_path=args.splits_file_path,
+                                                                                        portion=args.portion,
+                                                                                        dataset_folder=args.dataset_folder,
+                                                                                        return_bg=(self.mode != 'train'))
+        else:
+            self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+                                                                                          mode=mode,
+                                                                                          portion=args.portion,
+                                                                                          return_bg=self.return_bg)
         #
         # pdb.set_trace()
         self.all_shuffled_data = get_shuffled_data(self.all_data,
