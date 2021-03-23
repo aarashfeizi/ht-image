@@ -137,7 +137,7 @@ def main():
     is_batchhard = (args.loss == 'batchhard')
     logger.info('*' * 10)
 
-    train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode='train',
+    train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode=args.train_folder_name,
                                      save_pictures=False, overfit=True,
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K])
 
