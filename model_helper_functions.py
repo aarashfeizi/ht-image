@@ -694,7 +694,7 @@ class ModelMethods:
                                 # val_err_knwn = val_rgt_err_knwn['wrong']
                                 # val_rgt_knwn = val_rgt_err_knwn['right']
 
-                                results_to_save = val_preds_pos_neg
+                                results_to_save[comm] = val_preds_pos_neg
                                 # val_preds_knwn_pos = val_preds_knwn_pos_neg['pos']
                                 # val_preds_knwn_neg = val_preds_knwn_pos_neg['neg']
 
