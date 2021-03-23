@@ -413,7 +413,10 @@ def _log_per_class(logger, df, split_kind=''):
     logger.info(f'Per class {split_kind}: {np.array(df["n"]).sum()}')
     logger.info(f'Average per class {split_kind}: {np.array(df["n"]).mean()}')
     logger.info(f'k@1 per class average: {np.array(df["k@1"]).mean()}')
+    logger.info(f'k@2 per class average: {np.array(df["k@2"]).mean()}')
+    logger.info(f'k@4 per class average: {np.array(df["k@4"]).mean()}')
     logger.info(f'k@5 per class average: {np.array(df["k@5"]).mean()}')
+    logger.info(f'k@8 per class average: {np.array(df["k@8"]).mean()}')
     logger.info(f'k@10 per class average: {np.array(df["k@10"]).mean()}')
     logger.info(f'k@100 per class average: {np.array(df["k@100"]).mean()}\n')
 

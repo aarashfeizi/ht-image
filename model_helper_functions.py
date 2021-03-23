@@ -1164,7 +1164,7 @@ class ModelMethods:
                 test_classes[idx * batch_size:end] = lbl
                 test_paths[idx * batch_size:end] = path
 
-                if return_bg and mode != 'train':
+                if return_bg and mode != 'train': # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
                     test_seen[idx * batch_size:end] = seen.to(int)
 
             utils.save_h5(f'{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{mode}Ids.h5'))

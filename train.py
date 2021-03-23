@@ -148,6 +148,10 @@ def main():
         val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
                                                     save_pictures=False, overfit=False,
                                                     batchhard=[False, args.bh_P, args.bh_K])
+    else:
+        val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.ts_folder_name,
+                                                    save_pictures=False, overfit=False,
+                                                    batchhard=[False, args.bh_P, args.bh_K])
     val_set_unknown_metric = None
     if args.vu_folder_name != 'none':
         logger.info('*' * 10)
@@ -175,6 +179,9 @@ def main():
     if args.vs_folder_name != 'none':
         val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vs_folder_name,
                                                      save_pictures=False)
+    else:
+        val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.ts_folder_name,
+                                                     save_pictures=False)
     if args.vu_folder_name != 'none':
         logger.info('*' * 10)
         val_set_unknown_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vu_folder_name,
@@ -201,6 +208,8 @@ def main():
 
     if args.vs_folder_name != 'none':
         val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name)
+    else:
+        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name)
 
     if args.test:
         test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name)
@@ -270,17 +279,16 @@ def main():
         # val_loader_classify = DataLoader(val_classify, batch_size=args.batch_size, shuffle=False, num_workers=workers,
         #                                  pin_memory=pin_memory)
     val_db_loader = None
-    if val_db_set:
-        val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                   pin_memory=pin_memory, drop_last=args.drop_last)
 
     train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                  pin_memory=pin_memory, drop_last=args.drop_last)
 
+    val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                               pin_memory=pin_memory, drop_last=args.drop_last)
+
     if args.test:
         test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                     pin_memory=pin_memory, drop_last=args.drop_last)
-
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
