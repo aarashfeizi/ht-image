@@ -1209,7 +1209,7 @@ class ModelMethods:
                                    run_number=args.number_of_runs,
                                    save_path=self.save_path,
                                    sampled=eval_sampled,
-                                   even_sampled=True,
+                                   even_sampled=False,
                                    per_class=eval_per_class,
                                    mode=mode)
 

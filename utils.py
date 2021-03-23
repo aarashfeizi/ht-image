@@ -450,7 +450,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     k10s_u = []
     k100s_u = []
 
-    if args.dataset_name != 'cub' and even_sampled:
+    if args.dataset_name == 'hotels' and even_sampled:
         sampled_indices_all = pd.read_csv(
             os.path.join(args.project_path, 'sample_index_por' + str(args.portion) + '.csv'))
         sampled_label_all = pd.read_csv(
@@ -462,7 +462,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
 
     for run in range(run_number):
         column_name = f'run{run}'
-        if args.dataset_name != 'cub' and even_sampled:
+        if args.dataset_name == 'hotels' and even_sampled:
             sampled_indices = np.array(sampled_indices_all[column_name]).astype(int)
             sampled_labels = np.array(sampled_label_all[column_name]).astype(int)
 
