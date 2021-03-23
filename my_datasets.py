@@ -346,7 +346,7 @@ class FewShot_Dataset_Test(Dataset):
             while self.c1 == c2:
                 c2 = list(self.datas_bg.keys())[random.randint(0, len(self.datas_bg.keys()) - 1)]
             # print(f'idx = {idx}, c1 was {self.c1} and negative c2 is {c2}')
-            if type(self.datas_bg[c2]) is not tuple:
+            if type(self.datas_bg[c2][0]) is not tuple:
                 img2 = Image.open(random.choice(self.datas_bg[c2])).convert('RGB')
             else:
                 img2 = Image.open(random.choice(self.datas_bg[c2])[0]).convert('RGB')
