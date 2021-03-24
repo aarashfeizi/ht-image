@@ -1169,6 +1169,7 @@ class ModelMethods:
             if return_bg and mode != 'train':
                 utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
+        test_seen = np.zeros(((len(data_loader.dataset))))
         test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
         test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if return_bg and mode != 'train':
