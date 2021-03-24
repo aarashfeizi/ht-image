@@ -407,25 +407,26 @@ def main():
 
     # testing
     if args.test:
+
         logger.info(f"Loading {best_model_top} model...")
         net = model_methods_top.load_model(args, net, best_model_top)
+        with torch.no_grad():
+            for tlm, comm in zip(test_loaders_metric, EVAL_SET_NAMES[len(test_loaders_metric)]):
+                model_methods_top.test_metric(args, net, tlm, loss_fn, loss_fn_bce, val=False, epoch=-1, comment=comm)
 
-        for tlm, comm in zip(test_loaders_metric, EVAL_SET_NAMES[len(test_loaders_metric)]):
-            model_methods_top.test_metric(args, net, tlm, loss_fn, loss_fn_bce, val=False, epoch=-1, comment=comm)
 
-
-        if args.katn:
-            logger.info('Calculating K@Ns for Test')
-            # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-            #                               eval_sampled=False,
-            #                               eval_per_class=True, newly_trained=True,
-            #                               batch_size=args.db_batch,
-            #                               mode='train_sampled')
-            model_methods_top.make_emb_db(args, net, test_db_loader,
-                                          eval_sampled=args.sampled_results,
-                                          eval_per_class=args.per_class_results, newly_trained=True,
-                                          batch_size=args.db_batch,
-                                          mode='test')
+            if args.katn:
+                logger.info('Calculating K@Ns for Test')
+                # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+                #                               eval_sampled=False,
+                #                               eval_per_class=True, newly_trained=True,
+                #                               batch_size=args.db_batch,
+                #                               mode='train_sampled')
+                model_methods_top.make_emb_db(args, net, test_db_loader,
+                                              eval_sampled=args.sampled_results,
+                                              eval_per_class=args.per_class_results, newly_trained=True,
+                                              batch_size=args.db_batch,
+                                              mode='test')
 
     else:
         logger.info("NO TESTING DONE.")
