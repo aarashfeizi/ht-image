@@ -137,7 +137,7 @@ def get_args():
     parser.add_argument('-env', '--env', default='local',
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
-    parser.add_argument('-dsn', '--dataset_name', default='hotels', choices=['omniglot', 'cub', 'cub_standard', 'hotels', 'cars', 'sop'])
+    parser.add_argument('-dsn', '--dataset_name', default='hotels', choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -182,7 +182,7 @@ def get_args():
     parser.add_argument('-tst', '--test', default=False, action='store_true')
     parser.add_argument('-katn', '--katn', default=False, action='store_true')
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
-    parser.add_argument('-sr', '--sampled_results', default=True, action='store_true')
+    parser.add_argument('-sr', '--sampled_results', default=False, action='store_true')
     parser.add_argument('-pcr', '--per_class_results', default=True, action='store_true')
     parser.add_argument('-ptb', '--project_tb', default=False, action='store_true')
 
@@ -330,19 +330,19 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
     if per_class:
         logger.info('K@N per class')
         total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode)
-        total.to_csv(os.path.join(save_path, f'{mode}_per_class_total_avg_k@n.csv'), header=True, index=False)
-        seen.to_csv(os.path.join(save_path, f'{mode}_per_class_seen_avg_k@n.csv'), header=True, index=False)
-        unseen.to_csv(os.path.join(save_path, f'{mode}_per_class_unseen_avg_k@n.csv'), header=True, index=False)
+        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True, index=False)
+        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True, index=False)
+        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'), header=True, index=False)
 
     if sampled:
         logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
                                                                  run_number, mode, even_sampled=even_sampled)
-        kavg.to_csv(os.path.join(save_path, f'{mode}_sampled_avg_k@n.csv'), header=True, index=False)
-        kruns.to_csv(os.path.join(save_path, f'{mode}_sampled_runs_k@n.csv'), header=True, index=False)
-        total.to_csv(os.path.join(save_path, f'{mode}_sampled_per_class_total_avg_k@n.csv'), header=True, index=False)
-        seen.to_csv(os.path.join(save_path, f'{mode}_sampled_per_class_seen_avg_k@n.csv'), header=True, index=False)
-        unseen.to_csv(os.path.join(save_path, f'{mode}_sampled_per_class_unseen_avg_k@n.csv'), header=True, index=False)
+        kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True, index=False)
+        kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True, index=False)
+        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_total_avg_k@n.csv'), header=True, index=False)
+        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_seen_avg_k@n.csv'), header=True, index=False)
+        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'), header=True, index=False)
 
     return True
 
@@ -377,25 +377,25 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
     seen = metric_seen.get_per_class_metrics()
     unseen = metric_unseen.get_per_class_metrics()
 
-    logger.info(f'{mode}')
+    logger.info(f'{args.dataset_name}_{mode}')
     logger.info('Without sampling Total: ' + str(metric_total.n))
     logger.info(metric_total)
 
-    logger.info(f'{mode}')
+    logger.info(f'{args.dataset_name}_{mode}')
     _log_per_class(logger, total, split_kind='Total')
 
-    logger.info(f'{mode}')
+    logger.info(f'{args.dataset_name}_{mode}')
     logger.info('Without sampling Seen: ' + str(metric_seen.n))
     logger.info(metric_seen)
 
-    logger.info(f'{mode}')
+    logger.info(f'{args.dataset_name}_{mode}')
     _log_per_class(logger, seen, split_kind='Seen')
 
-    logger.info(f'{mode}')
+    logger.info(f'{args.dataset_name}_{mode}')
     logger.info('Without sampling Unseen: ' + str(metric_unseen.n))
     logger.info(metric_unseen)
 
-    logger.info(f'{mode}')
+    logger.info(f'{args.dataset_name}_{mode}')
     _log_per_class(logger, unseen, split_kind='Unseen')
 
     return total, seen, unseen
@@ -466,7 +466,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
             sampled_indices = np.array(sampled_indices_all[column_name]).astype(int)
             sampled_labels = np.array(sampled_label_all[column_name]).astype(int)
 
-            logger.info(f'{mode}')
+            logger.info(f'{args.dataset_name}_{mode}')
             logger.info('### Run ' + str(run) + "...")
             chosen_img_feats = img_feats[sampled_indices]
             chosen_img_lbls = img_lbls[sampled_indices]
@@ -657,6 +657,12 @@ def get_shuffled_data(datas, seed=0, one_hot=True, both_seen_unseen=False, shuff
 
     return data
 
+def make_dirs(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    return True
+
 
 def _read_org_split(dataset_path, mode):
     image_labels = []
@@ -751,14 +757,14 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
             image_path_bg = image_path_bg[image_labels_bg < portion]
             image_labels_bg = image_labels_bg[image_labels_bg < portion]
 
-    print(f'{mode} number of imgs:', len(image_labels))
-    print(f'{mode} number of labels:', len(np.unique(image_labels)))
+    print(f'{dataset_name}_{mode} number of imgs:', len(image_labels))
+    print(f'{dataset_name}_{mode} number of labels:', len(np.unique(image_labels)))
 
     if return_bg:
-        print(f'{mode} number of bg imgs:', len(image_labels_bg))
-        print(f'{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
+        print(f'{dataset_name}_{mode} number of bg imgs:', len(image_labels_bg))
+        print(f'{dataset_name}_{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
     else:
-        print(f'Just {mode}, background not required.')
+        print(f'Just {dataset_name}_{mode}, background not required.')
 
     num_instances = len(image_labels)
 
@@ -784,16 +790,16 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
                 datas_bg[idx].append((os.path.join(dataset_path, path), False))
 
     labels = np.unique(image_labels)
-    print(f'Number of labels in {mode}: ', len(labels))
+    print(f'Number of labels in {dataset_name}_{mode}: ', len(labels))
 
     if return_bg:
         all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
-        print(f'Number of all labels (bg + fg) in {mode} and {background_datasets[mode]}: ', len(all_labels))
+        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {background_datasets[mode]}: ', len(all_labels))
 
     if not return_bg:
         datas_bg = datas
 
-    print(f'finish loading {mode} dataset to memory')
+    print(f'finish loading {dataset_name}_{mode} dataset to memory')
     return datas, num_classes, num_instances, labels, datas_bg
 
 def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
@@ -826,14 +832,14 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
             image_path_bg = image_path_bg[image_labels_bg < portion]
             image_labels_bg = image_labels_bg[image_labels_bg < portion]
 
-    print(f'{mode} number of imgs:', len(image_labels))
-    print(f'{mode} number of labels:', len(np.unique(image_labels)))
+    print(f'{dataset_name}_{mode} number of imgs:', len(image_labels))
+    print(f'{dataset_name}_{mode} number of labels:', len(np.unique(image_labels)))
 
     if return_bg:
-        print(f'{mode} number of bg imgs:', len(image_labels_bg))
-        print(f'{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
+        print(f'{dataset_name}_{mode} number of bg imgs:', len(image_labels_bg))
+        print(f'{dataset_name}_{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
     else:
-        print(f'Just {mode}, background not required.')
+        print(f'Just {dataset_name}_{mode}, background not required.')
 
     num_instances = len(image_labels)
 
@@ -858,16 +864,16 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
                 datas_bg[idx].append((os.path.join(dataset_path, path), False))
 
     labels = np.unique(image_labels)
-    print(f'Number of labels in {mode}: ', len(labels))
+    print(f'Number of labels in {dataset_name}_{mode}: ', len(labels))
 
     if return_bg:
         all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
-        print(f'Number of all labels (bg + fg) in {mode} and {background_datasets[mode]}: ', len(all_labels))
+        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {background_datasets[mode]}: ', len(all_labels))
 
     if not return_bg:
         datas_bg = datas
 
-    print(f'finish loading {mode} dataset to memory')
+    print(f'finish loading {dataset_name}_{mode} dataset to memory')
     return datas, num_classes, num_instances, labels, datas_bg
 
 

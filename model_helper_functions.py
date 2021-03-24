@@ -46,8 +46,7 @@ class ModelMethods:
 
         self.draw_all_thresh = args.draw_all_thresh
 
-        if not os.path.exists(os.path.join(args.local_path, args.tb_path)):
-            os.makedirs(os.path.join(args.local_path, args.tb_path))
+        utils.make_dirs(os.path.join(args.local_path, args.tb_path))
 
         self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name)
         self.logger = logger
@@ -69,8 +68,7 @@ class ModelMethods:
         if args.debug_grad:
             self.draw_grad = True
             self.plt_save_path = f'{self.save_path}/loss_plts/'
-            if not os.path.exists(self.plt_save_path):
-                os.mkdir(self.plt_save_path)
+            utils.make_dirs(self.plt_save_path)
         else:
             self.draw_grad = False
             self.plt_save_path = ''
@@ -78,14 +76,13 @@ class ModelMethods:
         self.created_image_heatmap_path = False
 
         self.gen_plot_path = f'{self.save_path}/plots/'
-        if not os.path.exists(self.gen_plot_path):
-            os.mkdir(self.gen_plot_path)
-            os.mkdir(os.path.join(self.gen_plot_path, 'train'))
-            os.mkdir(os.path.join(self.gen_plot_path, 'val'))
+
+        utils.make_dirs(self.gen_plot_path)
+        utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_train'))
+        utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_val'))
 
         if args.cam:
-            if not os.path.exists(f'{self.save_path}/heatmap/'):
-                os.mkdir(f'{self.save_path}/heatmap/')
+            utils.make_dirs(f'{self.save_path}/heatmap/')
 
             self.cam_all = 0
             self.cam_neg = np.array([0 for _ in range(cam_images_len)])
@@ -166,8 +163,7 @@ class ModelMethods:
         heatmap_path = f'{self.save_path}/heatmap/'
         heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
 
-        if not os.path.exists(heatmap_path_perepoch):
-            os.mkdir(heatmap_path_perepoch)
+        utils.make_dirs(heatmap_path_perepoch)
         self.cam_all += 1
 
         sub_methods = self.merge_method.split('-')
@@ -187,8 +183,8 @@ class ModelMethods:
 
             heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
 
-            if not os.path.exists(heatmap_path_perepoch_id):
-                os.mkdir(heatmap_path_perepoch_id)
+
+            utils.make_dirs(heatmap_path_perepoch_id)
 
             anch = Image.open(anch_path)
             pos = Image.open(pos_path)
@@ -560,7 +556,7 @@ class ModelMethods:
         time_start = time.time()
         queue = deque(maxlen=20)
 
-        epochs = args.epochs
+        max_epochs = args.epochs
 
         metric_ACC = metrics.Metric_Accuracy()
 
@@ -579,7 +575,7 @@ class ModelMethods:
 
         val_counter = 0
 
-        for epoch in range(1, epochs + 1):
+        for epoch in range(1, max_epochs + 1):
 
             epoch_start = time.time()
 
@@ -587,7 +583,7 @@ class ModelMethods:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
                     # self.logger.info(grad_save_path)
-                    os.makedirs(grad_save_path)
+                    utils.make_dirs(grad_save_path)
                 else:
                     grad_save_path = None
                 all_batches_start = time.time()
@@ -656,7 +652,7 @@ class ModelMethods:
 
                     self.writer.flush()
 
-                    if val_loaders is not None and (epoch) % args.test_freq == 0:
+                    if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == max_epochs):
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
@@ -829,7 +825,7 @@ class ModelMethods:
 
                             queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
-                    elif (epoch) % args.test_freq or epoch == epochs:
+                    elif (epoch) % args.test_freq == 0 or epoch == max_epochs:
                         self.logger.info(
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
@@ -1120,7 +1116,7 @@ class ModelMethods:
                      args.tu_folder_name != 'none')
 
         if newly_trained or \
-                (not os.path.exists(os.path.join(self.save_path, f'{mode}Feats.h5'))):
+                (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))):
             net.eval()
             # device = f'cuda:{net.device_ids[0]}'
             if batch_size is None:
@@ -1167,16 +1163,16 @@ class ModelMethods:
                 if return_bg and mode != 'train': # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
                     test_seen[idx * batch_size:end] = seen.to(int)
 
-            utils.save_h5(f'{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{mode}Ids.h5'))
-            utils.save_h5(f'{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{mode}Classes.h5'))
-            utils.save_h5(f'{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{mode}Feats.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
             if return_bg and mode != 'train':
-                utils.save_h5(f'{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{mode}Seen.h5'))
+                utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
-        test_feats = utils.load_h5(f'{mode}_feats', os.path.join(self.save_path, f'{mode}Feats.h5'))
-        test_classes = utils.load_h5(f'{mode}_classes', os.path.join(self.save_path, f'{mode}Classes.h5'))
+        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if return_bg and mode != 'train':
-            test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
+            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
 
@@ -1188,15 +1184,15 @@ class ModelMethods:
         #                       path=tsne_path)
 
         if epoch != -1:
-            diff_class_path = os.path.join(self.gen_plot_path, f'{mode}/class_diff_plot.png')
+            diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot.png')
             self.plot_class_diff_plots(test_feats, test_classes,
                                        epoch=epoch,
                                        mode=mode,
                                        path=diff_class_path)
 
         silhouette_path = ['', '']
-        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_plot.png')
-        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_dist_plot_{epoch}.png')
+        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
+        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
 
         if mode != 'test':
             self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
@@ -1375,7 +1371,7 @@ class ModelMethods:
         right, error = 0, 0
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
-        # true_label = torch.Tensor([[i for _ in range(args.test_k)] for i in range(args.way)]).flatten()
+        true_label = torch.Tensor([[i for _ in range(args.test_k)] for i in range(args.way)]).flatten()
         loss = 0
         if args.cuda:
             true_label = Variable(true_label.cuda())
@@ -2024,14 +2020,13 @@ class BaslineModel:
 
         self.gen_plot_path = f'{self.save_path}/plots/'
 
-        if not os.path.exists(self.tensorboard_path):
-            os.makedirs(self.tensorboard_path)
+        utils.make_dirs(self.tensorboard_path)
+
 
         self.gen_plot_path = f'{self.save_path}/plots/'
-        if not os.path.exists(self.gen_plot_path):
-            os.mkdir(self.gen_plot_path)
-            # os.mkdir(os.path.join(self.gen_plot_path, 'train'))
-            os.mkdir(os.path.join(self.gen_plot_path, 'val'))
+        utils.make_dirs(self.gen_plot_path)
+        utils.make_dirs(os.path.join(self.gen_plot_path, 'train'))
+        utils.make_dirs(os.path.join(self.gen_plot_path, 'val'))
 
         self.class_diffs = {'train':
                                 {'between_class_average': [],
@@ -2207,27 +2202,27 @@ class BaslineModel:
                     test_seen[idx * batch_size:end] = seen.to(int)
                 t.update()
 
-        utils.save_h5(f'{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{mode}Ids.h5'))
-        utils.save_h5(f'{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{mode}Classes.h5'))
-        utils.save_h5(f'{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{mode}Feats.h5'))
+        utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+        utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+        utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
         if mode != 'train':
-            utils.save_h5(f'{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{mode}Seen.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
-        test_feats = utils.load_h5(f'{mode}_feats', os.path.join(self.save_path, f'{mode}Feats.h5'))
-        test_classes = utils.load_h5(f'{mode}_classes', os.path.join(self.save_path, f'{mode}Classes.h5'))
+        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if mode != 'train':
-            test_seen = utils.load_h5(f'{mode}_seen', os.path.join(self.save_path, f'{mode}Seen.h5'))
+            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         if epoch != -1:
-            diff_class_path = os.path.join(self.gen_plot_path, f'{mode}/class_diff_plot.png')
+            diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot.png')
             self.plot_class_diff_plots(test_feats, test_classes,
                                        epoch=epoch,
                                        mode=mode,
                                        path=diff_class_path)
 
         silhouette_path = ['', '']
-        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_plot.png')
-        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{mode}/silhouette_scores_dist_plot_{epoch}.png')
+        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
+        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
 
         self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
 

@@ -6,11 +6,9 @@ from argparse import Namespace
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from cub_dataloader import *
-from my_datasets import *
 from losses import TripletLoss, MaxMarginLoss, BatchHard
 from models.top_model import *
-
+from my_datasets import *
 
 ###
 # todo for next week
@@ -18,7 +16,7 @@ from models.top_model import *
 # Average per class for metrics (k@n) ???
 
 EVAL_SET_NAMES = {1: ['total'],
-                 2: ['seen', 'unseen']}
+                  2: ['seen', 'unseen']}
 
 
 @utils.MY_DEC
@@ -102,20 +100,19 @@ def main():
     db_dataset = None
 
     # if args.dataset_name == 'hotels':
-        # train_metric_dataset = HotelTrain_Metric
-        # test_few_shot_dataset = HotelTest_FewShot
-        # test_edgepred_dataset = HotelTest_EdgePred
-        # db_dataset = Hotel_DB
+    # train_metric_dataset = HotelTrain_Metric
+    # test_few_shot_dataset = HotelTest_FewShot
+    # test_edgepred_dataset = HotelTest_EdgePred
+    # db_dataset = Hotel_DB
     # elif args.dataset_name == 'cub':
-        # train_metric_dataset = HotelTrain_Metric
-        # test_few_shot_dataset = HotelTest_FewShot
-        # test_edgepred_dataset = CUBTest_EdgePred
-        # db_dataset = Hotel_DB
+    # train_metric_dataset = HotelTrain_Metric
+    # test_few_shot_dataset = HotelTest_FewShot
+    # test_edgepred_dataset = CUBTest_EdgePred
+    # db_dataset = Hotel_DB
     # else:
     #     logger.error(f'Dataset not suppored:  {args.dataset_name}')
 
     # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
-
 
     logger.info('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
@@ -140,7 +137,6 @@ def main():
     train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode=args.train_folder_name,
                                      save_pictures=False, overfit=True,
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K])
-
 
     logger.info('*' * 10)
     val_set_known_metric = None
@@ -168,13 +164,13 @@ def main():
 
         if args.tu_folder_name != 'none':
             logger.info('*' * 10)
-            test_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.tu_folder_name,
+            test_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val,
+                                                           mode=args.tu_folder_name,
                                                            save_pictures=False, overfit=False,
                                                            batchhard=[False, args.bh_P, args.bh_K])
 
-
-
-    train_set_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_train, mode=args.train_folder_name, save_pictures=False)
+    train_set_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_train, mode=args.train_folder_name,
+                                             save_pictures=False)
 
     if args.vs_folder_name != 'none':
         val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vs_folder_name,
@@ -223,10 +219,12 @@ def main():
 
     if args.test:
         test_loaders.append(
-            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
+            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers,
+                       drop_last=args.drop_last))
         if args.tu_folder_name != 'none':
             test_loaders.append(
-                DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers, drop_last=args.drop_last))
+                DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers,
+                           drop_last=args.drop_last))
 
     # workers = 4
     # pin_memory = False
@@ -265,7 +263,6 @@ def main():
     #                               pin_memory=pin_memory)
     # dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
     #                                 pin_memory=pin_memory)
-
 
     val_loaders_metric = utils.get_val_loaders(args, val_set_known_metric, val_set_unknown_metric, workers,
                                                pin_memory, batch_size=args.batch_size)
@@ -368,7 +365,7 @@ def main():
         if val_db_loader:
             model_methods_top.make_emb_db(args, net, val_db_loader,
                                           eval_sampled=args.sampled_results,
-                                          eval_per_class=args.per_class_results, newly_trained=True,
+                                          eval_per_class=args.per_class_results, newly_trained=False,
                                           batch_size=args.db_batch,
                                           mode='val')
     else:  # test
@@ -413,7 +410,6 @@ def main():
         with torch.no_grad():
             for tlm, comm in zip(test_loaders_metric, EVAL_SET_NAMES[len(test_loaders_metric)]):
                 model_methods_top.test_metric(args, net, tlm, loss_fn, loss_fn_bce, val=False, epoch=-1, comment=comm)
-
 
             if args.katn:
                 logger.info('Calculating K@Ns for Test')
