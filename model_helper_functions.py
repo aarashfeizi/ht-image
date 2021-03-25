@@ -41,8 +41,13 @@ class ModelMethods:
         self.tco_base = args.tco_base
 
         self.no_negative = args.no_negative
-        self.bce_weight = args.bcecoefficient
-        self.trpl_weight = args.trplcoefficient
+
+        weight_sum = args.bcecoefficient + args.trplcoefficient
+
+        self.bce_weight = args.bcecoefficient / weight_sum
+        self.trpl_weight = args.trplcoefficient / weight_sum
+
+
 
         self.draw_all_thresh = args.draw_all_thresh
 
@@ -2000,6 +2005,11 @@ class ModelMethods:
         if self.bcotco_freq != 0 and epoch % self.bcotco_freq == 0:
             self.bce_weight /= self.bco_base
             self.trpl_weight /= self.tco_base
+
+            weight_sum = self.bce_weight + self.trpl_weight
+            self.bce_weight /= weight_sum
+            self.trpl_weight /= weight_sum
+
             self.logger.info(f'epoch: {epoch}, bce weight: {self.bce_weight}, tco weight: {self.trpl_weight}')
             print(f'epoch: {epoch}, bce weight: {self.bce_weight}, tco weight: {self.trpl_weight}')
         return
