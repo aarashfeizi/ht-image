@@ -5,10 +5,10 @@ import torch.nn as nn
 import utils
 
 
-class LiSiamese(nn.Module):
+class MLP(nn.Module):
 
     def __init__(self, args):
-        super(LiSiamese, self).__init__()
+        super(MLP, self).__init__()
 
         self.merge_method = args.merge_method
 

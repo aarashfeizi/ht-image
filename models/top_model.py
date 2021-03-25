@@ -1,4 +1,4 @@
-from models.linear_siamese import *
+from models.MLP import *
 from models.resnet import *
 from models.vgg import *
 
@@ -82,7 +82,7 @@ class TopModel(nn.Module):
 
 def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False, fourth_dim=False):
     if trained_sm_net is None:
-        sm_net = LiSiamese(args)
+        sm_net = MLP(args)
     else:
         sm_net = trained_sm_net
 
