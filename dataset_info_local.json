@@ -6,7 +6,7 @@
   },
   "hotels": {
     "splits_file_path": "../../dataset/hotels_trainval/dummy_splits_50k",
-    "dataset_folder": "hotels2/",
+    "dataset_folder": "hotels_trainval/",
     "image_size": 224,
     "mask_path": "mask_paths.csv"
   },

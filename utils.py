@@ -189,7 +189,7 @@ def get_args():
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
-    parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim', 'concat'])
+    parser.add_argument('-mm', '--merge_method', default='sim', choices=['sim', 'diff', 'diff-sim', 'diff-sim-con','concat'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help="Decoupled Weight Decay Regularization")
@@ -232,6 +232,8 @@ def get_args():
 
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
+
+    parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
     args = parser.parse_args()
 
@@ -1285,7 +1287,7 @@ def vector_merge_function(v1, v2, method='sim', normalize=True):
         # ret = F.normalize(ret, p=2, dim=1)
         return ret
         # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
-    elif method == 'diff-sim':
+    elif method == 'diff-sim' or method == 'diff-sim-con':
         diff_merged = torch.pow((v1 - v2), 2)
         if normalize:
             diff_merged = F.normalize(diff_merged, p=2, dim=1)
@@ -1307,6 +1309,17 @@ def vector_merge_function(v1, v2, method='sim', normalize=True):
     elif method == 'concat':
         merged = torch.cat([v1, v2], dim=1)
         return merged
+    # elif method == 'diff-sim-con':
+    #
+    #     first_merged = torch.cat([v1, v2], dim=1)
+    #
+    #     diff_merged = torch.pow((v1 - v2), 2)
+    #     diff_merged = F.normalize(diff_merged, p=2, dim=1)
+    #     sim_merged = F.normalize(v1, p=2, dim=1) * F.normalize(v2, p=2, dim=1)
+    #     second_merged = torch.cat([diff_merged, sim_merged], dim=1)
+    #
+    #     return torch.cat([first_merged, second_merged], dim=1)
+
     else:
         raise Exception(f'Merge method {method} not implemented.')
 

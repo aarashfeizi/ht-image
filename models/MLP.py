@@ -1,8 +1,27 @@
 import torch.nn as nn
-import utils
-import torch.nn as nn
 
 import utils
+
+
+class VectorConcat(nn.Module):
+    def __init__(self, input_size, output_size, layers=2):
+        super(VectorConcat, self).__init__()
+        concat_fc_layers = [nn.Linear(input_size, output_size), nn.ReLU()]
+
+        for i in range(layers):
+            concat_fc_layers.append(nn.Linear(output_size, output_size))
+            concat_fc_layers.append(nn.ReLU())
+
+        self.concat_fc = nn.Sequential(*concat_fc_layers)
+
+    def forward(self, x1, x2=None):
+        if x2 is not None:
+            x = utils.vector_merge_function(x1, x2, method='concat')
+        else:
+            x = x1
+
+        x = self.concat_fc(x)
+        return x
 
 
 class MLP(nn.Module):
@@ -13,6 +32,8 @@ class MLP(nn.Module):
         self.merge_method = args.merge_method
 
         if self.merge_method == 'diff-sim' or self.merge_method == 'concat':
+            method_coefficient = 2
+        elif self.merge_method == 'diff-sim-con':
             method_coefficient = 2
         else:
             method_coefficient = 1
@@ -30,6 +51,7 @@ class MLP(nn.Module):
         # self.layer = nn.Sequential(nn.Linear(25088, 512))
         layers = []
         input_size = self.merge_input_shape
+        print(f'*#* 1. input_size = {input_size}')
 
         if args.dim_reduction != 0:
             self.dim_reduction_layer = nn.Sequential(nn.Linear(self.input_shape, args.dim_reduction),
@@ -42,8 +64,6 @@ class MLP(nn.Module):
             layers.append(nn.BatchNorm1d(input_size))
 
         if self.extra_layer > 0:
-
-
             for i in range(self.extra_layer):
 
                 if args.leaky_relu:
@@ -58,16 +78,41 @@ class MLP(nn.Module):
                         layers.append(nn.BatchNorm1d(args.static_size))
                     input_size = args.static_size
                 else:
+                    print(f'*#* input_size = {input_size}')
                     layers.append(nn.Linear(input_size, input_size // 2))
                     layers.append(relu)
                     if args.normalize:
                         layers.append(nn.BatchNorm1d(input_size // 2))
                     input_size = input_size // 2
 
-            # self.layer1 = nn.Sequential(*layers)
+        if self.merge_method == 'diff-sim-con':
+
+            if args.dim_reduction != 0:
+                att_size = args.dim_reduction * 2
+
+            else:
+                att_size = self.input_shape * 2
+
+            print(f'self.input_shape: {self.input_shape}')
+            print(f'att_size: {att_size}')
+
+
+            self.concat_fc_net = VectorConcat(input_size=int(att_size),
+                                              output_size=int(att_size/2),
+                                              layers=args.att_extra_layer)
+
+            self.diffsim_fc_net = VectorConcat(input_size=int(att_size),
+                                              output_size=int(att_size/2),
+                                              layers=1)
+        else:
+            self.concat_fc_net = None
+            self.diffsim_fc_net = None
+
+        print(self.concat_fc_net)
+        # self.layer1 = nn.Sequential(*layers)
 
         layers.append(nn.Linear(input_size, 1))
-            # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
+        # self.layer2 = nn.Sequential(nn.Linear(512, 512), nn.ReLU())
 
         # self.bn_for_classifier = nn.BatchNorm1d(self.input_shape)
         self.classifier = nn.Sequential(*layers)  # no sigmoid for bce_with_crossentorpy loss!!!!
@@ -94,10 +139,17 @@ class MLP(nn.Module):
 
         out2 = self.forward_one(x2)
 
-
         # out_cat = torch.cat((out1, out2), 1)
         # out_dist = torch.pow((out1 - out2), 2)
         out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method)
+
+
+        if self.concat_fc_net:
+
+            out_dist = self.diffsim_fc_net(out_dist)
+
+            att = self.concat_fc_net(out1, out2)
+            out_dist = utils.vector_merge_function(out_dist, att, method='concat')
 
         # out_dist = self.bn_for_classifier(out_dist)
         # dis = torch.abs(out1 - out2)
