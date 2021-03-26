@@ -35,6 +35,8 @@ class MLP(nn.Module):
             method_coefficient = 2
         elif self.merge_method == 'diff-sim-con':
             method_coefficient = 2
+        elif self.merge_method == 'diff-sim-con-att':
+            method_coefficient = 1
         else:
             method_coefficient = 1
 
@@ -85,7 +87,7 @@ class MLP(nn.Module):
                         layers.append(nn.BatchNorm1d(input_size // 2))
                     input_size = input_size // 2
 
-        if self.merge_method == 'diff-sim-con':
+        if self.merge_method == 'diff-sim-con' or self.merge_method== 'diff-sim-con-att':
 
             if args.dim_reduction != 0:
                 att_size = args.dim_reduction * 2
@@ -149,7 +151,10 @@ class MLP(nn.Module):
             out_dist = self.diffsim_fc_net(out_dist)
 
             att = self.concat_fc_net(out1, out2)
-            out_dist = utils.vector_merge_function(out_dist, att, method='concat')
+            if self.merge_method == 'diff-sim-con':
+                out_dist = utils.vector_merge_function(out_dist, att, method='concat')
+            elif self.merge_method == 'diff-sim-con-att':
+                out_dist = out_dist * att
 
         # out_dist = self.bn_for_classifier(out_dist)
         # dis = torch.abs(out1 - out2)
