@@ -4,13 +4,16 @@ import utils
 
 
 class VectorConcat(nn.Module):
-    def __init__(self, input_size, output_size, layers=2):
+    def __init__(self, input_size, output_size, layers=2, gated=False):
         super(VectorConcat, self).__init__()
         concat_fc_layers = [nn.Linear(input_size, output_size), nn.ReLU()]
 
         for i in range(layers):
             concat_fc_layers.append(nn.Linear(output_size, output_size))
             concat_fc_layers.append(nn.ReLU())
+
+        if gated:
+            concat_fc_layers.append(nn.Sigmoid())
 
         self.concat_fc = nn.Sequential(*concat_fc_layers)
 
@@ -87,7 +90,7 @@ class MLP(nn.Module):
                         layers.append(nn.BatchNorm1d(input_size // 2))
                     input_size = input_size // 2
 
-        if self.merge_method == 'diff-sim-con' or self.merge_method== 'diff-sim-con-att':
+        if self.merge_method == 'diff-sim-con' or self.merge_method == 'diff-sim-con-att':
 
             if args.dim_reduction != 0:
                 att_size = args.dim_reduction * 2
@@ -98,14 +101,14 @@ class MLP(nn.Module):
             print(f'self.input_shape: {self.input_shape}')
             print(f'att_size: {att_size}')
 
-
             self.concat_fc_net = VectorConcat(input_size=int(att_size),
-                                              output_size=int(att_size/2),
-                                              layers=args.att_extra_layer)
+                                              output_size=int(att_size / 2),
+                                              layers=args.att_extra_layer,
+                                              gated=self.merge_method == 'diff-sim-con-att')
 
             self.diffsim_fc_net = VectorConcat(input_size=int(att_size),
-                                              output_size=int(att_size/2),
-                                              layers=1)
+                                               output_size=int(att_size / 2),
+                                               layers=1)
         else:
             self.concat_fc_net = None
             self.diffsim_fc_net = None
@@ -144,7 +147,6 @@ class MLP(nn.Module):
         # out_cat = torch.cat((out1, out2), 1)
         # out_dist = torch.pow((out1 - out2), 2)
         out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method)
-
 
         if self.concat_fc_net:
 
