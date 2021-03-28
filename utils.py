@@ -25,7 +25,7 @@ import metrics
 
 matplotlib.rc('font', size=24)
 
-MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con','concat', 'diff-sim-con-att']
+MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con', 'concat', 'diff-sim-con-att', 'concat-mid']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -139,7 +139,8 @@ def get_args():
     parser.add_argument('-env', '--env', default='local',
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
-    parser.add_argument('-dsn', '--dataset_name', default='hotels', choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'cars', 'cars_eval', 'sop'])
+    parser.add_argument('-dsn', '--dataset_name', default='hotels',
+                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -195,7 +196,7 @@ def get_args():
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help="Decoupled Weight Decay Regularization")
-    
+
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
 
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
@@ -225,9 +226,10 @@ def get_args():
     parser.add_argument('-dr', '--dim_reduction', default=0, type=int, help="dim reduction after feature extractor")
 
     parser.add_argument('-btf', '--bcotco_freq', default=0, type=int, help="frequency for bco dand tripl scheduler")
-    parser.add_argument('-bcob', '--bco_base', default=1.0, type=float, help="bco divide by ... every bcotco_freq epochs")
-    parser.add_argument('-tcob', '--tco_base', default=1.0, type=float, help="tco divide by ... every bcotco_freq epochs")
-
+    parser.add_argument('-bcob', '--bco_base', default=1.0, type=float,
+                        help="bco divide by ... every bcotco_freq epochs")
+    parser.add_argument('-tcob', '--tco_base', default=1.0, type=float,
+                        help="tco divide by ... every bcotco_freq epochs")
 
     parser.add_argument('-trf', '--train_fewshot', default=False, action='store_true')
     parser.add_argument('-tdp', '--train_diff_plot', default=False, action='store_true')
@@ -235,6 +237,7 @@ def get_args():
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
 
+    parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
     args = parser.parse_args()
@@ -329,24 +332,33 @@ def load_h5(data_description, path):
     return data
 
 
-def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True, even_sampled=True,
+def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True,
+                     even_sampled=True,
                      per_class=False, save_path='', mode=''):
     if per_class:
         logger.info('K@N per class')
         total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode)
-        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True, index=False)
-        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True, index=False)
-        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'), header=True, index=False)
+        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
+                     index=False)
+        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
+                    index=False)
+        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'), header=True,
+                      index=False)
 
     if sampled:
         logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
                                                                  run_number, mode, even_sampled=even_sampled)
-        kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True, index=False)
-        kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True, index=False)
-        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_total_avg_k@n.csv'), header=True, index=False)
-        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_seen_avg_k@n.csv'), header=True, index=False)
-        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'), header=True, index=False)
+        kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
+                    index=False)
+        kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True,
+                     index=False)
+        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_total_avg_k@n.csv'),
+                     header=True, index=False)
+        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_seen_avg_k@n.csv'),
+                    header=True, index=False)
+        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'),
+                      header=True, index=False)
 
     return True
 
@@ -425,7 +437,8 @@ def _log_per_class(logger, df, split_kind=''):
     logger.info(f'k@100 per class average: {np.array(df["k@100"]).mean()}\n')
 
 
-def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='', even_sampled=False):
+def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='',
+                          even_sampled=False):
     all_lbls = np.unique(img_lbls)
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
@@ -661,6 +674,7 @@ def get_shuffled_data(datas, seed=0, one_hot=True, both_seen_unseen=False, shuff
 
     return data
 
+
 def make_dirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -721,7 +735,8 @@ def _get_imgs_labels(dataset_path, extensions):
     image_path = []
     image_labels = []
     for c in classes:
-        imgs = [os.path.join(mode, c, d.name) for d in os.scandir(os.path.join(dataset_path, c)) if d.name.lower().endswith(extensions)]
+        imgs = [os.path.join(mode, c, d.name) for d in os.scandir(os.path.join(dataset_path, c)) if
+                d.name.lower().endswith(extensions)]
         image_path.extend(imgs)
         image_labels.extend([class_to_idx[c] for _ in range(len(imgs))])
 
@@ -731,9 +746,8 @@ def _get_imgs_labels(dataset_path, extensions):
 
 
 def loadDataToMem_2(dataPath, dataset_name, mode='train',
-                  portion=0, return_bg=True,
+                    portion=0, return_bg=True,
                     extensions=('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')):
-
     dataset_path = os.path.join(dataPath, dataset_name)
 
     return_bg = return_bg and (mode.startswith('train'))
@@ -751,7 +765,8 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
     image_path, image_labels = _get_imgs_labels(os.path.join(dataset_path, mode), extensions)
 
     if return_bg:
-        image_path_bg, image_labels_bg = _get_imgs_labels(os.path.join(dataset_path, background_datasets[mode]), extensions)
+        image_path_bg, image_labels_bg = _get_imgs_labels(os.path.join(dataset_path, background_datasets[mode]),
+                                                          extensions)
 
     if portion > 0:
         image_path = image_path[image_labels < portion]
@@ -784,7 +799,6 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
         if return_bg:
             datas_bg[idx].append((os.path.join(dataset_path, path), True))
 
-
     if return_bg:
         for idx, path in zip(image_labels_bg, image_path_bg):
             if idx not in datas_bg.keys():
@@ -798,13 +812,15 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
 
     if return_bg:
         all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
-        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {background_datasets[mode]}: ', len(all_labels))
+        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {background_datasets[mode]}: ',
+              len(all_labels))
 
     if not return_bg:
         datas_bg = datas
 
     print(f'finish loading {dataset_name}_{mode} dataset to memory')
     return datas, num_classes, num_instances, labels, datas_bg
+
 
 def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
                   portion=0, return_bg=True, dataset_folder=''):
@@ -872,7 +888,8 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
 
     if return_bg:
         all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
-        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {background_datasets[mode]}: ', len(all_labels))
+        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {background_datasets[mode]}: ',
+              len(all_labels))
 
     if not return_bg:
         datas_bg = datas
@@ -1308,7 +1325,7 @@ def vector_merge_function(v1, v2, method='sim', normalize=True):
         # ret2 = torch.nn.BatchNorm1d(sim_merged)
 
         return torch.cat([diff_merged, sim_merged], dim=1)
-    elif method == 'concat':
+    elif method.startswith('concat'):
         merged = torch.cat([v1, v2], dim=1)
         return merged
     # elif method == 'diff-sim-con':
@@ -2009,10 +2026,9 @@ def sigmoid(x):
 
 
 def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savepath='pred_dist', normalizefactor=9):
+    pos_preds = np.repeat(pos_preds, normalizefactor)  # normalize
 
-    pos_preds = np.repeat(pos_preds, normalizefactor) # normalize
-
-    b = np.arange(0, 1.01, 1/bins)
+    b = np.arange(0, 1.01, 1 / bins)
 
     plt.figure(figsize=(10, 10))
     plt.hist(sigmoid(pos_preds), alpha=0.5, bins=b, color='g')
@@ -2037,7 +2053,6 @@ def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savep
     plt.savefig(savepath + '_neg')
     plt.close('all')
 
-
     plt.figure(figsize=(10, 10))
 
     plt.hist(sigmoid(neg_preds), alpha=0.5, bins=b, color='r')
@@ -2052,7 +2067,6 @@ def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savep
 
     plt.savefig(savepath)
     plt.close('all')
-
 
 
 def get_pos_neg_preds(file_path, pos_freq=10):

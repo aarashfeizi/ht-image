@@ -186,6 +186,7 @@ class ResNet(tResNet):
         x = self.layer3(x)
         f3 = x
         x = self.layer4(x)
+        f4 = x
 
         if hook:
             x.register_hook(self.activations_hook)
@@ -199,7 +200,7 @@ class ResNet(tResNet):
         # print('is_feat', is_feat)
         # print('type is_feat', type(is_feat))
         if is_feat:
-            return feat, x
+            return feat, [f1, f2, f3, f4]
         else:
             return x
 

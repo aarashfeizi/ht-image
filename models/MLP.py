@@ -13,7 +13,7 @@ class VectorConcat(nn.Module):
             concat_fc_layers.append(nn.ReLU())
 
         if gated:
-            concat_fc_layers.append(nn.Sigmoid())
+            concat_fc_layers[-1] = nn.Sigmoid()
 
         self.concat_fc = nn.Sequential(*concat_fc_layers)
 
