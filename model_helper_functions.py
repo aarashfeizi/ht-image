@@ -58,6 +58,7 @@ class ModelMethods:
         self.writer = SummaryWriter(self.tensorboard_path)
 
         if args.pretrained_model_dir == '':
+            utils.make_dirs(os.path.join(args.local_path, args.save_path))
             self.save_path = os.path.join(args.local_path, args.save_path, self.model_name)
             utils.create_save_path(self.save_path, id_str, self.logger)
         else:
