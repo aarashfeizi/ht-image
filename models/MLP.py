@@ -40,7 +40,7 @@ class MLP(nn.Module):
             method_coefficient = 4
         elif self.merge_method == 'diff-sim-con':
             method_coefficient = 2
-        elif self.merge_method == 'diff-sim-con-att':
+        elif self.merge_method == 'diff-sim-con-att' or self.merge_method == 'diff-sim-con-att-add':
             method_coefficient = 1
         else:
             method_coefficient = 1
@@ -96,7 +96,9 @@ class MLP(nn.Module):
                         layers.append(nn.BatchNorm1d(input_size // 2))
                     input_size = input_size // 2
 
-        if self.merge_method == 'diff-sim-con' or self.merge_method == 'diff-sim-con-att':
+        if self.merge_method == 'diff-sim-con' or \
+                self.merge_method == 'diff-sim-con-att' or \
+                self.merge_method == 'diff-sim-con-att-add':
 
             if args.dim_reduction != 0:
                 att_size = args.dim_reduction * 2
@@ -162,6 +164,8 @@ class MLP(nn.Module):
                 out_dist = utils.vector_merge_function(out_dist, att, method='concat')
             elif self.merge_method == 'diff-sim-con-att':
                 out_dist = out_dist * att
+            elif self.merge_method == 'diff-sim-con-att-add':
+                out_dist = out_dist + att
 
         if self.attention:
             out_dist = utils.vector_merge_function(out_dist, mid_att, method='concat')
