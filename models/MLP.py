@@ -167,8 +167,6 @@ class MLP(nn.Module):
             out_dist = utils.vector_merge_function(out_dist, mid_att, method='concat')
 
         if self.merge_method == 'diff-sim-con-complete':
-            import pdb
-            pdb.set_trace()
             concat = utils.vector_merge_function(out1, out2, method='concat')
             out_dist = utils.vector_merge_function(out_dist, concat, method='concat')
         # out_dist = self.bn_for_classifier(out_dist)
