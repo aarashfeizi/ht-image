@@ -36,6 +36,8 @@ class MLP(nn.Module):
 
         if self.merge_method == 'diff-sim' or self.merge_method == 'concat':
             method_coefficient = 2
+        elif self.merge_method == 'diff-sim-con-complete':
+            method_coefficient = 4
         elif self.merge_method == 'diff-sim-con':
             method_coefficient = 2
         elif self.merge_method == 'diff-sim-con-att':
@@ -67,6 +69,10 @@ class MLP(nn.Module):
 
         if args.bn_before_classifier:
             layers.append(nn.BatchNorm1d(input_size))
+
+        self.attention = args.attention
+        if self.attention:
+            input_size += 2048
 
         if self.extra_layer > 0:
             for i in range(self.extra_layer):
@@ -113,7 +119,6 @@ class MLP(nn.Module):
             self.concat_fc_net = None
             self.diffsim_fc_net = None
 
-        print(self.concat_fc_net)
         # self.layer1 = nn.Sequential(*layers)
 
         layers.append(nn.Linear(input_size, 1))
@@ -137,7 +142,7 @@ class MLP(nn.Module):
 
         return x
 
-    def forward(self, x1, x2, single=False, feats=False):
+    def forward(self, x1, x2, single=False, feats=False, mid_att=None):
         out1 = self.forward_one(x1)
         if single:
             return out1
@@ -158,6 +163,14 @@ class MLP(nn.Module):
             elif self.merge_method == 'diff-sim-con-att':
                 out_dist = out_dist * att
 
+        if self.attention:
+            out_dist = utils.vector_merge_function(out_dist, mid_att, method='concat')
+
+        if self.merge_method == 'diff-sim-con-complete':
+            import pdb
+            pdb.set_trace()
+            concat = utils.vector_merge_function(out1, out2, method='concat')
+            out_dist = utils.vector_merge_function(out_dist, concat, method='concat')
         # out_dist = self.bn_for_classifier(out_dist)
         # dis = torch.abs(out1 - out2)
         pred = self.classifier(out_dist)  # output between -inf and inf. Passed through sigmoid in loss function

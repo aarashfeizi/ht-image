@@ -4,20 +4,26 @@ from models.MLP import *
 from models.resnet import *
 from models.vgg import *
 
+
 class AttentionBlock(nn.Module):
 
     def __init__(self, input_channels):
         super(AttentionBlock, self).__init__()
-        self.att = nn.Sequential(nn.Conv2d(in_channels=input_channels , out_channels=input_channels, kernel_size=1),
+        self.att = nn.Sequential(nn.Conv2d(in_channels=input_channels, out_channels=1, kernel_size=1),
                                  nn.Sigmoid())
 
     def forward(self, x):
-        x = self.att(x).squeeze(dim=2).squeeze(dim=2)
+
+        import pdb
+        pdb.set_trace()
+        print('forward attention block')
+        x = self.att(x)
         return x
+
 
 class AttentionModule(nn.Module):
 
-    def  __init__(self, in_channels):
+    def __init__(self, in_channels):
         super(AttentionModule, self).__init__()
         self.att_blocks = []
         self.fc_blocks = []
@@ -25,21 +31,25 @@ class AttentionModule(nn.Module):
         for c in in_channels:
             self.att_blocks.append(AttentionBlock(c))
             self.fc_blocks.append(nn.Sequential(nn.Linear(in_features=2 * c, out_features=c), nn.ReLU()))
-            total_channels += c # todo residual connection
+            total_channels += c  # todo residual connection
 
         self.att_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
 
     def forward(self, x1s, x2s):
         rets = []
+        import pdb
+        pdb.set_trace()
+        print('forward attention module')
         for x1, x2, a, fc in zip(x1s, x2s, self.att_blocks, self.fc_blocks):
-            x1 = a(x1)
-            x2 = a(x2)
+            x1 = a(x1).squeeze(dim=2).squeeze(dim=2)
+            x2 = a(x2).squeeze(dim=2).squeeze(dim=2)
             x = fc(utils.vector_merge_function(x1, x2, method='concat'))
             rets.append(x)
 
         ret = self.att_concat(torch.cat(rets, dim=1))
 
         return ret
+
 
 class TopModel(nn.Module):
 
@@ -51,10 +61,10 @@ class TopModel(nn.Module):
         self.attention = attention
 
         if self.attention:
-            self.attention_mod = AttentionModule([#256,
-                                              # 512,
-                                              1024,
-                                              2048]) # only for resnet50
+            self.attention_mod = AttentionModule([256,
+                512,
+                1024,
+                2048])  # only for resnet50
         else:
             self.attention_mod = None
 
@@ -65,7 +75,7 @@ class TopModel(nn.Module):
         #     with torch.no_grad():
         #         with torch.no_grad():
         #             self.input_layer.weight[:, :3] = conv1weight
-                    # self.input_layer.weight[:, 3] = self.ft_net.conv1.weight[:, 0]
+        # self.input_layer.weight[:, 3] = self.ft_net.conv1.weight[:, 0]
 
         # print('FEATURE NET')
         # print(self.ft_net)
@@ -101,7 +111,8 @@ class TopModel(nn.Module):
                 other_pass_act = None
 
             if self.attention:
-                att_vec = self.attention_mod(x1_all[:-1], x2_all[:-1])
+                att_vec = self.attention_mod(x1_all, x2_all)
+                ret = self.sm_net(x1_f, x2_f, feats=feats, att_vec=att_vec)
                 # ret =
             else:
                 ret = self.sm_net(x1_f, x2_f, feats=feats)
@@ -148,7 +159,8 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
 
     if trained_feat_net is None:
         print('Using pretrained model')
-        ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask, fourth_dim=fourth_dim)
+        ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask,
+                                                 fourth_dim=fourth_dim)
     else:
         print('Using recently trained model')
         ft_net = trained_feat_net

@@ -25,7 +25,9 @@ import metrics
 
 matplotlib.rc('font', size=24)
 
-MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con', 'concat', 'diff-sim-con-att', 'concat-mid']
+MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
+                 'concat', 'diff-sim-con-att', 'concat-mid',
+                 'diff-sim-con-complete']
 
 try:
     from torch.hub import load_state_dict_from_url
