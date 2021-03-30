@@ -27,7 +27,8 @@ matplotlib.rc('font', size=24)
 
 MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'concat', 'diff-sim-con-att', 'concat-mid',
-                 'diff-sim-con-complete', 'diff-sim-con-att-add']
+                 'diff-sim-con-complete', 'diff-sim-con-att-add',
+                 'local-feat-unequal']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -241,6 +242,8 @@ def get_args():
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
+
+    parser.add_argument('-smds', '--softmax-diff-sim', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -1290,7 +1293,7 @@ def read_img_paths(path, local_path='.'):
     return final_lines
 
 
-def vector_merge_function(v1, v2, method='sim', normalize=True):
+def vector_merge_function(v1, v2, method='sim', normalize=True, softmax=False):
     if method == 'diff':
         ret = torch.pow((v1 - v2), 2)
         if normalize:
@@ -1325,6 +1328,10 @@ def vector_merge_function(v1, v2, method='sim', normalize=True):
         #
         # ret1 = torch.nn.BatchNorm1d(diff_merged)
         # ret2 = torch.nn.BatchNorm1d(sim_merged)
+
+        if softmax:
+            diff_merged = F.softmax(diff_merged, dim=1)
+            sim_merged = F.softmax(sim_merged, dim=1)
 
         return torch.cat([diff_merged, sim_merged], dim=1)
     elif method.startswith('concat'):
@@ -1867,7 +1874,8 @@ def get_logname(args, model):
                          'leaky_relu': 'lrel',
                          'bn_before_classifier': 'bnbc',
                          'weight_decay': 'decay',
-                         'drop_last': 'dl'}
+                         'drop_last': 'dl',
+                         'softmax-diff-sim': 'smds'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1893,7 +1901,8 @@ def get_logname(args, model):
                       'bn_before_classifier',
                       'leaky_relu',
                       'weight_decay',
-                      'drop_last']
+                      'drop_last',
+                      'softmax-diff-sim']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -1909,6 +1918,8 @@ def get_logname(args, model):
             elif str(arg) == 'aug_mask' and not getattr(args, arg):
                 continue
             elif str(arg) == 'from_scratch' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'softmax-diff-sim' and not getattr(args, arg):
                 continue
             elif str(arg) == 'fourth_dim' and not getattr(args, arg):
                 continue
