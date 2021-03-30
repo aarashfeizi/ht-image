@@ -6,9 +6,12 @@ import utils
 class VectorConcat(nn.Module):
     def __init__(self, input_size, output_size, layers=2, gated=False):
         super(VectorConcat, self).__init__()
+        if layers < 1:
+            raise Exception('Vector Concat Module should have at least 1 layer')
+
         concat_fc_layers = [nn.Linear(input_size, output_size), nn.ReLU()]
 
-        for i in range(layers):
+        for i in range(layers - 1):
             concat_fc_layers.append(nn.Linear(output_size, output_size))
             concat_fc_layers.append(nn.ReLU())
 
