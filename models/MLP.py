@@ -37,7 +37,8 @@ class MLP(nn.Module):
 
         self.merge_method = args.merge_method
 
-        if self.merge_method == 'diff-sim' or self.merge_method == 'concat':
+        if self.merge_method == 'diff-sim' or \
+                self.merge_method == 'concat':
             method_coefficient = 2
         elif self.merge_method == 'diff-sim-con-complete':
             method_coefficient = 4

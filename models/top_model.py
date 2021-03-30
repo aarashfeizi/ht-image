@@ -43,7 +43,7 @@ class LocalFeatureModule(nn.Module):
 
         self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
 
-        if not self.merge_method.startswith('local-global'):
+        if not self.merge_method.startswith('local-diff-sim'):
             self.classifier = nn.Sequential(nn.Linear(in_features=2048, out_features=1))
         else:
             self.classifier = None
@@ -71,7 +71,7 @@ class LocalFeatureModule(nn.Module):
 
         local_features = self.local_concat(torch.cat([l1, l2, l3, l4], dim=1))
 
-        if not self.merge_method.startswith('local-global'):
+        if not self.merge_method.startswith('local-diff-sim'):
             ret = self.classifier(local_features)
         else:
             ret = local_features
@@ -97,6 +97,16 @@ class TopModel(nn.Module):
         else:
             self.local_features = None
 
+        if self.merge_method.startswith('local-diff-sim'):
+            if self.merge_method.startswith('local-diff-sim-concat'):
+                # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
+                in_feat = 2048 + 4096
+            else:
+                raise Exception(f"Local merge method not supported! {self.merge_method}")
+
+            self.classifier = nn.Linear(in_features=in_feat, out_features=1)
+        else:
+            self.classifier = None
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
             #     self.ft_net = nn.Sequential(*list(self.ft_net.children())[1:])
@@ -142,23 +152,25 @@ class TopModel(nn.Module):
             if self.merge_method.startswith('local'):
                 ret, local_features = self.local_features(x1_all, x2_all)
 
-                if self.merge_method.startswith('local-global'):  # TODO
-                    ret_global = self.sm_net(x1_f, x2_f, feats=feats)  # todo should be 2048 for now
-                    if self.merge_method == 'local-global-concat':
+                if self.merge_method.startswith('local-diff-sim'):  # TODO
+                    ret_global = utils.vector_merge_function(x1_f, x2_f, method='diff-sim').flatten(start_dim=1) # todo should be 2048 for now
+                    if self.merge_method.startswith('local-diff-sim-concat'):
+
                         final_vec = torch.cat([ret_global, ret], dim=1)
-                        # ret = self.classifier(final_vec) # todo
-                        pass
+                        ret = self.classifier(final_vec)
+                        pred = ret
                     else: # todo local-global-add? local-global-mult?
                         return None
                 else:
                     pred = ret
-                    if feats:
-                        if hook:
-                            return pred, local_features, x1_all, x2_all, [anch_pass_act, other_pass_act]
-                        else:
-                            return pred, local_features, x1_all, x2_all
+
+                if feats:
+                    if hook:
+                        return pred, local_features, x1_all, x2_all, [anch_pass_act, other_pass_act]
                     else:
-                        return pred, local_features
+                        return pred, local_features, x1_all, x2_all
+                else:
+                    return pred, local_features
 
             else:
                 ret = self.sm_net(x1_f, x2_f, feats=feats)

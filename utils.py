@@ -28,7 +28,7 @@ matplotlib.rc('font', size=24)
 MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'concat', 'diff-sim-con-att', 'concat-mid',
                  'diff-sim-con-complete', 'diff-sim-con-att-add',
-                 'local-unequaldim']
+                 'local-unequaldim', 'local-diff-sim-concat-unequaldim']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -1311,7 +1311,7 @@ def vector_merge_function(v1, v2, method='sim', normalize=True, softmax=False):
         # ret = F.normalize(ret, p=2, dim=1)
         return ret
         # return torch.div(ret, torch.sqrt(torch.sum(torch.pow(ret, 2))))
-    elif method.startswith('diff-sim'):
+    elif 'diff-sim' in method:
         diff_merged = torch.pow((v1 - v2), 2)
         if normalize:
             diff_merged = F.normalize(diff_merged, p=2, dim=1)
