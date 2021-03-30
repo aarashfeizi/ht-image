@@ -5,82 +5,111 @@ from models.resnet import *
 from models.vgg import *
 
 
-class AttentionBlock(nn.Module):
+class LocalFeat(nn.Module):
 
-    def __init__(self, input_channels):
-        super(AttentionBlock, self).__init__()
-        self.att = nn.Sequential(nn.Conv2d(in_channels=input_channels, out_channels=1, kernel_size=1),
-                                 nn.Sigmoid())
+    def __init__(self, input_channels, attention=False):
+        super(LocalFeat, self).__init__()
+        layers = [nn.Conv2d(in_channels=input_channels, out_channels=1, kernel_size=1)]
+
+        if attention:
+            layers.append(nn.Sigmoid())
+
+        self.extractor = nn.Sequential(*layers)
 
     def forward(self, x):
-
-        import pdb
-        pdb.set_trace()
-        print('forward attention block')
-        x = self.att(x)
+        # print('forward attention block')
+        x = self.extractor(x)
         return x
 
 
-class AttentionModule(nn.Module):
+class LocalFeatureModule(nn.Module):
 
-    def __init__(self, in_channels):
-        super(AttentionModule, self).__init__()
-        self.att_blocks = []
-        self.fc_blocks = []
+    def __init__(self, args, in_channels):
+        super(LocalFeatureModule, self).__init__()
+        self.local_block_1 = LocalFeat(256)
+        self.local_block_2 = LocalFeat(512)
+        self.local_block_3 = LocalFeat(1024)
+        self.local_block_4 = LocalFeat(2048)
+
+        self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
+        self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
+        self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
+        self.fc_block_4 = nn.Sequential(nn.Linear(in_features=2 * (7 * 7), out_features=(7 * 7)), nn.ReLU())
+
+        self.merge_method = args.merge_method
         total_channels = 0
-        for c in in_channels:
-            self.att_blocks.append(AttentionBlock(c))
-            self.fc_blocks.append(nn.Sequential(nn.Linear(in_features=2 * c, out_features=c), nn.ReLU()))
-            total_channels += c  # todo residual connection
+        for (C, H, W) in in_channels:
+            total_channels += (H * W)  # todo residual connection?
 
-        self.att_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
+        self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
+
+        if not self.merge_method.startswith('local-global'):
+            self.classifier = nn.Sequential(nn.Linear(in_features=2048, out_features=1))
+        else:
+            self.classifier = None
 
     def forward(self, x1s, x2s):
         rets = []
-        import pdb
-        pdb.set_trace()
-        print('forward attention module')
-        for x1, x2, a, fc in zip(x1s, x2s, self.att_blocks, self.fc_blocks):
-            x1 = a(x1).squeeze(dim=2).squeeze(dim=2)
-            x2 = a(x2).squeeze(dim=2).squeeze(dim=2)
-            x = fc(utils.vector_merge_function(x1, x2, method='concat'))
-            rets.append(x)
+        # print('forward attention module')
 
-        ret = self.att_concat(torch.cat(rets, dim=1))
+        l1_1 = self.local_block_1(x1s[0]).flatten(start_dim=1)
+        l1_2 = self.local_block_1(x2s[0]).flatten(start_dim=1)
 
-        return ret
+        l2_1 = self.local_block_2(x1s[1]).flatten(start_dim=1)
+        l2_2 = self.local_block_2(x2s[1]).flatten(start_dim=1)
+
+        l3_1 = self.local_block_3(x1s[2]).flatten(start_dim=1)
+        l3_2 = self.local_block_3(x2s[2]).flatten(start_dim=1)
+
+        l4_1 = self.local_block_4(x1s[3]).flatten(start_dim=1)
+        l4_2 = self.local_block_4(x2s[3]).flatten(start_dim=1)
+
+        l1 = self.fc_block_1(utils.vector_merge_function(l1_1, l1_2, method='concat'))
+        l2 = self.fc_block_2(utils.vector_merge_function(l2_1, l2_2, method='concat'))
+        l3 = self.fc_block_3(utils.vector_merge_function(l3_1, l3_2, method='concat'))
+        l4 = self.fc_block_4(utils.vector_merge_function(l4_1, l4_2, method='concat'))
+
+        local_features = self.local_concat(torch.cat([l1, l2, l3, l4], dim=1))
+
+        if not self.merge_method.startswith('local-global'):
+            ret = self.classifier(local_features)
+        else:
+            ret = local_features
+
+        return ret, local_features
 
 
 class TopModel(nn.Module):
 
-    def __init__(self, ft_net, sm_net, aug_mask=False, attention=False):
+    def __init__(self, args, ft_net, sm_net, aug_mask=False, attention=False):
         super(TopModel, self).__init__()
         self.ft_net = ft_net
         self.sm_net = sm_net
         self.aug_mask = aug_mask
         self.attention = attention
+        self.merge_method = args.merge_method
 
-        if self.attention:
-            self.attention_mod = AttentionModule([256,
-                512,
-                1024,
-                2048])  # only for resnet50
+        if self.merge_method.startswith('local'):
+            self.local_features = LocalFeatureModule(args, [(256, 56, 56),
+                                                            (512, 28, 28),
+                                                            (1024, 14, 14),
+                                                            (2048, 7, 7)])  # only for resnet50
         else:
-            self.attention_mod = None
+            self.local_features = None
 
-        # if self.mask:
-        #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
-        #     self.ft_net = nn.Sequential(*list(self.ft_net.children())[1:])
-        #     # self.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        #     with torch.no_grad():
-        #         with torch.no_grad():
-        #             self.input_layer.weight[:, :3] = conv1weight
-        # self.input_layer.weight[:, 3] = self.ft_net.conv1.weight[:, 0]
+            # if self.mask:
+            #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
+            #     self.ft_net = nn.Sequential(*list(self.ft_net.children())[1:])
+            #     # self.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            #     with torch.no_grad():
+            #         with torch.no_grad():
+            #             self.input_layer.weight[:, :3] = conv1weight
+            # self.input_layer.weight[:, 3] = self.ft_net.conv1.weight[:, 0]
 
-        # print('FEATURE NET')
-        # print(self.ft_net)
-        # print('SIAMESE NET')
-        # print(self.sm_net)
+            # print('FEATURE NET')
+            # print(self.ft_net)
+            # print('SIAMESE NET')
+            # print(self.sm_net)
 
     def get_activations_gradient(self):
         return self.ft_net.get_activations_gradient()
@@ -110,22 +139,39 @@ class TopModel(nn.Module):
             else:
                 other_pass_act = None
 
-            if self.attention:
-                att_vec = self.attention_mod(x1_all, x2_all)
-                ret = self.sm_net(x1_f, x2_f, feats=feats, att_vec=att_vec)
-                # ret =
+            if self.merge_method.startswith('local'):
+                ret, local_features = self.local_features(x1_all, x2_all)
+
+                if self.merge_method.startswith('local-global'):  # TODO
+                    ret_global = self.sm_net(x1_f, x2_f, feats=feats)  # todo should be 2048 for now
+                    if self.merge_method == 'local-global-concat':
+                        final_vec = torch.cat([ret_global, ret], dim=1)
+                        # ret = self.classifier(final_vec) # todo
+                        pass
+                    else: # todo local-global-add? local-global-mult?
+                        return None
+                else:
+                    pred = ret
+                    if feats:
+                        if hook:
+                            return pred, local_features, x1_all, x2_all, [anch_pass_act, other_pass_act]
+                        else:
+                            return pred, local_features, x1_all, x2_all
+                    else:
+                        return pred, local_features
+
             else:
                 ret = self.sm_net(x1_f, x2_f, feats=feats)
 
-            if feats:
-                pred, pdist, out1, out2 = ret
-                if hook:
-                    return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
+                if feats:
+                    pred, pdist, out1, out2 = ret
+                    if hook:
+                        return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
+                    else:
+                        return pred, pdist, out1, out2
                 else:
-                    return pred, pdist, out1, out2
-            else:
-                pred, pdist = ret
-                return pred, pdist
+                    pred, pdist = ret
+                    return pred, pdist
         else:
             output = self.sm_net(x1_f, None, single)  # single is true
             return output
@@ -174,4 +220,4 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         for param in ft_net.parameters():
             param.requires_grad = False
 
-    return TopModel(ft_net=ft_net, sm_net=sm_net, aug_mask=(mask and fourth_dim), attention=args.attention)
+    return TopModel(args=args, ft_net=ft_net, sm_net=sm_net, aug_mask=(mask and fourth_dim), attention=args.attention)
