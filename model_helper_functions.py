@@ -82,6 +82,8 @@ class ModelMethods:
 
         self.gen_plot_path = f'{self.save_path}/plots/'
 
+        self.hparams_metric = {}
+
         utils.make_dirs(self.gen_plot_path)
         utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_train'))
         utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_val'))
@@ -805,7 +807,8 @@ class ModelMethods:
                             val_err = results['total']['wrong']
 
                         # self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
-                        self.writer.add_hparams(self.important_hparams, {'Total_Val/Acc': val_acc}, epoch)
+                        # self.writer.add_hparams(self.important_hparams, {'Total_Val/Acc': val_acc}, epoch)
+                        self.hparams_metric['Total_Val/Acc'] = val_acc
                         self.writer.flush()
 
                         if val_acc >= max_val_acc:
@@ -833,6 +836,9 @@ class ModelMethods:
                             utils.print_gpu_stuff(args.cuda, 'Before saving model')
 
                             queue.append(val_rgt * 1.0 / (val_rgt + val_err))
+
+                            self.writer.add_hparams(self.important_hparams, self.hparams_metric, epoch)
+                            self.writer.flush()
 
                     elif (epoch) % args.test_freq == 0 or epoch == max_epochs:
                         self.logger.info(
@@ -1047,7 +1053,7 @@ class ModelMethods:
 
         self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
-        self.writer.add_hparams(self.important_hparams, {f'{prompt_text_tb}/Acc': metric_ACC.get_acc()}, epoch)
+        self.hparams_metric['{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
