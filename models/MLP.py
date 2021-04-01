@@ -148,7 +148,7 @@ class MLP(nn.Module):
 
         return x
 
-    def forward(self, x1, x2, single=False, feats=False, mid_att=None):
+    def forward(self, x1, x2, single=False, feats=False, mid_att=None, softmax=False):
         out1 = self.forward_one(x1)
         if single:
             return out1
@@ -157,7 +157,7 @@ class MLP(nn.Module):
 
         # out_cat = torch.cat((out1, out2), 1)
         # out_dist = torch.pow((out1 - out2), 2)
-        out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method)
+        out_dist = utils.vector_merge_function(out1, out2, method=self.merge_method, softmax=softmax)
 
         if self.concat_fc_net:
 

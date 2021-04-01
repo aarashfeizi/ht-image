@@ -243,7 +243,7 @@ def get_args():
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
-    parser.add_argument('-smds', '--softmax-diff-sim', default=False, action='store_true')
+    parser.add_argument('-smds', '--softmax_diff_sim', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -1544,7 +1544,7 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
 @MY_DEC
 def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
                           titles=[''], histogram_path='',
-                          merge_method='sim', classifier_weights=None):
+                          merge_method='sim', classifier_weights=None, softmax=False):
     """
 
     :param acts: [anch_activation_p,
@@ -1564,10 +1564,10 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
     # classifier_weights = classifier_weights.cpu().numpy()
     shape = img_list[0][1].shape[0:2]
 
-    acts.append(vector_merge_function(acts[0], acts[1], method=merge_method))  # anch_pos_subtraction
+    acts.append(vector_merge_function(acts[0], acts[1], method=merge_method, softmax=softmax))  # anch_pos_subtraction
     titles.append(f'anch_pos_{merge_method}')
 
-    acts.append(vector_merge_function(acts[0], acts[2], method=merge_method))  # anch_neg_subtraction
+    acts.append(vector_merge_function(acts[0], acts[2], method=merge_method, softmax=softmax))  # anch_neg_subtraction
     titles.append(f'anch_neg_{merge_method}')
     # print('#################################################################################################\n' + overall_title)
     # print(f'anch_{merge_method} median: {acts[0].median()}')
@@ -1875,7 +1875,7 @@ def get_logname(args, model):
                          'bn_before_classifier': 'bnbc',
                          'weight_decay': 'decay',
                          'drop_last': 'dl',
-                         'softmax-diff-sim': 'smds'}
+                         'softmax_diff_sim': 'smds'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1902,7 +1902,7 @@ def get_logname(args, model):
                       'leaky_relu',
                       'weight_decay',
                       'drop_last',
-                      'softmax-diff-sim']
+                      'softmax_diff_sim']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -1919,7 +1919,7 @@ def get_logname(args, model):
                 continue
             elif str(arg) == 'from_scratch' and not getattr(args, arg):
                 continue
-            elif str(arg) == 'softmax-diff-sim' and not getattr(args, arg):
+            elif str(arg) == 'softmax_diff_sim' and not getattr(args, arg):
                 continue
             elif str(arg) == 'fourth_dim' and not getattr(args, arg):
                 continue

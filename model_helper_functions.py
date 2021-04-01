@@ -12,7 +12,8 @@ from matplotlib.lines import Line2D
 from sklearn.metrics import confusion_matrix, roc_auc_score
 from sklearn.metrics import silhouette_score, silhouette_samples
 from torch.autograd import Variable
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
+from Tensorboard_Writer import SummaryWriter
 from tqdm import tqdm
 
 import metrics
@@ -46,8 +47,6 @@ class ModelMethods:
 
         self.bce_weight = args.bcecoefficient / weight_sum
         self.trpl_weight = args.trplcoefficient / weight_sum
-
-
 
         self.draw_all_thresh = args.draw_all_thresh
 
@@ -188,7 +187,6 @@ class ModelMethods:
             self.logger.info(f'Neg path: {neg_path}')
 
             heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
-
 
             utils.make_dirs(heatmap_path_perepoch_id)
 
@@ -581,6 +579,8 @@ class ModelMethods:
 
         val_counter = 0
 
+        self.important_hparams = self._tb_get_important_hparams(args)
+
         for epoch in range(1, max_epochs + 1):
 
             epoch_start = time.time()
@@ -650,6 +650,7 @@ class ModelMethods:
 
                     self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                     self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
+                    # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
 
                     if args.train_fewshot:
                         self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot),
@@ -657,6 +658,7 @@ class ModelMethods:
                         self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
 
                     self.writer.flush()
+
 
                     if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == max_epochs):
                         net.eval()
@@ -802,7 +804,8 @@ class ModelMethods:
                             val_rgt = results['total']['right']
                             val_err = results['total']['wrong']
 
-                        self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                        # self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+                        self.writer.add_hparams(self.important_hparams, {'Total_Val/Acc': val_acc}, epoch)
                         self.writer.flush()
 
                         if val_acc >= max_val_acc:
@@ -1043,7 +1046,8 @@ class ModelMethods:
         self.writer.add_scalar(f'{prompt_text_tb}/ROC_AUC', roc_auc, epoch)
 
         self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')
-        self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
+        # self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
+        self.writer.add_hparams(self.important_hparams, {f'{prompt_text_tb}/Acc': metric_ACC.get_acc()}, epoch)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
@@ -1166,20 +1170,27 @@ class ModelMethods:
                 test_classes[idx * batch_size:end] = lbl
                 test_paths[idx * batch_size:end] = path
 
-                if return_bg and mode != 'train': # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
+                if return_bg and mode != 'train':  # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
                     test_seen[idx * batch_size:end] = seen.to(int)
 
-            utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
             if return_bg and mode != 'train':
-                utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+                utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
+                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         test_seen = np.zeros(((len(data_loader.dataset))))
-        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
+                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
+                                     os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if return_bg and mode != 'train':
-            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
+                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
 
@@ -1199,7 +1210,8 @@ class ModelMethods:
 
         silhouette_path = ['', '']
         silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
-        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
+        silhouette_path[1] = os.path.join(self.gen_plot_path,
+                                          f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
 
         if mode != 'test':
             self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
@@ -2015,6 +2027,31 @@ class ModelMethods:
             print(f'epoch: {epoch}, bce weight: {self.bce_weight}, tco weight: {self.trpl_weight}')
         return
 
+    def _tb_get_important_hparams(self, args):
+        important_hp = {'Dataset': args.dataset_name,
+                        'Cls LR': args.lr_siamese,
+                        'ResNet LR': args.lr_resnet,
+                        'weight decay': args.weight_decay,
+                        'merge method': args.merge_method,
+                        'Loss': args.loss,
+                        'Batch size': args.batch_size,
+                        'Cls extra layers': args.extra_layer}
+
+        if args.loss == 'trpl':
+            important_hp['bce coeff'] = args.bcecoefficient
+            important_hp['trpl coeff'] = args.trplcoefficient
+
+            if args.bcotco_freq != 0:
+                important_hp['bcotco freq'] = args.bcotco_freq
+                important_hp['bco base'] = args.bco_base
+                important_hp['tco base'] = args.tco_base
+
+        if 'diff-sim' in args.merge_method:
+            important_hp['softmax-diffsim'] = args.softmax_diff_sim
+
+        return important_hp
+
+
 
 class BaslineModel:
     def __init__(self, args, model, logger, loss_fn, model_name, id_str=''):
@@ -2033,7 +2070,6 @@ class BaslineModel:
         self.gen_plot_path = f'{self.save_path}/plots/'
 
         utils.make_dirs(self.tensorboard_path)
-
 
         self.gen_plot_path = f'{self.save_path}/plots/'
         utils.make_dirs(self.gen_plot_path)
@@ -2214,16 +2250,23 @@ class BaslineModel:
                     test_seen[idx * batch_size:end] = seen.to(int)
                 t.update()
 
-        utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
-        utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-        utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+        utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
+                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+        utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
+                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+        utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
+                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
         if mode != 'train':
-            utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
-        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
+                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
+                                     os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if mode != 'train':
-            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen', os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
+                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         if epoch != -1:
             diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot.png')
@@ -2234,7 +2277,8 @@ class BaslineModel:
 
         silhouette_path = ['', '']
         silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
-        silhouette_path[1] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
+        silhouette_path[1] = os.path.join(self.gen_plot_path,
+                                          f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
 
         self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
 

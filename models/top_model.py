@@ -88,6 +88,7 @@ class TopModel(nn.Module):
         self.aug_mask = aug_mask
         self.attention = attention
         self.merge_method = args.merge_method
+        self.softmax = args.softmax_diff_sim
 
         if self.merge_method.startswith('local'):
             self.local_features = LocalFeatureModule(args, [(256, 56, 56),
@@ -153,7 +154,7 @@ class TopModel(nn.Module):
                 ret, local_features = self.local_features(x1_all, x2_all)
 
                 if self.merge_method.startswith('local-diff-sim'):  # TODO
-                    ret_global = utils.vector_merge_function(x1_f, x2_f, method='diff-sim').flatten(start_dim=1) # todo should be 2048 for now
+                    ret_global = utils.vector_merge_function(x1_f, x2_f, method='diff-sim', softmax=self.softmax).flatten(start_dim=1) # todo should be 2048 for now
                     if self.merge_method.startswith('local-diff-sim-concat'):
 
                         final_vec = torch.cat([ret_global, ret], dim=1)
@@ -173,7 +174,7 @@ class TopModel(nn.Module):
                     return pred, local_features
 
             else:
-                ret = self.sm_net(x1_f, x2_f, feats=feats)
+                ret = self.sm_net(x1_f, x2_f, feats=feats, softmax=self.softmax)
 
                 if feats:
                     pred, pdist, out1, out2 = ret
