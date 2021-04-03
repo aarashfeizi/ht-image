@@ -37,7 +37,7 @@ class Metric_Dataset_Train(Dataset):
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
         if args.dataset_name.startswith('hotels'):
-            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
+            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, 'hotels',
                                                                                       mode=mode,
                                                                                       split_file_path=args.splits_file_path,
                                                                                       portion=args.portion,
@@ -304,7 +304,7 @@ class FewShot_Dataset_Test(Dataset):
 
         if args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
-                                                                                        args.dataset_name,
+                                                                                        'hotels',
                                                                                         mode=mode,
                                                                                         split_file_path=args.splits_file_path,
                                                                                         portion=args.portion,
@@ -514,7 +514,7 @@ class DB_Dataset(Dataset):
                      args.tu_folder_name != 'none')
         if args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
-                                                                                        args.dataset_name,
+                                                                                        'hotels',
                                                                                         mode=self.mode_tmp,
                                                                                         split_file_path=args.splits_file_path,
                                                                                         portion=args.portion,
