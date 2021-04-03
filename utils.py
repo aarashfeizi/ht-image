@@ -143,7 +143,7 @@ def get_args():
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
     parser.add_argument('-dsn', '--dataset_name', default='hotels',
-                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'cars', 'cars_eval', 'sop'])
+                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'hotels_test', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -198,7 +198,7 @@ def get_args():
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
-    parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, help="Decoupled Weight Decay Regularization")
+    parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
 
