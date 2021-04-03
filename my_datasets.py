@@ -36,7 +36,7 @@ class Metric_Dataset_Train(Dataset):
                     or \
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
-        if args.dataset_name == 'hotels':
+        if args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
                                                                                       mode=mode,
                                                                                       split_file_path=args.splits_file_path,
@@ -302,7 +302,7 @@ class FewShot_Dataset_Test(Dataset):
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
 
-        if args.dataset_name == 'hotels':
+        if args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
                                                                                         args.dataset_name,
                                                                                         mode=mode,
@@ -512,7 +512,7 @@ class DB_Dataset(Dataset):
                     or \
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
-        if args.dataset_name == 'hotels':
+        if args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
                                                                                         args.dataset_name,
                                                                                         mode=self.mode_tmp,
