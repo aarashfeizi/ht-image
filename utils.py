@@ -143,7 +143,7 @@ def get_args():
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
     parser.add_argument('-dsn', '--dataset_name', default='hotels',
-                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'hotels_test', 'cars', 'cars_eval', 'sop'])
+                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -472,7 +472,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     k10s_u = []
     k100s_u = []
 
-    if args.dataset_name == 'hotels' and even_sampled:
+    if args.dataset_name.startswith('hotels') and even_sampled:
         sampled_indices_all = pd.read_csv(
             os.path.join(args.project_path, 'sample_index_por' + str(args.portion) + '.csv'))
         sampled_label_all = pd.read_csv(
@@ -484,7 +484,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
 
     for run in range(run_number):
         column_name = f'run{run}'
-        if args.dataset_name == 'hotels' and even_sampled:
+        if args.dataset_name.startswith('hotels') and even_sampled:
             sampled_indices = np.array(sampled_indices_all[column_name]).astype(int)
             sampled_labels = np.array(sampled_label_all[column_name]).astype(int)
 
