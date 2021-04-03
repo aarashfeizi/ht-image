@@ -1053,7 +1053,7 @@ class ModelMethods:
 
         self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
-        self.hparams_metric['{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
+        self.hparams_metric[f'{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
