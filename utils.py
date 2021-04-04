@@ -202,7 +202,7 @@ def get_args():
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
-    parser.add_argument('-fml', '--feature_map_layers', nargs='+', help="feature maps for local merge")
+    parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge")
 
     parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
