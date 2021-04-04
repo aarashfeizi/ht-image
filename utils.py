@@ -1881,7 +1881,8 @@ def get_logname(args, model):
                          'bn_before_classifier': 'bnbc',
                          'weight_decay': 'decay',
                          'drop_last': 'dl',
-                         'softmax_diff_sim': 'smds'}
+                         'softmax_diff_sim': 'smds',
+                         'feature_map_layers': 'fml'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1951,6 +1952,10 @@ def get_logname(args, model):
                 name += f'#{args.bcotco_freq}-{args.bco_base}#'
             if str(arg) == 'trplcoefficient':
                 name += f'#{args.bcotco_freq}-{args.tco_base}#'
+
+            if str(arg) == 'merge_method' and getattr(args, arg).startswith('local'):
+                lays = '-l'.join(args.feature_map_layers)
+                name += f'-l{lays}'
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'
