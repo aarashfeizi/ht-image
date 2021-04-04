@@ -5,6 +5,12 @@ from models.resnet import *
 from models.vgg import *
 
 
+FEATURE_MAP_SIZES = {1: (256, 56, 56),
+                     2: (512, 28, 28),
+                     3: (1024, 14, 14),
+                     4: (2048, 7, 7)}
+
+
 class LocalFeat(nn.Module):
 
     def __init__(self, input_channels, attention=False):
@@ -26,19 +32,51 @@ class LocalFeatureModule(nn.Module):
 
     def __init__(self, args, in_channels):
         super(LocalFeatureModule, self).__init__()
-        self.local_block_1 = LocalFeat(256)
-        self.local_block_2 = LocalFeat(512)
-        self.local_block_3 = LocalFeat(1024)
-        self.local_block_4 = LocalFeat(2048)
+        self.in_channels = in_channels
+        if FEATURE_MAP_SIZES[1] in self.in_channels:
+            self.local_block_1 = LocalFeat(256)
+            self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
+        else:
+            self.local_block_1 = None
+            self.fc_block_1 = None
 
-        self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
-        self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
-        self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
-        self.fc_block_4 = nn.Sequential(nn.Linear(in_features=2 * (7 * 7), out_features=(7 * 7)), nn.ReLU())
+        if FEATURE_MAP_SIZES[2] in self.in_channels:
+            self.local_block_2 = LocalFeat(512)
+            self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
+
+        else:
+            self.local_block_2 = None
+            self.fc_block_2 = None
+
+        if FEATURE_MAP_SIZES[3] in self.in_channels:
+            self.local_block_3 = LocalFeat(1024)
+            self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
+
+        else:
+            self.local_block_3 = None
+            self.fc_block_3 = None
+
+        if FEATURE_MAP_SIZES[4] in self.in_channels:
+            self.local_block_4 = LocalFeat(2048)
+            self.fc_block_4 = nn.Sequential(nn.Linear(in_features=2 * (7 * 7), out_features=(7 * 7)), nn.ReLU())
+        else:
+            self.local_block_4 = None
+            self.fc_block_4 = None
+
+        self.layers = {256: self.local_block_1,
+                       512: self.local_block_2,
+                       1024: self.local_block_3,
+                       2048: self.local_block_4}
+
+        self.fc_blocks = {256: self.fc_block_1,
+                          512: self.fc_block_2,
+                          1024: self.fc_block_3,
+                          2048: self.fc_block_4}
 
         self.merge_method = args.merge_method
+
         total_channels = 0
-        for (C, H, W) in in_channels:
+        for (C, H, W) in self.in_channels:
             total_channels += (H * W)  # todo residual connection?
 
         self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
@@ -52,24 +90,36 @@ class LocalFeatureModule(nn.Module):
         rets = []
         # print('forward attention module')
 
-        l1_1 = self.local_block_1(x1s[0]).flatten(start_dim=1)
-        l1_2 = self.local_block_1(x2s[0]).flatten(start_dim=1)
+        li_1s = []
+        li_2s = []
 
-        l2_1 = self.local_block_2(x1s[1]).flatten(start_dim=1)
-        l2_2 = self.local_block_2(x2s[1]).flatten(start_dim=1)
+        for (C, _, _), x1, x2 in zip(self.in_channels, x1s, x2s):
+            li_1s.append(self.layers[C](x1).flatten(start_dim=1))
+            li_2s.append(self.layers[C](x2).flatten(start_dim=1))
 
-        l3_1 = self.local_block_3(x1s[2]).flatten(start_dim=1)
-        l3_2 = self.local_block_3(x2s[2]).flatten(start_dim=1)
+        ls = []
 
-        l4_1 = self.local_block_4(x1s[3]).flatten(start_dim=1)
-        l4_2 = self.local_block_4(x2s[3]).flatten(start_dim=1)
+        for (C, _, _), l1, l2 in zip(self.in_channels, li_1s, li_2s):
+            ls.append(self.fc_blocks[C](utils.vector_merge_function(l1, l2, method='concat')))
 
-        l1 = self.fc_block_1(utils.vector_merge_function(l1_1, l1_2, method='concat'))
-        l2 = self.fc_block_2(utils.vector_merge_function(l2_1, l2_2, method='concat'))
-        l3 = self.fc_block_3(utils.vector_merge_function(l3_1, l3_2, method='concat'))
-        l4 = self.fc_block_4(utils.vector_merge_function(l4_1, l4_2, method='concat'))
+        # l1_1 = self.local_block_1(x1s[0]).flatten(start_dim=1)
+        # l1_2 = self.local_block_1(x2s[0]).flatten(start_dim=1)
+        #
+        # l2_1 = self.local_block_2(x1s[1]).flatten(start_dim=1)
+        # l2_2 = self.local_block_2(x2s[1]).flatten(start_dim=1)
+        #
+        # l3_1 = self.local_block_3(x1s[2]).flatten(start_dim=1)
+        # l3_2 = self.local_block_3(x2s[2]).flatten(start_dim=1)
+        #
+        # l4_1 = self.local_block_4(x1s[3]).flatten(start_dim=1)
+        # l4_2 = self.local_block_4(x2s[3]).flatten(start_dim=1)
+        #
+        # l1 = self.fc_block_1(utils.vector_merge_function(l1_1, l1_2, method='concat'))
+        # l2 = self.fc_block_2(utils.vector_merge_function(l2_1, l2_2, method='concat'))
+        # l3 = self.fc_block_3(utils.vector_merge_function(l3_1, l3_2, method='concat'))
+        # l4 = self.fc_block_4(utils.vector_merge_function(l4_1, l4_2, method='concat'))
 
-        local_features = self.local_concat(torch.cat([l1, l2, l3, l4], dim=1))
+        local_features = self.local_concat(torch.cat(ls, dim=1))
 
         if not self.merge_method.startswith('local-diff-sim'):
             ret = self.classifier(local_features)
@@ -79,10 +129,6 @@ class LocalFeatureModule(nn.Module):
         return ret, local_features
 
 
-feature_map_sizes = {1: (256, 56, 56),
-                     2: (512, 28, 28),
-                     3: (1024, 14, 14),
-                     4: (2048, 7, 7)}
 
 
 class TopModel(nn.Module):
@@ -99,7 +145,7 @@ class TopModel(nn.Module):
         self.fmaps_no = [int(i) for i in args.feature_map_layers]
 
         if self.merge_method.startswith('local'):
-            feature_map_inputs = [feature_map_sizes[i] for i in self.fmaps_no]
+            feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
             print(f'Using {feature_map_inputs} for local maps')
             self.local_features = LocalFeatureModule(args, feature_map_inputs)  # only for resnet50
         else:
