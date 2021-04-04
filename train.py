@@ -343,7 +343,8 @@ def main():
 
     if args.pretrained_model_name == '':
         logger.info('Training')
-
+        print('Total parameters:', utils.get_number_of_parameters(net))
+        logger.info(f'Total parameters: {utils.get_number_of_parameters(net)}')
         net, best_model_top = model_methods_top.train_metriclearning(net=net, loss_fn=loss_fn,
                                                                      bce_loss=loss_fn_bce, args=args,
                                                                      train_loader=train_loader,

@@ -110,8 +110,6 @@ class MLP(nn.Module):
             else:
                 att_size = self.input_shape * 2
 
-            print(f'self.input_shape: {self.input_shape}')
-            print(f'att_size: {att_size}')
 
             self.concat_fc_net = VectorConcat(input_size=int(att_size),
                                               output_size=int(att_size / 2),

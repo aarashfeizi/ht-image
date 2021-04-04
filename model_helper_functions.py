@@ -808,7 +808,10 @@ class ModelMethods:
 
                         # self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
                         # self.writer.add_hparams(self.important_hparams, {'Total_Val/Acc': val_acc}, epoch)
-                        self.hparams_metric['Total_Val/Acc'] = val_acc
+                        if args.hparams:
+                            self.hparams_metric['Total_Val/Acc'] = val_acc
+                        else:
+                            self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
                         self.writer.flush()
 
                         if val_acc >= max_val_acc:
@@ -837,8 +840,9 @@ class ModelMethods:
 
                             queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
-                            self.writer.add_hparams(self.important_hparams, self.hparams_metric, epoch)
-                            self.writer.flush()
+                            if args.hparams:
+                                self.writer.add_hparams(self.important_hparams, self.hparams_metric, epoch)
+                                self.writer.flush()
 
                     elif (epoch) % args.test_freq == 0 or epoch == max_epochs:
                         self.logger.info(
@@ -1052,8 +1056,10 @@ class ModelMethods:
         self.writer.add_scalar(f'{prompt_text_tb}/ROC_AUC', roc_auc, epoch)
 
         self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')
-        # self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
-        self.hparams_metric[f'{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
+        if args.hparams:
+            self.hparams_metric[f'{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
+        else:
+            self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()

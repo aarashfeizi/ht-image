@@ -28,7 +28,8 @@ matplotlib.rc('font', size=24)
 MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'concat', 'diff-sim-con-att', 'concat-mid',
                  'diff-sim-con-complete', 'diff-sim-con-att-add',
-                 'local-unequaldim', 'local-diff-sim-concat-unequaldim']
+                 'local-unequaldim', 'local-diff-sim-concat-unequaldim',
+                 'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -201,7 +202,9 @@ def get_args():
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
+    parser.add_argument('-fml', '--feature_map_layers', nargs='+', help="feature maps for local merge")
 
+    parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
     parser.add_argument('-dl', '--drop_last', default=False, action='store_true')
@@ -264,6 +267,9 @@ def loading_time(args, train_set, use_cuda, num_workers, pin_memory, logger):
     logger.info("  Used {} second with num_workers = {}".format(end - start, num_workers))
     return end - start
 
+def get_number_of_parameters(net):
+    total_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
+    return total_params
 
 def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], starting_from=0, logger=None):
     use_cuda = torch.cuda.is_available()

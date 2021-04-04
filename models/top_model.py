@@ -79,29 +79,45 @@ class LocalFeatureModule(nn.Module):
         return ret, local_features
 
 
+feature_map_sizes = {1: (256, 56, 56),
+                     2: (512, 28, 28),
+                     3: (1024, 14, 14),
+                     4: (2048, 7, 7)}
+
+
 class TopModel(nn.Module):
 
     def __init__(self, args, ft_net, sm_net, aug_mask=False, attention=False):
         super(TopModel, self).__init__()
         self.ft_net = ft_net
+        print('ResNet50 parameters:', utils.get_number_of_parameters(self.ft_net))
         self.sm_net = sm_net
         self.aug_mask = aug_mask
         self.attention = attention
         self.merge_method = args.merge_method
         self.softmax = args.softmax_diff_sim
+        self.fmaps_no = [int(i) for i in args.feature_map_layers]
 
         if self.merge_method.startswith('local'):
-            self.local_features = LocalFeatureModule(args, [(256, 56, 56),
-                                                            (512, 28, 28),
-                                                            (1024, 14, 14),
-                                                            (2048, 7, 7)])  # only for resnet50
+            feature_map_inputs = [feature_map_sizes[i] for i in self.fmaps_no]
+            print(f'Using {feature_map_inputs} for local maps')
+            self.local_features = LocalFeatureModule(args, feature_map_inputs)  # only for resnet50
         else:
             self.local_features = None
 
         if self.merge_method.startswith('local-diff-sim'):
+            self.diffsim_fc_net = VectorConcat(input_size=4096,
+                                               output_size=2048,
+                                               layers=1)
+
             if self.merge_method.startswith('local-diff-sim-concat'):
                 # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
-                in_feat = 2048 + 4096
+                in_feat = 2048 + 2048
+
+            elif self.merge_method.startswith('local-diff-sim-mult') or self.merge_method.startswith(
+                    'local-diff-sim-add'):
+                # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
+                in_feat = 2048
             else:
                 raise Exception(f"Local merge method not supported! {self.merge_method}")
 
@@ -151,17 +167,36 @@ class TopModel(nn.Module):
                 other_pass_act = None
 
             if self.merge_method.startswith('local'):
-                ret, local_features = self.local_features(x1_all, x2_all)
+                x1_input = []
+                x2_input = []
+
+                for i in self.fmaps_no:
+                    x1_input.append(x1_all[i - 1])
+                    x2_input.append(x2_all[i - 1])
+
+                ret, local_features = self.local_features(x1_input, x2_input)
 
                 if self.merge_method.startswith('local-diff-sim'):  # TODO
-                    ret_global = utils.vector_merge_function(x1_f, x2_f, method='diff-sim', softmax=self.softmax).flatten(start_dim=1) # todo should be 2048 for now
-                    if self.merge_method.startswith('local-diff-sim-concat'):
+                    ret_global = utils.vector_merge_function(x1_f, x2_f, method='diff-sim',
+                                                             softmax=self.softmax).flatten(
+                        start_dim=1)  # todo should be 2048 for now
+                    ret_global = self.diffsim_fc_net(ret_global)
 
+                    if self.merge_method.startswith('local-diff-sim-concat'):
                         final_vec = torch.cat([ret_global, ret], dim=1)
-                        ret = self.classifier(final_vec)
-                        pred = ret
-                    else: # todo local-global-add? local-global-mult?
-                        return None
+
+                    elif self.merge_method.startswith('local-diff-sim-add'):
+                        final_vec = ret_global + ret
+
+                    elif self.merge_method.startswith('local-diff-sim-mult'):
+                        final_vec = ret_global * ret
+
+                    else:
+                        raise Exception(f"Local merge method not supported! {self.merge_method}")
+
+                    pred = self.classifier(final_vec)
+
+
                 else:
                     pred = ret
 
