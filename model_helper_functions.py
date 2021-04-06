@@ -12,12 +12,12 @@ from matplotlib.lines import Line2D
 from sklearn.metrics import confusion_matrix, roc_auc_score
 from sklearn.metrics import silhouette_score, silhouette_samples
 from torch.autograd import Variable
-# from torch.utils.tensorboard import SummaryWriter
-from Tensorboard_Writer import SummaryWriter
 from tqdm import tqdm
 
 import metrics
 import utils
+# from torch.utils.tensorboard import SummaryWriter
+from Tensorboard_Writer import SummaryWriter
 # def to_numpy_axis_order_change(t):
 #     t = t.numpy()
 #     t = np.moveaxis(t.squeeze(), 0, -1)
@@ -534,35 +534,48 @@ class ModelMethods:
         if args.cuda:
             print('current_device: ', torch.cuda.current_device())
 
-        if multiple_gpu: # todo local not supported
+        if multiple_gpu:  # todo local not supported
             if net.module.aug_mask:
                 learnable_params = [{'params': net.module.sm_net.parameters()},
-                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}]
+                                    {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                    {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}]
 
             else:
                 learnable_params = [{'params': net.module.sm_net.parameters()},
-                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}]
+                                    {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                    {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}]
         else:
             if net.aug_mask:
                 learnable_params = [{'params': net.sm_net.parameters()},
-                                        {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.ft_net.conv1.parameters(), 'lr': args.lr_siamese}]
+                                    {'params': net.ft_net.rest.parameters(),
+                                     'lr': args.lr_resnet,
+                                     'weight_decay': args.weight_decay},
+                                    {'params': net.ft_net.conv1.parameters(),
+                                     'lr': args.lr_siamese,
+                                     'weight_decay': args.weight_decay}]
             else:
                 learnable_params = [{'params': net.sm_net.parameters()},
-                                        {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.ft_net.pool.parameters(), 'lr': args.lr_siamese}]
+                                    {'params': net.ft_net.rest.parameters(),
+                                     'lr': args.lr_resnet,
+                                     'weight_decay': args.weight_decay},
+                                    {'params': net.ft_net.pool.parameters(),
+                                     'lr': args.lr_siamese,
+                                     'weight_decay': args.weight_decay}]
 
             if net.local_features:
-                learnable_params += [{'params': net.local_features.parameters()}]
+                learnable_params += [{'params': net.local_features.parameters(),
+                                      'lr': args.lr_siamese,
+                                      'weight_decay': args.weight_decay}]
 
             if net.diffsim_fc_net:
-                learnable_params += [{'params': net.diffsim_fc_net.parameters()}]
+                learnable_params += [{'params': net.diffsim_fc_net.parameters(),
+                                      'lr': args.lr_siamese,
+                                      'weight_decay': args.weight_decay}]
 
             if net.classifier:
-                learnable_params += [{'params': net.classifier.parameters()}]
-
+                learnable_params += [{'params': net.classifier.parameters(),
+                                      'lr': args.lr_siamese,
+                                      'weight_decay': args.weight_decay}]
 
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt = torch.optim.Adam(learnable_params, lr=args.lr_siamese, weight_decay=args.weight_decay)
@@ -669,7 +682,6 @@ class ModelMethods:
                         self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
 
                     self.writer.flush()
-
 
                     if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == max_epochs):
                         net.eval()
@@ -2071,7 +2083,6 @@ class ModelMethods:
             important_hp['softmax-diffsim'] = args.softmax_diff_sim
 
         return important_hp
-
 
 
 class BaslineModel:
