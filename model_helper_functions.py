@@ -534,29 +534,38 @@ class ModelMethods:
         if args.cuda:
             print('current_device: ', torch.cuda.current_device())
 
-        if multiple_gpu:
+        if multiple_gpu: # todo local not supported
             if net.module.aug_mask:
-                opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
+                learnable_params = [{'params': net.module.sm_net.parameters()},
                                         {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
+                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}]
+
             else:
-                opt = torch.optim.Adam([{'params': net.module.sm_net.parameters()},
+                learnable_params = [{'params': net.module.sm_net.parameters()},
                                         {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
+                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}]
         else:
             if net.aug_mask:
-                opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
+                learnable_params = [{'params': net.sm_net.parameters()},
                                         {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.ft_net.conv1.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
+                                        {'params': net.ft_net.conv1.parameters(), 'lr': args.lr_siamese}]
             else:
-                opt = torch.optim.Adam([{'params': net.sm_net.parameters()},
+                learnable_params = [{'params': net.sm_net.parameters()},
                                         {'params': net.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.ft_net.pool.parameters(), 'lr': args.lr_siamese}],
-                                       lr=args.lr_siamese, weight_decay=args.weight_decay)
+                                        {'params': net.ft_net.pool.parameters(), 'lr': args.lr_siamese}]
+
+            if net.local_features:
+                learnable_params += [{'params': net.local_features.parameters()}]
+
+            if net.diffsim_fc_net:
+                learnable_params += [{'params': net.diffsim_fc_net.parameters()}]
+
+            if net.classifier:
+                learnable_params += [{'params': net.classifier.parameters()}]
+
+
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        opt = torch.optim.Adam(learnable_params, lr=args.lr_siamese, weight_decay=args.weight_decay)
         opt.zero_grad()
 
         time_start = time.time()

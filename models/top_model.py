@@ -169,6 +169,7 @@ class TopModel(nn.Module):
 
             self.classifier = nn.Linear(in_features=in_feat, out_features=1)
         else:
+            self.diffsim_fc_net = None
             self.classifier = None
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
