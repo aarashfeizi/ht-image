@@ -201,6 +201,8 @@ def get_args():
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
     parser.add_argument('-gamma', '--gamma', default=1.0, type=float, help="Learning Rate Scheduler")
+    parser.add_argument('-gamma_step', '--gamma_step', default=1, type=int, help="Learning Rate Scheduler Step")
+
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
     parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge") # 1, 2, 3, 4
@@ -2017,6 +2019,9 @@ def get_logname(args, model):
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('local'):
                 lays = '-l'.join(args.feature_map_layers)
                 name += f'-l{lays}'
+
+            if str(arg) == 'gamma' and args.gamma_step != 1:
+                name += f'-step{args.gamma_step}'
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'

@@ -638,7 +638,7 @@ class ModelMethods:
 
         self.important_hparams = self._tb_get_important_hparams(args)
 
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=args.gamma)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer=opt, step_size=args.gamma_step, gamma=args.gamma)
 
         for epoch in range(1, max_epochs + 1):
 
