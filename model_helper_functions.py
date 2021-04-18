@@ -934,6 +934,7 @@ class ModelMethods:
             if max_val_between_epochs <= max_val_acc:
                 max_val_between_epochs = max_val_acc
                 if args.cam:
+                    print(f'Drawing heatmaps on epoch {epoch}...')
                     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
                     self.draw_heatmaps(net=net,
                                        loss_fn=loss_fn,

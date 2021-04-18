@@ -1939,7 +1939,8 @@ def get_logname(args, model):
                          'weight_decay': 'decay',
                          'drop_last': 'dl',
                          'softmax_diff_sim': 'smds',
-                         'feature_map_layers': 'fml'}
+                         'feature_map_layers': 'fml',
+                         'gamma': 'gamma'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1966,7 +1967,8 @@ def get_logname(args, model):
                       'leaky_relu',
                       'weight_decay',
                       'drop_last',
-                      'softmax_diff_sim']
+                      'softmax_diff_sim',
+                      'gamma']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -1992,6 +1994,8 @@ def get_logname(args, model):
             elif str(arg) == 'softmargin' and not getattr(args, arg):
                 continue
             elif str(arg) == 'leaky_relu' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'gamma' and getattr(args, arg) == 1.0:
                 continue
             elif str(arg) == 'bn_before_classifier' and not getattr(args, arg):
                 continue
