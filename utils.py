@@ -202,7 +202,7 @@ def get_args():
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
-    parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge")
+    parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge") # 1, 2, 3, 4
 
     parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
@@ -1223,7 +1223,8 @@ def get_heatmap(activations, shape, save_path=None, label=None, method='avg'):
     return heatmap
 
 
-def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], method='avg', classifier_weights=None):
+def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], method='avg', classifier_weights=None,
+                 attention=False):
     # activations = np.array(list(map(lambda act: torch.mean(act, dim=1).squeeze().data.cpu().numpy(),
     #                                 activations)))
 
@@ -1247,23 +1248,25 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
     # heatmap = heatmap
     final_heatmaps = []
 
-    # import pdb
-    # pdb.set_trace()
+    if attention:
+        for heatmap in cpu_activations:
+            heatmap = heatmap / np.max(heatmap)
+            final_heatmaps.append(__post_create_heatmap(heatmap, shape))
+    else:
+        heatmaps = np.maximum(cpu_activations, 0)
+        # activations[0][0] *= -1
+        # heatmaps = activations
 
-    heatmaps = np.maximum(cpu_activations, 0)
-    # activations[0][0] *= -1
-    # heatmaps = activations
+        # abs_heatmap = np.abs(activations)
 
-    # abs_heatmap = np.abs(activations)
+        # normalize the heatmap
+        print(f'heatmaps max: {np.max(heatmaps)}')
 
-    # normalize the heatmap
-    print(f'heatmaps max: {np.max(heatmaps)}')
+        if np.max(heatmaps) != 0:
+            heatmaps = heatmaps / np.max(heatmaps)
 
-    if np.max(heatmaps) != 0:
-        heatmaps = heatmaps / np.max(heatmaps)
-
-    for heatmap in heatmaps:
-        final_heatmaps.append(__post_create_heatmap(heatmap, shape))
+        for heatmap in heatmaps:
+            final_heatmaps.append(__post_create_heatmap(heatmap, shape))
 
     return final_heatmaps
 
@@ -1502,7 +1505,7 @@ def draw_act_histograms(ax, acts, titles, plot_title, classifier_weights=None):
 
 
 @MY_DEC
-def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title):
+def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_title, tb_path, epoch, writer):
     pooled_gradients = torch.mean(grads, dim=[0, 2, 3])
 
     for i in range(len(pooled_gradients)):
@@ -1543,6 +1546,12 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
         plt.savefig(path_)
         plt.close('all')
 
+        drew_plot = Image.open(path_)
+
+        writer.add_image(tb_path + f'/{method}', np.array(drew_plot)[:, :, :3], epoch, dataformats='HWC')
+
+        writer.flush()
+
     # for pic, path in zip(pics, paths):
     #     cv2.imwrite(path, pic)
 
@@ -1550,7 +1559,7 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
 @MY_DEC
 def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
                           titles=[''], histogram_path='',
-                          merge_method='sim', classifier_weights=None, softmax=False):
+                          merge_method='sim', classifier_weights=None, softmax=False, tb_path=None, epoch=None, writer=None):
     """
 
     :param acts: [anch_activation_p,
@@ -1669,6 +1678,8 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
         ax_anchpos_pos_ww = plt.subplot2grid(subplot_grid_shape, (3, 9), rowspan=3, colspan=3)
         ax_anchneg_neg_ww = plt.subplot2grid(subplot_grid_shape, (10, 9), rowspan=3, colspan=3)
 
+
+
         create_subplot(ax_anch, titles[0] + ' org', pics[0])
         create_subplot(ax_pos, titles[1] + ' org', pics[1])
         create_subplot(ax_neg, titles[2] + ' org', pics[2])
@@ -1692,6 +1703,12 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
         plt.savefig(heatmap_path[method])
         plt.close('all')
 
+        drew_plot = Image.open(heatmap_path[method])
+
+        writer.add_image(tb_path + f'/{method}', np.array(drew_plot)[:, :, :3], epoch, dataformats='HWC')
+        writer.flush()
+
+        os.rmdir(heatmap_path[method])
     # for pic, title in zip(pics, titles):
     #
     #     new_pics.append(self.put_text_on_pic(pic, title))
@@ -1728,6 +1745,45 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
     #
     # pics = np.concatenate(new_pics, axis=1)
     # cv2.imwrite(path, pic)
+
+
+def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
+                            titles=[''], tb_path=None, epoch=None, writer=None):
+    """
+
+    :param atts: [anch_activation_p,
+                    pos_activation,
+                    anch_activation_n,
+                    neg_activation]
+    :param img_list: [(anch_lbl, anch_img),
+                        (pos_lbl, pos_img),
+                        (neg_lbl, neg_img)]
+    :param id:
+    :param individual_paths:
+    :param pair_paths:
+    :return:
+    """
+
+    # classifier_weights = classifier_weights.cpu().numpy()
+    shape = img_list[0][1].shape[0:2]
+
+    for idx, (att, (title, im)) in enumerate(zip(atts, img_list)):
+        # import pdb
+        # pdb.set_trace()
+        heatmaps = get_heatmaps(att, shape=shape, classifier_weights=None, attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
+        pics = []
+        for h in heatmaps:
+            pics.append(merge_heatmap_img(im, h))
+
+        for layer, pic in enumerate(pics, 1):
+            writer.add_image(tb_path + f'/{title}_layer{layer}', pic, epoch, dataformats='HWC')
+
+        # pics = [merge_heatmap_img(im, heatmaps[0]),
+        #         merge_heatmap_img(im, heatmaps[1]),
+        #         merge_heatmap_img(img_list[2][1], heatmaps[2])
+        #         ]
+    writer.flush()
+
 
 
 @MY_DEC
@@ -2200,3 +2256,34 @@ def get_resnet(args, model_name):
     model.fc = torch.nn.Linear(2048, 256)
 
     return model
+
+def plot_class_dist(datas, plottitle, path):
+    # import pdb
+    # pdb.set_trace()
+    labels_unique = []
+    labels_count = []
+    count_dist_path = path[:path.rfind('.')] + 'count_dist' + path[path.rfind('.'):]
+
+    if not (os.path.exists(path) and os.path.exists(count_dist_path)):
+        for k, v in datas.items():
+            labels_unique.append(k)
+            labels_count.append(len(v))
+
+        labels_count = np.array(labels_count)
+        # labels_unique, labels_count = np.unique(labels, return_counts=True)
+
+        # plt.rcParams['figure.dpi'] = 600
+        plt.rcParams['figure.figsize'] = (20, 20)
+        # x = [i for i in range(len(labels_unique))]
+        x = labels_unique
+        plt.bar(x, labels_count)
+        plt.title(plottitle)
+        plt.savefig(path)
+        plt.close()
+
+        # plt.rcParams['figure.dpi'] = 600
+        plt.rcParams['figure.figsize'] = (20, 20)
+        plt.hist(labels_count, bins=(labels_count.max() - labels_count.min()) + 1)
+        plt.title(plottitle + ' count dist')
+        plt.savefig(count_dist_path)
+        plt.close()

@@ -1,14 +1,39 @@
 import torch
+import torch.nn.functional as F
 
 from models.MLP import *
 from models.resnet import *
 from models.vgg import *
 
-
 FEATURE_MAP_SIZES = {1: (256, 56, 56),
                      2: (512, 28, 28),
                      3: (1024, 14, 14),
                      4: (2048, 7, 7)}
+
+
+# https://github.com/SaoYan/LearnToPayAttention/
+
+class LinearAttentionBlock(nn.Module):
+    def __init__(self, in_features, normalize_attn=True):
+        super(LinearAttentionBlock, self).__init__()
+        self.normalize_attn = normalize_attn
+        self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
+
+    def forward(self, l, g):
+        N, C, W, H = l.size()
+        c = self.op(l + g)  # batch_sizex1xWxH
+
+        if self.normalize_attn:
+            a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
+        else:
+            a = torch.sigmoid(c)
+        g = torch.mul(a.expand_as(l), l)
+        if self.normalize_attn:
+            g = g.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        else:
+            g = F.adaptive_avg_pool2d(g, (1, 1)).view(N, C)
+        # return c.view(N, 1, W, H), g
+        return a, g
 
 
 class LocalFeat(nn.Module):
@@ -28,50 +53,72 @@ class LocalFeat(nn.Module):
         return x
 
 
+class Projector(nn.Module):
+
+    def __init__(self, input_channels, output_channels):
+        super(Projector, self).__init__()
+        self.op = nn.Conv2d(in_channels=input_channels, out_channels=output_channels, kernel_size=1)
+
+    def forward(self, x):
+        x = self.op(x)
+        return x
+
+
 class LocalFeatureModule(nn.Module):
 
     def __init__(self, args, in_channels):
         super(LocalFeatureModule, self).__init__()
         self.in_channels = in_channels
         if FEATURE_MAP_SIZES[1] in self.in_channels:
-            self.local_block_1 = LocalFeat(256)
-            self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
+            self.projector1 = Projector(256, 2048)
+            # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
+            self.att_1 = LinearAttentionBlock(2048)
         else:
-            self.local_block_1 = None
-            self.fc_block_1 = None
+            self.projector1 = None
+            # self.fc_block_1 = None
+            self.att_1 = None
 
         if FEATURE_MAP_SIZES[2] in self.in_channels:
-            self.local_block_2 = LocalFeat(512)
-            self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
-
+            self.projector2 = Projector(512, 2048)
+            # self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
+            self.att_2 = LinearAttentionBlock(2048)
         else:
-            self.local_block_2 = None
-            self.fc_block_2 = None
+            self.projector2 = None
+            # self.fc_block_2 = None
+            self.att_2 = None
 
         if FEATURE_MAP_SIZES[3] in self.in_channels:
-            self.local_block_3 = LocalFeat(1024)
-            self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
-
+            self.projector3 = Projector(1024, 2048)
+            # self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
+            self.att_3 = LinearAttentionBlock(2048)
         else:
-            self.local_block_3 = None
-            self.fc_block_3 = None
+            self.projector3 = None
+            # self.fc_block_3 = None
+            self.att_3 = None
 
         if FEATURE_MAP_SIZES[4] in self.in_channels:
-            self.local_block_4 = LocalFeat(2048)
-            self.fc_block_4 = nn.Sequential(nn.Linear(in_features=2 * (7 * 7), out_features=(7 * 7)), nn.ReLU())
+
+            # self.fc_block_4 = nn.Sequential(nn.Linear(in_features=2 * (7 * 7), out_features=(7 * 7)), nn.ReLU())
+            self.att_4 = LinearAttentionBlock(2048)
         else:
-            self.local_block_4 = None
-            self.fc_block_4 = None
 
-        self.layers = {256: self.local_block_1,
-                       512: self.local_block_2,
-                       1024: self.local_block_3,
-                       2048: self.local_block_4}
+            # self.fc_block_4 = None
+            self.att_4 = None
 
-        self.fc_blocks = {256: self.fc_block_1,
-                          512: self.fc_block_2,
-                          1024: self.fc_block_3,
-                          2048: self.fc_block_4}
+        self.layers = {256: self.projector1,
+                       512: self.projector2,
+                       1024: self.projector3,
+                       2048: None}
+
+        # self.fc_blocks = {256: self.fc_block_1,
+        #                   512: self.fc_block_2,
+        #                   1024: self.fc_block_3,
+        #                   2048: self.fc_block_4}
+
+        self.atts = {256: self.att_1,
+                     512: self.att_2,
+                     1024: self.att_3,
+                     2048: self.att_4}
 
         self.merge_method = args.merge_method
 
@@ -79,56 +126,70 @@ class LocalFeatureModule(nn.Module):
         for (C, H, W) in self.in_channels:
             total_channels += (H * W)  # todo residual connection?
 
-        self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
+        # self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
 
         if not self.merge_method.startswith('local-diff-sim'):
-            self.classifier = nn.Sequential(nn.Linear(in_features=2048, out_features=1))
+            self.classifier = nn.Sequential(nn.Linear(in_features=2048 * len(in_channels), out_features=1))
         else:
             self.classifier = None
 
-    def forward(self, x1s, x2s):
+    def forward(self, x1_local, x2_local, x1_global, x2_global):
         rets = []
         # print('forward attention module')
-
         li_1s = []
         li_2s = []
 
-        for (C, _, _), x1, x2 in zip(self.in_channels, x1s, x2s):
-            li_1s.append(self.layers[C](x1).flatten(start_dim=1))
-            li_2s.append(self.layers[C](x2).flatten(start_dim=1))
+        for (C, _, _), x1, x2 in zip(self.in_channels, x1_local, x2_local):
+            # if C != 2048:
+            #     li_1s.append(self.layers[C](x1).flatten(start_dim=1))
+            #     li_2s.append(self.layers[C](x2).flatten(start_dim=1))
+            # else:
+            #     li_1s.append(x1.flatten(start_dim=1))
+            #     li_2s.append(x2.flatten(start_dim=1))
+            if C != 2048:
+                li_1s.append(self.layers[C](x1))
+                li_2s.append(self.layers[C](x2))
+            else:
+                li_1s.append(x1)
+                li_2s.append(x2)
 
-        ls = []
 
+        # ls = []
+        att_gs_1 = []
+        atts_1 = []
+
+        att_gs_2 = []
+        atts_2 = []
+
+        att_gs = []
+        atts = []
+        # import pdb
+        # pdb.set_trace()
+        # B, C = x1_global.shape
+        #
+        # x1_global = x1_global.reshape(B, C, 1, 1)
+        # x2_global = x2_global.reshape(B, C, 1, 1)
         for (C, _, _), l1, l2 in zip(self.in_channels, li_1s, li_2s):
-            ls.append(self.fc_blocks[C](utils.vector_merge_function(l1, l2, method='concat')))
+            att_1, att_g_1 = self.atts[C](l1, x1_global)
+            att_2, att_g_2 = self.atts[C](l2, x2_global)
 
-        # l1_1 = self.local_block_1(x1s[0]).flatten(start_dim=1)
-        # l1_2 = self.local_block_1(x2s[0]).flatten(start_dim=1)
-        #
-        # l2_1 = self.local_block_2(x1s[1]).flatten(start_dim=1)
-        # l2_2 = self.local_block_2(x2s[1]).flatten(start_dim=1)
-        #
-        # l3_1 = self.local_block_3(x1s[2]).flatten(start_dim=1)
-        # l3_2 = self.local_block_3(x2s[2]).flatten(start_dim=1)
-        #
-        # l4_1 = self.local_block_4(x1s[3]).flatten(start_dim=1)
-        # l4_2 = self.local_block_4(x2s[3]).flatten(start_dim=1)
-        #
-        # l1 = self.fc_block_1(utils.vector_merge_function(l1_1, l1_2, method='concat'))
-        # l2 = self.fc_block_2(utils.vector_merge_function(l2_1, l2_2, method='concat'))
-        # l3 = self.fc_block_3(utils.vector_merge_function(l3_1, l3_2, method='concat'))
-        # l4 = self.fc_block_4(utils.vector_merge_function(l4_1, l4_2, method='concat'))
+            atts_1.append(att_1)
+            att_gs_1.append(att_g_1)
 
-        local_features = self.local_concat(torch.cat(ls, dim=1))
+            atts_2.append(att_2)
+            att_gs_2.append(att_g_2)
 
-        if not self.merge_method.startswith('local-diff-sim'):
+            att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method='sim'))
+            # atts.append(att_1 + att_2)
+
+        local_features = torch.cat(att_gs, dim=1)
+
+        if self.classifier:
             ret = self.classifier(local_features)
         else:
             ret = local_features
 
-        return ret, local_features
-
-
+        return ret, local_features, atts_1, atts_2
 
 
 class TopModel(nn.Module):
@@ -148,13 +209,15 @@ class TopModel(nn.Module):
             feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
             print(f'Using {feature_map_inputs} for local maps')
             self.local_features = LocalFeatureModule(args, feature_map_inputs)  # only for resnet50
-        else:
-            self.local_features = None
-
-        if self.merge_method.startswith('local-diff-sim'):
             self.diffsim_fc_net = VectorConcat(input_size=4096,
                                                output_size=2048,
                                                layers=1)
+        else:
+            self.local_features = None
+            self.diffsim_fc_net = None
+
+
+        if self.merge_method.startswith('local-diff-sim'):
 
             if self.merge_method.startswith('local-diff-sim-concat'):
                 # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
@@ -169,7 +232,6 @@ class TopModel(nn.Module):
 
             self.classifier = nn.Linear(in_features=in_feat, out_features=1)
         else:
-            self.diffsim_fc_net = None
             self.classifier = None
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -193,10 +255,11 @@ class TopModel(nn.Module):
         return self.ft_net.get_activations()
 
     @utils.MY_DEC
-    def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False):
+    def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False, return_att=False):
         # print('model input:', x1[-1].size())
-
-        x1_f, x1_all = self.ft_net(x1, is_feat=True, hook=hook)
+        atts_1 = None
+        atts_2 = None
+        x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
         if hook:
             anch_pass_act = self.get_activations().detach().clone()
         else:
@@ -207,7 +270,7 @@ class TopModel(nn.Module):
             raise Exception('Both single and feats cannot be True')
 
         if not single:
-            x2_f, x2_all = self.ft_net(x2, is_feat=True, hook=hook)
+            x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
             if hook:
                 other_pass_act = self.get_activations().detach().clone()
             else:
@@ -218,16 +281,22 @@ class TopModel(nn.Module):
                 x2_input = []
 
                 for i in self.fmaps_no:
-                    x1_input.append(x1_all[i - 1])
-                    x2_input.append(x2_all[i - 1])
+                    x1_input.append(x1_local[i - 1])
+                    x2_input.append(x2_local[i - 1])
 
-                ret, local_features = self.local_features(x1_input, x2_input)
+                ret_global = utils.vector_merge_function(x1_global, x2_global, method='diff-sim',
+                                                         softmax=self.softmax).flatten(
+                    start_dim=1)  # todo should be 2048 for now
+                ret_global = self.diffsim_fc_net(ret_global)
+
+                ret, local_features, atts_1, atts_2 = self.local_features(x1_local=x1_input,
+                                                                          x2_local=x2_input,
+                                                                          x1_global=x1_global,
+                                                                          x2_global=x2_global)
+
 
                 if self.merge_method.startswith('local-diff-sim'):  # TODO
-                    ret_global = utils.vector_merge_function(x1_f, x2_f, method='diff-sim',
-                                                             softmax=self.softmax).flatten(
-                        start_dim=1)  # todo should be 2048 for now
-                    ret_global = self.diffsim_fc_net(ret_global)
+
 
                     if self.merge_method.startswith('local-diff-sim-concat'):
                         final_vec = torch.cat([ret_global, ret], dim=1)
@@ -249,36 +318,45 @@ class TopModel(nn.Module):
 
                 if feats:
                     if hook:
-                        return pred, local_features, x1_all, x2_all, [anch_pass_act, other_pass_act]
+                        if return_att:
+                            return pred, local_features, x1_local, x2_local, [anch_pass_act, other_pass_act], atts_1, atts_2
+                        else:
+                            return pred, local_features, x1_local, x2_local, [anch_pass_act, other_pass_act]
                     else:
-                        return pred, local_features, x1_all, x2_all
+                        return pred, local_features, x1_local, x2_local
                 else:
                     return pred, local_features
 
             else:
-                ret = self.sm_net(x1_f, x2_f, feats=feats, softmax=self.softmax)
+                ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
                 if feats:
                     pred, pdist, out1, out2 = ret
                     if hook:
-                        return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
+                        if return_att:
+                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
+                        else:
+                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
                     else:
                         return pred, pdist, out1, out2
                 else:
                     pred, pdist = ret
                     return pred, pdist
         else:
-            output = self.sm_net(x1_f, None, single)  # single is true
+            output = self.sm_net(x1_global, None, single)  # single is true
             return output
 
     def get_classifier_weights(self):
-        return self.sm_net.get_classifier_weights()
+        if self.classifier:
+            return self.classifier.weight
+        else:
+            return self.sm_net.get_classifier_weights()
         # print('features:', x2_f[-1].size())
         # print('output:', output.size())
 
         # if feats:
         #     return output, out1, out2
-        # else:
+        # else:self.draw_activations
         #     return output
 
 
