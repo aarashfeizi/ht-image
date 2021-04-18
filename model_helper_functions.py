@@ -638,6 +638,8 @@ class ModelMethods:
 
         self.important_hparams = self._tb_get_important_hparams(args)
 
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=args.gamma)
+
         for epoch in range(1, max_epochs + 1):
 
             epoch_start = time.time()
@@ -953,6 +955,8 @@ class ModelMethods:
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (complete) time: {epoch_end - epoch_start}')
+
+            scheduler.step()
 
         # acc = 0.0
         # for d in queue:

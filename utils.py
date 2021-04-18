@@ -200,6 +200,7 @@ def get_args():
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
+    parser.add_argument('-gamma', '--gamma', default=1.0, type=float, help="Learning Rate Scheduler")
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
     parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge") # 1, 2, 3, 4
