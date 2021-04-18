@@ -282,20 +282,21 @@ class ModelMethods:
             # self.logger.info(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
             pos_pred_int = int(torch.sigmoid(pos_pred).item() >= 0.5)
             self.cam_pos[id - 1] += pos_pred_int
-
             pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
-
-            pos_class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
-            pos_class_loss.backward(retain_graph=True)
-            class_loss = pos_class_loss
-
             plot_title = f'Backward BCE heatmaps Anch Pos\nAnch-Pos: {pos_text}'
+            if 'diff' in self.merge_method or 'sim' in self.merge_method:
 
-            utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                      net.get_activations().detach(),
-                                      {'anch': anch_org,
-                                       'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
-                                      plot_title, f'triplet_{id}_anchpos_bce', epoch, self.writer)
+
+                pos_class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+                pos_class_loss.backward(retain_graph=True)
+                class_loss = pos_class_loss
+
+
+                utils.apply_grad_heatmaps(net.get_activations_gradient(),
+                                          net.get_activations().detach(),
+                                          {'anch': anch_org,
+                                           'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
+                                          plot_title, f'triplet_{id}_anchpos_bce', epoch, self.writer)
 
             neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anch_att, neg_att = net.forward(anch, neg,
                                                                                             feats=True,
@@ -306,12 +307,18 @@ class ModelMethods:
             self.cam_neg[id - 1] += neg_pred_int
 
             neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
-
-            neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-            neg_class_loss.backward(retain_graph=True)
-            class_loss += neg_class_loss
-
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
+
+            if 'diff' in self.merge_method or 'sim' in self.merge_method:
+
+                neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+                neg_class_loss.backward(retain_graph=True)
+                class_loss += neg_class_loss
+                utils.apply_grad_heatmaps(net.get_activations_gradient(),
+                                          net.get_activations().detach(),
+                                          {'anch': anch_org,
+                                           'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
+                                          plot_title, f'triplet_{id}_anchneg_bce', epoch, self.writer)
 
             # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', all_heatmap_grid_anch_path)
             # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
@@ -325,17 +332,13 @@ class ModelMethods:
             #                         ['Anch', 'Pos', 'Neg'],
             #                         all_heatmap_grid_path)
 
-            utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                      net.get_activations().detach(),
-                                      {'anch': anch_org,
-                                       'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
-                                      plot_title, f'triplet_{id}_anchneg_bce', epoch, self.writer)
+
 
             # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
 
             result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
 
-            if 'diff-sim' in self.merge_method:
+            if 'diff' in self.merge_method or 'sim' in self.merge_method:
                 ks = list(map(lambda x: int(x), args.k_best_maps))
 
                 value = ''
@@ -511,39 +514,40 @@ class ModelMethods:
                                               epoch=epoch,
                                               writer=self.writer)
 
-            if loss_fn is not None:
-                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
-                ext_loss = ext_batch_loss
+            if 'diff' in self.merge_method or 'sim' in self.merge_method:
+                if loss_fn is not None:
+                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+                    ext_loss = ext_batch_loss
 
-                ext_loss.backward(retain_graph=True)
-                ext_loss /= self.no_negative
+                    ext_loss.backward(retain_graph=True)
+                    ext_loss /= self.no_negative
 
-                plot_title = f"Backward Triplet Loss" + result_text
+                    plot_title = f"Backward Triplet Loss" + result_text
 
+                    utils.apply_grad_heatmaps(net.get_activations_gradient(),
+                                              net.get_activations().detach(),
+                                              {'anch': anch_org,
+                                               'pos': pos_org,
+                                               'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
+                                              plot_title, f'triplet_{id}_anchpos_triplet', epoch, self.writer)
+
+                    class_loss /= (self.no_negative + 1)
+
+                    loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+
+                else:
+
+                    loss = self.bce_weight * class_loss
+
+                plot_title = f"Backward Total Loss" + result_text
+
+                loss.backward()
                 utils.apply_grad_heatmaps(net.get_activations_gradient(),
                                           net.get_activations().detach(),
                                           {'anch': anch_org,
                                            'pos': pos_org,
-                                           'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
-                                          plot_title, f'triplet_{id}_anchpos_triplet', epoch, self.writer)
-
-                class_loss /= (self.no_negative + 1)
-
-                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
-
-            else:
-
-                loss = self.bce_weight * class_loss
-
-            plot_title = f"Backward Total Loss" + result_text
-
-            loss.backward()
-            utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                      net.get_activations().detach(),
-                                      {'anch': anch_org,
-                                       'pos': pos_org,
-                                       'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
-                                      plot_title, f'triplet_{id}_anchpos_total', epoch, self.writer)
+                                           'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
+                                          plot_title, f'triplet_{id}_anchpos_total', epoch, self.writer)
 
         self.created_image_heatmap_path = True
 
