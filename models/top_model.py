@@ -209,16 +209,16 @@ class TopModel(nn.Module):
             feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
             print(f'Using {feature_map_inputs} for local maps')
             self.local_features = LocalFeatureModule(args, feature_map_inputs)  # only for resnet50
-            self.diffsim_fc_net = VectorConcat(input_size=4096,
-                                               output_size=2048,
-                                               layers=1)
+
         else:
             self.local_features = None
-            self.diffsim_fc_net = None
+
 
 
         if self.merge_method.startswith('local-diff-sim'):
-
+            self.diffsim_fc_net = VectorConcat(input_size=4096,
+                                               output_size=2048,
+                                               layers=1)
             if self.merge_method.startswith('local-diff-sim-concat'):
                 # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
                 in_feat = 2048 + 2048
@@ -232,6 +232,7 @@ class TopModel(nn.Module):
 
             self.classifier = nn.Linear(in_features=in_feat, out_features=1)
         else:
+            self.diffsim_fc_net = None
             self.classifier = None
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -284,10 +285,6 @@ class TopModel(nn.Module):
                     x1_input.append(x1_local[i - 1])
                     x2_input.append(x2_local[i - 1])
 
-                ret_global = utils.vector_merge_function(x1_global, x2_global, method='diff-sim',
-                                                         softmax=self.softmax).flatten(
-                    start_dim=1)  # todo should be 2048 for now
-                ret_global = self.diffsim_fc_net(ret_global)
 
                 ret, local_features, atts_1, atts_2 = self.local_features(x1_local=x1_input,
                                                                           x2_local=x2_input,
@@ -297,6 +294,10 @@ class TopModel(nn.Module):
 
                 if self.merge_method.startswith('local-diff-sim'):  # TODO
 
+                    ret_global = utils.vector_merge_function(x1_global, x2_global, method='diff-sim',
+                                                             softmax=self.softmax).flatten(
+                        start_dim=1)  # todo should be 2048 for now
+                    ret_global = self.diffsim_fc_net(ret_global)
 
                     if self.merge_method.startswith('local-diff-sim-concat'):
                         final_vec = torch.cat([ret_global, ret], dim=1)
