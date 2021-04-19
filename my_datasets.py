@@ -316,7 +316,7 @@ class FewShot_Dataset_Test(Dataset):
                                                                                         dataset_folder=args.dataset_folder,
                                                                                         return_bg=return_bg)
 
-            utils.plot_class_dist(self.datas, f'hotels-{args.portion} {mode} dist', f'dataset_plots/hotels-{args.portion}_{mode}_dist.png')
+            # utils.plot_class_dist(self.datas, f'hotels-{args.portion} {mode} dist', f'dataset_plots/hotels-{args.portion}_{mode}_dist.png')
 
         else:
             self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem_2(args.dataset_path, args.dataset_folder,
@@ -324,7 +324,7 @@ class FewShot_Dataset_Test(Dataset):
                                                                                           portion=args.portion,
                                                                                           return_bg=return_bg)
 
-            utils.plot_class_dist(self.datas, f'{args.dataset_folder} {mode} dist', f'dataset_plots/{args.dataset_folder}_{mode}_dist.png')
+            # utils.plot_class_dist(self.datas, f'{args.dataset_folder} {mode} dist', f'dataset_plots/{args.dataset_folder}_{mode}_dist.png')
 
         self.aug_mask = args.aug_mask
 
