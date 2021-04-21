@@ -173,16 +173,19 @@ class ModelMethods:
         utils.make_dirs(heatmap_path_perepoch)
         self.cam_all += 1
 
-        sub_methods = self.merge_method.split('-')
+        if self.merge_method.startswith('local'):
+            sub_methods = [f'Layer {i}' for i in args.feature_map_layers]
+        else:
+            sub_methods = self.merge_method.split('-')
 
         classifier_weights = net.get_classifier_weights().data[0]
         classifier_dim = len(classifier_weights)
         classifier_histogram_path = os.path.join(heatmap_path_perepoch,
                                                  f'classifier_histogram_epoch{epoch}.png')
 
-        # todo supports only diff-sim, diff, sim
-        # self.plot_classifier_hist(classifier_weights.chunk(len(sub_methods), dim=-1), sub_methods,
-        #                           'Classifier weight distribution', classifier_histogram_path)
+        self.plot_classifier_hist(classifier_weights.chunk(len(sub_methods), dim=-1), sub_methods,
+                                  'Classifier weight distribution', classifier_histogram_path,
+                                  f'classifier_weight', epoch)
 
         for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
 
@@ -285,12 +288,9 @@ class ModelMethods:
             pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
             plot_title = f'Backward BCE heatmaps Anch Pos\nAnch-Pos: {pos_text}'
             if 'diff' in self.merge_method or 'sim' in self.merge_method:
-
-
                 pos_class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
                 pos_class_loss.backward(retain_graph=True)
                 class_loss = pos_class_loss
-
 
                 utils.apply_grad_heatmaps(net.get_activations_gradient(),
                                           net.get_activations().detach(),
@@ -310,7 +310,6 @@ class ModelMethods:
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
             if 'diff' in self.merge_method or 'sim' in self.merge_method:
-
                 neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
                 neg_class_loss.backward(retain_graph=True)
                 class_loss += neg_class_loss
@@ -331,8 +330,6 @@ class ModelMethods:
             #                         [anch_org, pos_org, neg_org],
             #                         ['Anch', 'Pos', 'Neg'],
             #                         all_heatmap_grid_path)
-
-
 
             # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
 
@@ -439,8 +436,6 @@ class ModelMethods:
                                                                        :].squeeze(dim=0),
                                                     tb_path=f'triplet_{id}_anch_pos_forward', epoch=epoch,
                                                     writer=self.writer)
-
-
 
                         self.logger.info('after forward drawing')
                         self.logger.info(f'min: {(acts_tmp[0].min())}')
@@ -2050,7 +2045,8 @@ class ModelMethods:
 
         return t, (train_loss, train_bce_loss, train_batchhard_loss), ([], [])
 
-    def plot_classifier_hist(self, classifier_weights_methods, titles, plot_title, save_path):
+    def plot_classifier_hist(self, classifier_weights_methods, titles, plot_title, save_path, tb_title, epoch):
+
         plt.figure(figsize=(15, 15))
         legends = list(map(lambda x: x + ' value distribution', titles))
         if len(classifier_weights_methods) == 1:
@@ -2065,6 +2061,12 @@ class ModelMethods:
             lines = [Line2D([0], [0], color="b", lw=4),
                      Line2D([0], [0], color="r", lw=4),
                      Line2D([0], [0], color="g", lw=4)]
+        elif len(classifier_weights_methods) == 4:
+            colors = ['b', 'r', 'g', 'y']
+            lines = [Line2D([0], [0], color="b", lw=4),
+                     Line2D([0], [0], color="r", lw=4),
+                     Line2D([0], [0], color="g", lw=4),
+                     Line2D([0], [0], color="y", lw=4)]
         else:
             raise Exception('too many sub method types for plotting')
 
@@ -2077,7 +2079,9 @@ class ModelMethods:
             if min > flatten_act.min():
                 min = flatten_act.min()
             plt.hist(flatten_act, bins=100, alpha=0.4, color=color)
+            self.writer.add_histogram(f'{tb_title}/{title}', flatten_act, epoch)
 
+        self.writer.flush()
         plt.axis('on')
         plt.xlim(left=min - 0.1, right=max + 0.1)
         plt.legend(lines, legends)

@@ -350,6 +350,8 @@ class TopModel(nn.Module):
     def get_classifier_weights(self):
         if self.classifier:
             return self.classifier.weight
+        elif self.local_features and self.local_features.classifier:
+            return self.local_features.classifier[0].weight
         else:
             return self.sm_net.get_classifier_weights()
         # print('features:', x2_f[-1].size())
