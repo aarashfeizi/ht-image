@@ -21,7 +21,7 @@ class LinearAttentionBlock(nn.Module):
 
     def forward(self, l, g):
         N, C, W, H = l.size()
-        if g:
+        if g is not None:
             c = self.op(l + g)  # batch_sizex1xWxH
         else:
             c = self.op(l)
