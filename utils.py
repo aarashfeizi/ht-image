@@ -207,6 +207,9 @@ def get_args():
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
     parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge") # 1, 2, 3, 4
 
+    parser.add_argument('-merge_global', '--merge_global', default=False, action='store_true')
+    parser.add_argument('-no_global', '--no_global', default=False, action='store_true')
+
     parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
@@ -1942,7 +1945,9 @@ def get_logname(args, model):
                          'drop_last': 'dl',
                          'softmax_diff_sim': 'smds',
                          'feature_map_layers': 'fml',
-                         'gamma': 'gamma'}
+                         'gamma': 'gamma',
+                         'merge_global': 'merge_global',
+                         'no_global': 'no_global'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -1970,7 +1975,9 @@ def get_logname(args, model):
                       'weight_decay',
                       'drop_last',
                       'softmax_diff_sim',
-                      'gamma']
+                      'gamma',
+                      'merge_global',
+                      'no_global']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -2004,6 +2011,10 @@ def get_logname(args, model):
             elif str(arg) == 'normalize' and not getattr(args, arg):
                 continue
             elif str(arg) == 'drop_last' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'merge_global' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'no_global' and not getattr(args, arg):
                 continue
 
             if type(getattr(args, arg)) is not bool:

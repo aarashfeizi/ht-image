@@ -14,26 +14,29 @@ FEATURE_MAP_SIZES = {1: (256, 56, 56),
 # https://github.com/SaoYan/LearnToPayAttention/
 
 class LinearAttentionBlock(nn.Module):
-    def __init__(self, in_features, normalize_attn=True):
+    def __init__(self, in_features, normalize_attn=True, ):
         super(LinearAttentionBlock, self).__init__()
         self.normalize_attn = normalize_attn
         self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
 
     def forward(self, l, g):
         N, C, W, H = l.size()
-        c = self.op(l + g)  # batch_sizex1xWxH
+        if g:
+            c = self.op(l + g)  # batch_sizex1xWxH
+        else:
+            c = self.op(l)
 
         if self.normalize_attn:
             a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
         else:
             a = torch.sigmoid(c)
-        g = torch.mul(a.expand_as(l), l)
+        l_att = torch.mul(a.expand_as(l), l)
         if self.normalize_attn:
-            g = g.view(N, C, -1).sum(dim=2)  # batch_sizexC
+            l_att = l_att.view(N, C, -1).sum(dim=2)  # batch_sizexC
         else:
-            g = F.adaptive_avg_pool2d(g, (1, 1)).view(N, C)
+            l_att = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
-        return a, g
+        return a, l_att
 
 
 class LocalFeat(nn.Module):
@@ -69,6 +72,8 @@ class LocalFeatureModule(nn.Module):
     def __init__(self, args, in_channels):
         super(LocalFeatureModule, self).__init__()
         self.in_channels = in_channels
+        self.merge_global = args.merge_global
+        self.no_global = args.no_global
         if FEATURE_MAP_SIZES[1] in self.in_channels:
             self.projector1 = Projector(256, 2048)
             # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
@@ -170,8 +175,15 @@ class LocalFeatureModule(nn.Module):
         # x1_global = x1_global.reshape(B, C, 1, 1)
         # x2_global = x2_global.reshape(B, C, 1, 1)
         for (C, _, _), l1, l2 in zip(self.in_channels, li_1s, li_2s):
-            att_1, att_g_1 = self.atts[C](l1, x1_global)
-            att_2, att_g_2 = self.atts[C](l2, x2_global)
+            if self.no_global:
+                att_1, att_g_1 = self.atts[C](l1, None)
+                att_2, att_g_2 = self.atts[C](l2, None)
+            elif self.merge_global:
+                att_1, att_g_1 = self.atts[C](l1, x1_global + x2_global)
+                att_2, att_g_2 = self.atts[C](l2, x1_global + x2_global)
+            else:
+                att_1, att_g_1 = self.atts[C](l1, x1_global)
+                att_2, att_g_2 = self.atts[C](l2, x2_global)
 
             atts_1.append(att_1)
             att_gs_1.append(att_g_1)

@@ -32,6 +32,7 @@ class ModelMethods:
 
     def __init__(self, args, logger, model='top', cam_images_len=-1, model_name='', id_str=''):  # res or top
 
+        self.merge_global = args.merge_global
         self.model = model
 
         self.model_name = model_name
@@ -266,7 +267,7 @@ class ModelMethods:
             class_loss = 0
             ext_loss = 0
 
-            pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anch_att, pos_att = net.forward(anch, pos,
+            pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anchp_att, pos_att = net.forward(anch, pos,
                                                                                                     feats=True,
                                                                                                     hook=True,
                                                                                                     return_att=True)
@@ -298,7 +299,7 @@ class ModelMethods:
                                            'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
                                           plot_title, f'triplet_{id}_anchpos_bce', epoch, self.writer)
 
-            neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anch_att, neg_att = net.forward(anch, neg,
+            neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anchn_att, neg_att = net.forward(anch, neg,
                                                                                             feats=True,
                                                                                             hook=True,
                                                                                             return_att=True)
@@ -497,17 +498,42 @@ class ModelMethods:
             elif 'local' in self.merge_method:
                 att_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_att.png')
 
-                utils.apply_attention_heatmap([anch_att, pos_att, neg_att],
-                                              [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
-                                              id,
-                                              att_heatmap_path,
-                                              overall_title=plot_title,
-                                              # individual_paths=[anch_hm_file_path,
-                                              #                   neg_hm_file_path],
-                                              # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
-                                              tb_path=f'triplet_{id}_attention',
-                                              epoch=epoch,
-                                              writer=self.writer)
+                if self.merge_global:
+                    utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],
+                                                  [('anch', anch_org), ('pos', pos_org)],
+                                                  id,
+                                                  att_heatmap_path,
+                                                  overall_title=plot_title,
+                                                  # individual_paths=[anch_hm_file_path,
+                                                  #                   neg_hm_file_path],
+                                                  # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+                                                  tb_path=f'triplet_{id}_anchpos_attention',
+                                                  epoch=epoch,
+                                                  writer=self.writer)
+
+                    utils.apply_attention_heatmap([anchn_att, neg_att],
+                                                  [('anch', anch_org), ('neg', neg_org)],
+                                                  id,
+                                                  att_heatmap_path,
+                                                  overall_title=plot_title,
+                                                  # individual_paths=[anch_hm_file_path,
+                                                  #                   neg_hm_file_path],
+                                                  # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+                                                  tb_path=f'triplet_{id}_anchneg_attention',
+                                                  epoch=epoch,
+                                                  writer=self.writer)
+                else:
+                    utils.apply_attention_heatmap([anchp_att, pos_att, neg_att], # anchn_att and anchp_att are the same
+                                                  [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
+                                                  id,
+                                                  att_heatmap_path,
+                                                  overall_title=plot_title,
+                                                  # individual_paths=[anch_hm_file_path,
+                                                  #                   neg_hm_file_path],
+                                                  # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+                                                  tb_path=f'triplet_{id}_attention',
+                                                  epoch=epoch,
+                                                  writer=self.writer)
 
             if 'diff' in self.merge_method or 'sim' in self.merge_method:
                 if loss_fn is not None:
