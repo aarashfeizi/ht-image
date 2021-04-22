@@ -27,6 +27,38 @@ from losses import TripletLoss
 EVAL_SET_NAMES = {1: ['total'],
                   2: ['seen', 'unseen']}
 
+class Adaptive_Scheduler:
+    def __init__(self, opt, gamma, tol=3, logger=None):
+        self.opt = opt
+        self.gamma = gamma
+        self.loss = -1
+        self.max_tol = tol
+        self.level = 0
+        self.logger = logger
+
+    def step(self, loss):
+        if self.loss == -1:
+            self.loss = loss
+        elif loss > self.loss or np.abs(loss - self.loss) <= self.loss * 0.005:
+            if self.logger is not None:
+                self.logger.info(
+                    f"level = {self.level}, last loss = {self.loss}, current loss = {loss}, eps = {self.loss * 0.005}")
+            self.level += 1
+        elif loss < self.loss and np.abs(loss - self.loss) > self.loss * 0.005:
+            self.loss = loss
+            self.level = 0
+
+        if self.level == self.max_tol:
+            for p in self.opt.param_groups:
+                if self.logger is not None:
+                    self.logger.info(f"Tol = {self.max_tol} and previous loss = {self.loss} Decaying learning rate from {p['lr']} to {p['lr'] * self.gamma}")
+
+                p['lr'] *= self.gamma
+
+            self.level = 0
+
+
+
 
 class ModelMethods:
 
@@ -659,7 +691,12 @@ class ModelMethods:
 
         self.important_hparams = self._tb_get_important_hparams(args)
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer=opt, step_size=args.gamma_step, gamma=args.gamma)
+        if args.gamma_step != 0:
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer=opt, step_size=args.gamma_step, gamma=args.gamma)
+            adaptive_scheduler = None
+        else:
+            scheduler = None
+            adaptive_scheduler = Adaptive_Scheduler(opt, gamma=args.gamma, logger=self.logger)
 
         for epoch in range(1, max_epochs + 1):
 
@@ -978,7 +1015,10 @@ class ModelMethods:
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (complete) time: {epoch_end - epoch_start}')
 
-            scheduler.step()
+            if scheduler:
+                scheduler.step()
+            else:
+                adaptive_scheduler.step(train_loss)
 
         # acc = 0.0
         # for d in queue:
