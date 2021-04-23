@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from PIL import Image
 from matplotlib.lines import Line2D
-from sklearn.metrics import confusion_matrix, roc_auc_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, euclidean_distances
 from sklearn.metrics import silhouette_score, silhouette_samples
 from torch.autograd import Variable
 from tqdm import tqdm
@@ -26,6 +26,7 @@ from losses import TripletLoss
 
 EVAL_SET_NAMES = {1: ['total'],
                   2: ['seen', 'unseen']}
+
 
 class Adaptive_Scheduler:
     def __init__(self, opt, gamma, tol=3, logger=None):
@@ -51,13 +52,12 @@ class Adaptive_Scheduler:
         if self.level == self.max_tol:
             for p in self.opt.param_groups:
                 if self.logger is not None:
-                    self.logger.info(f"Tol = {self.max_tol} and previous loss = {self.loss} Decaying learning rate from {p['lr']} to {p['lr'] * self.gamma}")
+                    self.logger.info(
+                        f"Tol = {self.max_tol} and previous loss = {self.loss} Decaying learning rate from {p['lr']} to {p['lr'] * self.gamma}")
 
                 p['lr'] *= self.gamma
 
             self.level = 0
-
-
 
 
 class ModelMethods:
@@ -141,9 +141,26 @@ class ModelMethods:
                                  'between_class_max': [],
                                  'in_class_average': [],
                                  'in_class_min': [],
+                                 'in_class_max': []},
+                            'val_seen':
+                                {'between_class_average': [],
+                                 'between_class_min': [],
+                                 'between_class_max': [],
+                                 'in_class_average': [],
+                                 'in_class_min': [],
+                                 'in_class_max': []},
+                            'val_unseen':
+                                {'between_class_average': [],
+                                 'between_class_min': [],
+                                 'between_class_max': [],
+                                 'in_class_average': [],
+                                 'in_class_min': [],
                                  'in_class_max': []}}
+
         self.silhouette_scores = {'train': [],
                                   'val': [],
+                                  'val_seen': [],
+                                  'val_unseen': [],
                                   'test': []}
 
         self.aug_mask = args.aug_mask
@@ -300,9 +317,9 @@ class ModelMethods:
             ext_loss = 0
 
             pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anchp_att, pos_att = net.forward(anch, pos,
-                                                                                                    feats=True,
-                                                                                                    hook=True,
-                                                                                                    return_att=True)
+                                                                                                     feats=True,
+                                                                                                     hook=True,
+                                                                                                     return_att=True)
 
             map_shape = acts_anch_pos[0].shape
             classifier_weights_tensor = torch.repeat_interleave(classifier_weights, repeats=map_shape[2] * map_shape[3],
@@ -332,9 +349,9 @@ class ModelMethods:
                                           plot_title, f'triplet_{id}_anchpos_bce', epoch, self.writer)
 
             neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anchn_att, neg_att = net.forward(anch, neg,
-                                                                                            feats=True,
-                                                                                            hook=True,
-                                                                                            return_att=True)
+                                                                                             feats=True,
+                                                                                             hook=True,
+                                                                                             return_att=True)
 
             neg_pred_int = int(torch.sigmoid(neg_pred).item() < 0.5)
             self.cam_neg[id - 1] += neg_pred_int
@@ -555,7 +572,7 @@ class ModelMethods:
                                                   epoch=epoch,
                                                   writer=self.writer)
                 else:
-                    utils.apply_attention_heatmap([anchp_att, pos_att, neg_att], # anchn_att and anchp_att are the same
+                    utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],  # anchn_att and anchp_att are the same
                                                   [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
                                                   id,
                                                   att_heatmap_path,
@@ -696,7 +713,7 @@ class ModelMethods:
             adaptive_scheduler = None
         else:
             scheduler = None
-            adaptive_scheduler = Adaptive_Scheduler(opt, gamma=args.gamma, logger=self.logger)
+            adaptive_scheduler = Adaptive_Scheduler(opt, gamma=args.gamma, logger=self.logger, tol=args.lr_tol)
 
         for epoch in range(1, max_epochs + 1):
 
@@ -1018,7 +1035,7 @@ class ModelMethods:
             if scheduler:
                 scheduler.step()
             else:
-                adaptive_scheduler.step(train_loss)
+                adaptive_scheduler.step(train_loss / len(train_loader))
 
         # acc = 0.0
         # for d in queue:
@@ -1269,17 +1286,23 @@ class ModelMethods:
             test_classes = np.zeros(((len(data_loader.dataset))))
             test_seen = np.zeros(((len(data_loader.dataset))))
             test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
+
+            if self.merge_method == 'local-unequaldim':
+                coeff = len(args.feature_map_layers)
+            else:
+                coeff = 1
+
             if args.feat_extractor == 'resnet50':
-                test_feats = np.zeros((len(data_loader.dataset), 2048))
+                test_feats = np.zeros((len(data_loader.dataset), 2048 * coeff))
             elif args.feat_extractor == 'resnet18':
-                test_feats = np.zeros((len(data_loader.dataset), 512))
+                test_feats = np.zeros((len(data_loader.dataset), 512 * coeff))
             elif args.feat_extractor == 'vgg16':
-                test_feats = np.zeros((len(data_loader.dataset), 4096))
+                test_feats = np.zeros((len(data_loader.dataset), 4096 * coeff))
             else:
                 raise Exception('Not handled feature extractor')
 
             if args.dim_reduction != 0:
-                test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction))
+                test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff))
 
             for idx, tpl in enumerate(data_loader):
 
@@ -1335,10 +1358,17 @@ class ModelMethods:
 
         if epoch != -1:
             diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot.png')
-            self.plot_class_diff_plots(test_feats, test_classes,
-                                       epoch=epoch,
-                                       mode=mode,
-                                       path=diff_class_path)
+            if return_bg and mode != 'train':
+                self.plot_class_diff_plots(test_feats, test_classes,
+                                           epoch=epoch,
+                                           mode=mode,
+                                           path=diff_class_path,
+                                           img_seen=test_seen)
+            else:
+                self.plot_class_diff_plots(test_feats, test_classes,
+                                           epoch=epoch,
+                                           mode=mode,
+                                           path=diff_class_path)
 
         silhouette_path = ['', '']
         silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
@@ -1346,7 +1376,34 @@ class ModelMethods:
                                           f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
 
         if mode != 'test':
-            self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
+
+            if mode == 'val':
+                tb_tag = 'Val'
+            elif mode == 'train':
+                tb_tag = 'Train'
+            else:
+                tb_tag = 'Other'
+
+            self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path,
+                                       f'Total_{tb_tag}')
+
+            if return_bg and mode == 'val':
+                silhouette_path[0] = os.path.join(self.gen_plot_path,
+                                                  f'{args.dataset_name}_{mode}/silhouette_scores_plot_seen.png')
+                silhouette_path[1] = os.path.join(self.gen_plot_path,
+                                                  f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}_seen.png')
+                self.plot_silhouette_score(test_feats[test_seen == 1], test_classes[test_seen == 1], epoch,
+                                           mode + '_seen', silhouette_path,
+                                           f'seen_{tb_tag}')
+
+                silhouette_path[0] = os.path.join(self.gen_plot_path,
+                                                  f'{args.dataset_name}_{mode}/silhouette_scores_plot_unseen.png')
+                silhouette_path[1] = os.path.join(self.gen_plot_path,
+                                                  f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}_unseen.png')
+
+                self.plot_silhouette_score(test_feats[test_seen == 0], test_classes[test_seen == 0], epoch,
+                                           mode + '_unseen', silhouette_path,
+                                           f'unseen_{tb_tag}')
 
         # import pdb
         # pdb.set_trace()
@@ -1611,45 +1668,71 @@ class ModelMethods:
 
     # todo make customized dataloader for cam
     # todo easy cases?
-    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path):
-        res = utils.get_euc_distances(img_feats, img_classes)
-        for k, v in self.class_diffs[mode].items():
-            v.append(res[k])
+    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None):
+        dists = euclidean_distances(img_feats)
+        res = utils.get_euc_distances(dists, img_classes)
 
-        colors = ['r', 'b', 'y', 'g', 'c', 'm']
-        epochs = [i for i in range(1, epoch + 1)]
-        legends = []
-        colors_reordered = []
+        reses = [res]
+        modes = [mode]
+        paths = [path]
 
-        plt.figure(figsize=(10, 10))
-        for (k, v), c in zip(self.class_diffs[mode].items(), colors):
-            if len(v) > 1:
-                plt.plot(epochs, v, color=c, linewidth=2, markersize=12)
-            else:
-                plt.scatter(epochs, v, color=c)
-            legends.append(k)
-            colors_reordered.append(c)
+        if img_seen is not None:
+            res_seen = utils.get_euc_distances(dists[img_seen == 1, :][:, img_seen == 1], img_classes[img_seen == 1])
+            res_unseen = utils.get_euc_distances(dists[img_seen == 0, :][:, img_seen == 0], img_classes[img_seen == 0])
 
-        plt.grid(True)
-        plt.xlabel('Epoch')
-        plt.ylabel('Euclidean Distance')
-        plt.xlim(left=0, right=epoch + 5)
-        plt.legend([Line2D([0], [0], color=colors_reordered[0], lw=4),
-                    Line2D([0], [0], color=colors_reordered[1], lw=4),
-                    Line2D([0], [0], color=colors_reordered[2], lw=4),
-                    Line2D([0], [0], color=colors_reordered[3], lw=4),
-                    Line2D([0], [0], color=colors_reordered[4], lw=4),
-                    Line2D([0], [0], color=colors_reordered[5], lw=4)], legends)
+            reses.append(res_seen)
+            modes.append(f'{mode}_seen')
+            paths.append(path[:path.rfind('.')] + f'_{mode}_seen' +  path[path.rfind('.'):])
 
-        plt.title(f'{mode} class diffs')
+            reses.append(res_unseen)
+            modes.append(f'{mode}_unseen')
+            paths.append(path[:path.rfind('.')] + f'_{mode}_unseen' + path[path.rfind('.'):])
 
-        plt.savefig(path)
-        plt.close('all')
+        for m, r, p in zip(modes, reses, paths):
+            for k, v in self.class_diffs[m].items():
+                v.append(r[k])
 
-    def plot_silhouette_score(self, X, labels, epoch, mode, path):
+            colors = ['r', 'b', 'y', 'g', 'c', 'm']
+            epochs = [i for i in range(1, epoch + 1)]
+            legends = []
+            colors_reordered = []
 
-        self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='euclidean'))
+            plt.figure(figsize=(10, 10))
+            for (k, v), c in zip(self.class_diffs[m].items(), colors):
+                if len(v) > 1:
+                    plt.plot(epochs, v, color=c, linewidth=2, markersize=12)
+                else:
+                    plt.scatter(epochs, v, color=c)
+                legends.append(k)
+                colors_reordered.append(c)
+
+            plt.grid(True)
+            plt.xlabel('Epoch')
+            plt.ylabel('Euclidean Distance')
+            plt.xlim(left=0, right=epoch + 5)
+            plt.legend([Line2D([0], [0], color=colors_reordered[0], lw=4),
+                        Line2D([0], [0], color=colors_reordered[1], lw=4),
+                        Line2D([0], [0], color=colors_reordered[2], lw=4),
+                        Line2D([0], [0], color=colors_reordered[3], lw=4),
+                        Line2D([0], [0], color=colors_reordered[4], lw=4),
+                        Line2D([0], [0], color=colors_reordered[5], lw=4)], legends)
+
+            plt.title(f'{m} class diffs')
+
+            plt.savefig(p)
+            plt.close('all')
+
+    def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag):
+
+        last_silh_score = silhouette_score(X, labels, metric='euclidean')
+        self.silhouette_scores[mode].append(last_silh_score)
+
+        self.writer.add_scalar(tb_tag + '/Silhouette_Score', last_silh_score, epoch)
+
         samples_silhouette = silhouette_samples(X, labels)
+
+        self.writer.add_histogram('Silhouette_Scores/' + tb_tag, samples_silhouette, epoch)
+        self.writer.flush()
 
         if epoch != -1:
             epochs = [i for i in range(1, epoch + 1)]
@@ -1998,11 +2081,6 @@ class ModelMethods:
             forward_end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-            # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
-            # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
-
-            # if args.verbose:
-            #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
 
             metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
 
@@ -2021,59 +2099,8 @@ class ModelMethods:
 
             if debug_grad:
                 raise Exception('Debug grad not implemented for batchhard')
-                # lambda_class_loss = self.bce_weight * class_loss
-                # lambda_class_loss.backward(retain_graph=True)
-                #
-                # bce_named_parameters = net.named_parameters()
-                # bce_named_parameters = {k: v for k, v in bce_named_parameters}
-                #
-                # bce_ave_grads = []
-                # bce_max_grads = []
-                # for n, p in net.named_parameters():
-                #     if (p.requires_grad) and ("bias" not inmodel-bs20-1gpus-10epochs_bco-dsn_hotels-nor_200-fe_resnet50-pool_spoc-el_0-nn_1-bs_20-lrs_0.003-lrr_3e-06-m_0.0-loss_trpl-softm-mm_diff-sim-bco_2.0-decay_0.0-igsz_224-time_2021-02-26_14-53-58-293578_16551383 n):
-                #         if n == 'ft_net.fc.weight':
-                #             continue
-                #         if p.grad is None:
-                #             continue
-                #
-                #         bce_ave_grads.append(p.grad.abs().mean())
-                #         bce_max_grads.append(p.grad.abs().max())
-                #
-                # # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
-                # #                          epoch, grad_save_path)
-                # #
-                # # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
-                # #                          grad_save_path)
-                #
-                # self.logger.info('got bce grads')
-                #
-                # if loss_fn is None:
-                #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                #                              grad_save_path)
-                #     utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
-                #                               grad_save_path)
-                # else:
-                #     # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
-                #     #                          'TRIPLET', batch_id, epoch, grad_save_path)
-                #     # utils.bar_plot_grad_flow(args, bce_named_parameters,
-                #     #                          'BCE', batch_id, epoch, grad_save_path)
-                #     utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
-                #                                   [bce_ave_grads, bce_max_grads, layers],
-                #                                   'BOTH', batch_id, epoch, grad_save_path)
-                #     # import pdb
-                #     # pdb.set_trace()
-                #     utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
-                #                                  [bce_ave_grads, bce_max_grads, layers],
-                #                                  'BOTH', batch_id, epoch, grad_save_path)
-                #
-                # opt.zero_grad()
 
             loss.backward()  # training with triplet loss
-
-            # if debug_grad:
-            #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
-            #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
-            #                               grad_save_path)
 
             opt.step()
 
@@ -2437,7 +2464,8 @@ class BaslineModel:
             self.logger.info('results at: ' + self.save_path)
 
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path):
-        res = utils.get_euc_distances(img_feats, img_classes)
+        dists = euclidean_distances(img_feats)
+        res = utils.get_euc_distances(dists, img_classes)
         for k, v in self.class_diffs[mode].items():
             v.append(res[k])
 

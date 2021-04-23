@@ -14,7 +14,7 @@ FEATURE_MAP_SIZES = {1: (256, 56, 56),
 # https://github.com/SaoYan/LearnToPayAttention/
 
 class LinearAttentionBlock(nn.Module):
-    def __init__(self, in_features, normalize_attn=True, ):
+    def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock, self).__init__()
         self.normalize_attn = normalize_attn
         self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
@@ -69,33 +69,34 @@ class Projector(nn.Module):
 
 class LocalFeatureModule(nn.Module):
 
-    def __init__(self, args, in_channels):
+    def __init__(self, args, in_channels, global_dim):
         super(LocalFeatureModule, self).__init__()
         self.in_channels = in_channels
         self.merge_global = args.merge_global
+        self.global_dim = global_dim
         self.no_global = args.no_global
         if FEATURE_MAP_SIZES[1] in self.in_channels:
-            self.projector1 = Projector(256, 2048)
+            self.projector1 = Projector(256, global_dim) if self.global_dim != 256 else None
             # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
-            self.att_1 = LinearAttentionBlock(2048)
+            self.att_1 = LinearAttentionBlock(global_dim)
         else:
             self.projector1 = None
             # self.fc_block_1 = None
             self.att_1 = None
 
         if FEATURE_MAP_SIZES[2] in self.in_channels:
-            self.projector2 = Projector(512, 2048)
+            self.projector2 = Projector(512, global_dim) if self.global_dim != 512 else None
             # self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
-            self.att_2 = LinearAttentionBlock(2048)
+            self.att_2 = LinearAttentionBlock(global_dim)
         else:
             self.projector2 = None
             # self.fc_block_2 = None
             self.att_2 = None
 
         if FEATURE_MAP_SIZES[3] in self.in_channels:
-            self.projector3 = Projector(1024, 2048)
+            self.projector3 = Projector(1024, global_dim) if self.global_dim != 1024 else None
             # self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
-            self.att_3 = LinearAttentionBlock(2048)
+            self.att_3 = LinearAttentionBlock(global_dim)
         else:
             self.projector3 = None
             # self.fc_block_3 = None
@@ -103,17 +104,18 @@ class LocalFeatureModule(nn.Module):
 
         if FEATURE_MAP_SIZES[4] in self.in_channels:
 
-            # self.fc_block_4 = nn.Sequential(nn.Linear(in_features=2 * (7 * 7), out_features=(7 * 7)), nn.ReLU())
-            self.att_4 = LinearAttentionBlock(2048)
+            self.projector4 = Projector(2048, global_dim) if self.global_dim != 2048 else None
+            self.att_4 = LinearAttentionBlock(global_dim)
         else:
-
+            self.projector4 = None
             # self.fc_block_4 = None
             self.att_4 = None
+
 
         self.layers = {256: self.projector1,
                        512: self.projector2,
                        1024: self.projector3,
-                       2048: None}
+                       2048: self.projector4}
 
         # self.fc_blocks = {256: self.fc_block_1,
         #                   512: self.fc_block_2,
@@ -134,65 +136,76 @@ class LocalFeatureModule(nn.Module):
         # self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
 
         if not self.merge_method.startswith('local-diff-sim'):
-            self.classifier = nn.Sequential(nn.Linear(in_features=2048 * len(in_channels), out_features=1))
+            self.classifier = nn.Sequential(nn.Linear(in_features=global_dim * len(in_channels), out_features=1))
         else:
             self.classifier = None
 
-    def forward(self, x1_local, x2_local, x1_global, x2_global):
-        rets = []
-        # print('forward attention module')
-        li_1s = []
-        li_2s = []
 
-        for (C, _, _), x1, x2 in zip(self.in_channels, x1_local, x2_local):
+    def __project(self, x_local):
+        lis = []
+
+        for (C, _, _), x in zip(self.in_channels, x_local):
             # if C != 2048:
             #     li_1s.append(self.layers[C](x1).flatten(start_dim=1))
             #     li_2s.append(self.layers[C](x2).flatten(start_dim=1))
             # else:
             #     li_1s.append(x1.flatten(start_dim=1))
             #     li_2s.append(x2.flatten(start_dim=1))
-            if C != 2048:
-                li_1s.append(self.layers[C](x1))
-                li_2s.append(self.layers[C](x2))
+            if C != self.global_dim:
+                lis.append(self.layers[C](x))
             else:
-                li_1s.append(x1)
-                li_2s.append(x2)
+                lis.append(x)
+
+        return lis
 
 
-        # ls = []
-        att_gs_1 = []
-        atts_1 = []
+    def __attend_to_locals(self, loc_feat, glob_feat, glob_feat_2=None):
 
-        att_gs_2 = []
-        atts_2 = []
+        atts = []
+        att_gs = []
+
+        for (C, _, _), l in zip(self.in_channels, loc_feat):
+            if self.no_global or (glob_feat_2 is None):
+                att, att_g = self.atts[C](l, None)
+
+            elif self.merge_global:
+                att, att_g = self.atts[C](l, glob_feat + glob_feat_2)
+
+            else:
+                att, att_g = self.atts[C](l, glob_feat)
+
+            atts.append(att)
+            att_gs.append(att_g)
+
+        return atts, att_gs
+
+
+    def forward(self, x1_local, x2_local=None, x1_global=None, x2_global=None, single=False):
+        rets = []
+        # print('forward attention module')
+        li_1s = self.__project(x1_local)
+
+        if not single:
+            li_2s = self.__project(x2_local)
+        else:
+            li_2s = None
+
+
+        atts_1, att_gs_1 = self.__attend_to_locals(li_1s, x1_global, glob_feat_2=x2_global)
+
+        if not single:
+            atts_2, att_gs_2 = self.__attend_to_locals(li_2s, x2_global, glob_feat_2=x1_global)
+        else:
+            att_gs_2 = []
+            atts_2 = []
 
         att_gs = []
-        atts = []
-        # import pdb
-        # pdb.set_trace()
-        # B, C = x1_global.shape
-        #
-        # x1_global = x1_global.reshape(B, C, 1, 1)
-        # x2_global = x2_global.reshape(B, C, 1, 1)
-        for (C, _, _), l1, l2 in zip(self.in_channels, li_1s, li_2s):
-            if self.no_global:
-                att_1, att_g_1 = self.atts[C](l1, None)
-                att_2, att_g_2 = self.atts[C](l2, None)
-            elif self.merge_global:
-                att_1, att_g_1 = self.atts[C](l1, x1_global + x2_global)
-                att_2, att_g_2 = self.atts[C](l2, x1_global + x2_global)
-            else:
-                att_1, att_g_1 = self.atts[C](l1, x1_global)
-                att_2, att_g_2 = self.atts[C](l2, x2_global)
 
-            atts_1.append(att_1)
-            att_gs_1.append(att_g_1)
-
-            atts_2.append(att_2)
-            att_gs_2.append(att_g_2)
-
-            att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method='sim'))
-            # atts.append(att_1 + att_2)
+        if not single:
+            for (att_g_1, att_g_2) in zip(att_gs_1, att_gs_2):
+                att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method='sim'))
+        else:
+            att_gs = att_gs_1
 
         local_features = torch.cat(att_gs, dim=1)
 
@@ -201,8 +214,10 @@ class LocalFeatureModule(nn.Module):
         else:
             ret = local_features
 
-        return ret, local_features, atts_1, atts_2
-
+        if not single:
+            return ret, local_features, atts_1, atts_2, torch.cat(att_gs_1, dim=1), torch.cat(att_gs_2, dim=1)
+        else:
+            return ret, local_features, atts_1, torch.cat(att_gs_1, dim=1) # only local_features is important, ret does not make any sense
 
 class TopModel(nn.Module):
 
@@ -217,15 +232,23 @@ class TopModel(nn.Module):
         self.softmax = args.softmax_diff_sim
         self.fmaps_no = [int(i) for i in args.feature_map_layers]
 
+        if args.feat_extractor == 'resnet50':
+            ft_net_output = 2048
+        elif args.feat_extractor == 'vgg16':
+            ft_net_output = 4096
+        else:
+            ft_net_output = 512
+
+        if args.dim_reduction != 0:
+            ft_net_output = args.dim_reduction
+
         if self.merge_method.startswith('local'):
             feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
             print(f'Using {feature_map_inputs} for local maps')
-            self.local_features = LocalFeatureModule(args, feature_map_inputs)  # only for resnet50
+            self.local_features = LocalFeatureModule(args, feature_map_inputs, global_dim=ft_net_output)  # only for resnet50
 
         else:
             self.local_features = None
-
-
 
         if self.merge_method.startswith('local-diff-sim'):
             self.diffsim_fc_net = VectorConcat(input_size=4096,
@@ -273,6 +296,7 @@ class TopModel(nn.Module):
         atts_1 = None
         atts_2 = None
         x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
+
         if hook:
             anch_pass_act = self.get_activations().detach().clone()
         else:
@@ -297,11 +321,10 @@ class TopModel(nn.Module):
                     x1_input.append(x1_local[i - 1])
                     x2_input.append(x2_local[i - 1])
 
-
-                ret, local_features, atts_1, atts_2 = self.local_features(x1_local=x1_input,
-                                                                          x2_local=x2_input,
-                                                                          x1_global=x1_global,
-                                                                          x2_global=x2_global)
+                ret, local_features, atts_1, atts_2, att_x1_local, att_x2_local = self.local_features(x1_local=x1_input,
+                                                                                                      x2_local=x2_input,
+                                                                                                      x1_global=x1_global,
+                                                                                                      x2_global=x2_global)
 
 
                 if self.merge_method.startswith('local-diff-sim'):  # TODO
@@ -332,11 +355,12 @@ class TopModel(nn.Module):
                 if feats:
                     if hook:
                         if return_att:
-                            return pred, local_features, x1_local, x2_local, [anch_pass_act, other_pass_act], atts_1, atts_2
+                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act,
+                                                                              other_pass_act], atts_1, atts_2
                         else:
-                            return pred, local_features, x1_local, x2_local, [anch_pass_act, other_pass_act]
+                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act, other_pass_act]
                     else:
-                        return pred, local_features, x1_local, x2_local
+                        return pred, local_features, att_x1_local, att_x2_local
                 else:
                     return pred, local_features
 
@@ -356,7 +380,22 @@ class TopModel(nn.Module):
                     pred, pdist = ret
                     return pred, pdist
         else:
-            output = self.sm_net(x1_global, None, single)  # single is true
+            if self.merge_method.startswith('local'):
+                x1_input = []
+                x2_input = []
+
+                for i in self.fmaps_no:
+                    x1_input.append(x1_local[i - 1])
+
+                _, output, _, _ = self.local_features(x1_local=x1_input,
+                                                                              x2_local=None,
+                                                                              x1_global=x1_global,
+                                                                              x2_global=None,
+                                                                              single=single)
+
+            else:
+                output = self.sm_net(x1_global, None, single)  # single is true
+
             return output
 
     def get_classifier_weights(self):
@@ -394,7 +433,7 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
     if trained_feat_net is None:
         print('Using pretrained model')
         ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask,
-                                                 fourth_dim=fourth_dim)
+                                                 fourth_dim=fourth_dim, output_dim=args.dim_reduction)
     else:
         print('Using recently trained model')
         ft_net = trained_feat_net

@@ -64,12 +64,12 @@ class MLP(nn.Module):
         input_size = self.merge_input_shape
         print(f'*#* 1. input_size = {input_size}')
 
-        if args.dim_reduction != 0:
-            self.dim_reduction_layer = nn.Sequential(nn.Linear(self.input_shape, args.dim_reduction),
-                                                     nn.ReLU())
-            input_size = args.dim_reduction * method_coefficient
-        else:
-            self.dim_reduction_layer = None
+        # if args.dim_reduction != 0:
+        #     self.dim_reduction_layer = nn.Sequential(nn.Linear(self.input_shape, args.dim_reduction),
+        #                                              nn.ReLU())
+        #     input_size = args.dim_reduction * method_coefficient
+        # else:
+        #     self.dim_reduction_layer = None
 
         if args.bn_before_classifier:
             layers.append(nn.BatchNorm1d(input_size))
@@ -104,11 +104,12 @@ class MLP(nn.Module):
                 self.merge_method == 'diff-sim-con-att' or \
                 self.merge_method == 'diff-sim-con-att-add':
 
-            if args.dim_reduction != 0:
-                att_size = args.dim_reduction * 2
-
-            else:
-                att_size = self.input_shape * 2
+            # if args.dim_reduction != 0:
+            #     att_size = args.dim_reduction * 2
+            #
+            # else:
+            #
+            att_size = self.input_shape * 2
 
 
             self.concat_fc_net = VectorConcat(input_size=int(att_size),
@@ -136,8 +137,8 @@ class MLP(nn.Module):
 
     def forward_one(self, x):
         x = x.view(x.size()[0], -1)
-        if self.dim_reduction_layer:
-            x = self.dim_reduction_layer(x)
+        # if self.dim_reduction_layer:
+        #     x = self.dim_reduction_layer(x)
         # if self.extra_layer > 0:
         #     x = self.layer1(x)
 

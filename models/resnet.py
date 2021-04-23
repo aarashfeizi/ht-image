@@ -127,7 +127,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(tResNet):
 
-    def __init__(self, block, layers, num_classes, four_dim=False, pooling_method='spoc'):
+    def __init__(self, block, layers, num_classes, four_dim=False, pooling_method='spoc', output_dim=0):
         super(ResNet, self).__init__(block, layers)
         self.gradients = None
         self.activations = None
@@ -143,7 +143,16 @@ class ResNet(tResNet):
             self.pool = pooling.RMAC()
         else:
             raise Exception(f'Pooling method {pooling_method} not implemented... :(')
+        previous_output = self.layer4[-1].conv3.out_channels if type(self.layer4[-1]) == Bottleneck else self.layer4[-1].conv2.out_channels
 
+        if output_dim != 0 and previous_output != output_dim:
+            self.last_conv = nn.Conv2d(in_channels=previous_output, out_channels=output_dim,
+                                       kernel_size=(1, 1), stride=(1, 1))
+        else:
+            self.last_conv = None
+
+        # import pdb
+        # pdb.set_trace()
 
         if four_dim:
             self.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3,
@@ -187,6 +196,9 @@ class ResNet(tResNet):
         f3 = x
         x = self.layer4(x)
         f4 = x
+
+        if self.last_conv is not None:
+            x = self.last_conv(x)  # downsampling channels for dim reduction
 
         if hook:
             x.register_hook(self.activations_hook)
@@ -237,8 +249,8 @@ class ResNet(tResNet):
 
 
 
-def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', **kwargs):
-    model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), pooling_method=pooling_method, **kwargs)
+def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', output_dim=0, **kwargs):
+    model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), pooling_method=pooling_method, output_dim=output_dim, **kwargs)
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
         if os.path.exists(pretrained_path):
@@ -256,7 +268,7 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
     return model
 
 
-def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, **kwargs):
+def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, output_dim=0, **kwargs):
     r"""ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
@@ -264,7 +276,7 @@ def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                   mask=mask, fourth_dim=fourth_dim, project_path=args.project_path, pooling_method=args.pooling, **kwargs)
+                   mask=mask, fourth_dim=fourth_dim, project_path=args.project_path, pooling_method=args.pooling, output_dim=output_dim, **kwargs)
 
 
 
@@ -279,7 +291,7 @@ def resnet34(args, pretrained=False, progress=True, num_classes=1, **kwargs):
                    **kwargs)
 
 
-def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, **kwargs):
+def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, output_dim=0, **kwargs):
     r"""ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
@@ -288,7 +300,7 @@ def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, f
     """
 
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, project_path=args.project_path,
-                   mask=mask, fourth_dim=fourth_dim, pooling_method=args.pooling, **kwargs)
+                   mask=mask, fourth_dim=fourth_dim, pooling_method=args.pooling, output_dim=output_dim, **kwargs)
 
 
 def resnet101(pretrained=False, progress=True, **kwargs):
