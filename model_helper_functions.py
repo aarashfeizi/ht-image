@@ -546,10 +546,12 @@ class ModelMethods:
                                                     writer=self.writer)
             elif 'local' in self.merge_method:
                 att_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_att.png')
-
+                anch_name = utils.get_file_name(anch_path)
+                pos_name = utils.get_file_name(pos_path)
+                neg_name = utils.get_file_name(neg_path)
                 if self.merge_global:
                     utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],
-                                                  [('anch', anch_org), ('pos', pos_org)],
+                                                  [(anch_name, anch_org), (pos_name, pos_org)],
                                                   id,
                                                   att_heatmap_path,
                                                   overall_title=plot_title,
@@ -561,7 +563,7 @@ class ModelMethods:
                                                   writer=self.writer)
 
                     utils.apply_attention_heatmap([anchn_att, neg_att],
-                                                  [('anch', anch_org), ('neg', neg_org)],
+                                                  [(anch_name, anch_org), (neg_name, neg_org)],
                                                   id,
                                                   att_heatmap_path,
                                                   overall_title=plot_title,
@@ -573,7 +575,7 @@ class ModelMethods:
                                                   writer=self.writer)
                 else:
                     utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],  # anchn_att and anchp_att are the same
-                                                  [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
+                                                  [(anch_name, anch_org), (pos_name, pos_org), (neg_name, neg_org)],
                                                   id,
                                                   att_heatmap_path,
                                                   overall_title=plot_title,
@@ -2172,7 +2174,7 @@ class ModelMethods:
             if min > flatten_act.min():
                 min = flatten_act.min()
             plt.hist(flatten_act, bins=100, alpha=0.4, color=color)
-            self.writer.add_histogram(f'{tb_title}/{title}', flatten_act, epoch)
+            self.writer.add_histogram(f'{tb_title}/{title}', flatten_act, epoch, bins=25)
 
         self.writer.flush()
         plt.axis('on')

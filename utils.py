@@ -224,7 +224,7 @@ def get_args():
     parser.add_argument('-cm', '--colored_mask', default=False, action='store_true')
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
-    parser.add_argument('-camp', '--cam_path', default='cam_info.txt')
+    parser.add_argument('-camp', '--cam_path', default='cam_info_hotels.txt')
     parser.add_argument('--train_folder_name', default='train')
     parser.add_argument('--vs_folder_name', default='val_seen')
     parser.add_argument('--vu_folder_name', default='val_unseen')
@@ -274,6 +274,12 @@ def loading_time(args, train_set, use_cuda, num_workers, pin_memory, logger):
     end = time.time()
     logger.info("  Used {} second with num_workers = {}".format(end - start, num_workers))
     return end - start
+
+def get_file_name(file_path):
+    temp = file_path[file_path.rfind('/') + 1:]
+    ret = temp[:temp.rfind('.')]
+    return ret
+
 
 def get_number_of_parameters(net):
     total_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
