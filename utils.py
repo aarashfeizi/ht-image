@@ -178,7 +178,7 @@ def get_args():
     parser.add_argument('-fbw', '--find_best_workers', default=False, action='store_true')
     parser.add_argument('-bs', '--batch_size', default=128, type=int, help="number of batch size")
     parser.add_argument('-dbb', '--db_batch', default=128, type=int, help="number of batch size for db")
-    parser.add_argument('-lrs', '--lr_siamese', default=1e-3, type=float, help="siamese learning rate")
+    parser.add_argument('-lrs', '--lr_new', default=1e-3, type=float, help="siamese learning rate")
     parser.add_argument('-lrr', '--lr_resnet', default=1e-6, type=float, help="resnet learning rate")
     parser.add_argument('-lf', '--log_freq', default=10, type=int, help="show result after each show_every iter.")
     parser.add_argument('-sf', '--save_freq', default=100, type=int, help="save model after each save_every iter.")
@@ -204,6 +204,8 @@ def get_args():
     parser.add_argument('-gamma', '--gamma', default=1.0, type=float, help="Learning Rate Scheduler")
     parser.add_argument('-gamma_step', '--gamma_step', default=1, type=int, help="Learning Rate Scheduler Step")
     parser.add_argument('-lr_tol', '--lr_tol', default=3, type=int, help="Adaptive Learning Rate Scheduler Tolerance")
+    parser.add_argument('-lr_adp_loss', '--lr_adaptive_loss', default=False, action='store_true')
+
 
 
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
@@ -1922,7 +1924,7 @@ def get_logname(args, model):
 
     name_replace_dict = {'dataset_name': 'dsn',
                          'batch_size': 'bs',
-                         'lr_siamese': 'lrs',
+                         'lr_new': 'lrs',
                          'lr_resnet': 'lrr',
                          # 'early_stopping',
                          'feat_extractor': 'fe',
@@ -1958,7 +1960,7 @@ def get_logname(args, model):
 
     important_args = ['dataset_name',
                       'batch_size',
-                      'lr_siamese',
+                      'lr_new',
                       'lr_resnet',
                       # 'early_stopping',
                       'feat_extractor',
@@ -2040,7 +2042,15 @@ def get_logname(args, model):
 
             if str(arg) == 'gamma':
                 name += f'-step{args.gamma_step}'
-                name += f'-tol{args.lr_tol}'
+
+                if args.gamma_step == 0:
+                    if args.lr_adaptive_loss:
+                        name += f'LOSS'
+                    else:
+                        name += f'VAL'
+                    name += f'-tol{args.lr_tol}'
+
+
 
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'

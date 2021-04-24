@@ -29,35 +29,56 @@ EVAL_SET_NAMES = {1: ['total'],
 
 
 class Adaptive_Scheduler:
-    def __init__(self, opt, gamma, tol=3, logger=None):
+    def __init__(self, opt, gamma, tol=3, logger=None, val=True, loss=False):
+        if val == loss:
+            raise Exception("val and loss can't be true (or false) together")
         self.opt = opt
         self.gamma = gamma
-        self.loss = -1
+        self.metric = -1
         self.max_tol = tol
         self.level = 0
         self.logger = logger
 
-    def step(self, loss):
-        if self.loss == -1:
-            self.loss = loss
-        elif loss > self.loss or np.abs(loss - self.loss) <= self.loss * 0.005:
-            if self.logger is not None:
-                self.logger.info(
-                    f"level = {self.level}, last loss = {self.loss}, current loss = {loss}, eps = {self.loss * 0.005}")
-            self.level += 1
-        elif loss < self.loss and np.abs(loss - self.loss) > self.loss * 0.005:
-            self.loss = loss
-            self.level = 0
+        self.val_mode = val
+        self.loss_mode = loss
+
+    def step(self, current_loss, current_val):
+        if self.metric == -1:
+            self.metric = current_loss if self.loss_mode else current_val
+            return
+
+        if self.loss_mode:  # metric is a loss value
+            if current_loss > self.metric or np.abs(current_loss - self.metric) <= self.metric * 0.005:
+                if self.logger is not None:
+                    self.logger.info(
+                        f"level = {self.level}, last loss = {self.metric}, current loss = {current_loss}, eps = {self.metric * 0.005}")
+                self.level += 1
+            elif current_loss < self.metric and np.abs(current_loss - self.metric) > self.metric * 0.005:
+                self.metric = current_loss
+                self.level = 0
+
+        elif self.val_mode:
+            if current_val < self.metric:
+                if self.logger is not None:
+                    self.logger.info(
+                        f"level = {self.level}, last total val = {self.metric}, current total val = {current_val}")
+                self.level += 1
+            elif current_val >= self.metric:
+                self.metric = current_val
+                self.level = 0
+        else:
+            raise Exception('Error in adaptive learning rate decay')
 
         if self.level == self.max_tol:
             for p in self.opt.param_groups:
                 if self.logger is not None:
                     self.logger.info(
-                        f"Tol = {self.max_tol} and previous loss = {self.loss} Decaying learning rate from {p['lr']} to {p['lr'] * self.gamma}")
+                        f"Tol = {self.max_tol} and previous loss = {self.metric} Decaying learning rate from {p['lr']} to {p['lr'] * self.gamma}")
 
                 p['lr'] *= self.gamma
 
             self.level = 0
+            self.metric = current_loss if self.loss_mode else current_val
 
 
 class ModelMethods:
@@ -643,12 +664,12 @@ class ModelMethods:
             if net.module.aug_mask:
                 learnable_params = [{'params': net.module.sm_net.parameters()},
                                     {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                    {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_siamese}]
+                                    {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_new}]
 
             else:
                 learnable_params = [{'params': net.module.sm_net.parameters()},
                                     {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                    {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_siamese}]
+                                    {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_new}]
         else:
             if net.aug_mask:
                 learnable_params = [{'params': net.sm_net.parameters()},
@@ -656,7 +677,7 @@ class ModelMethods:
                                      'lr': args.lr_resnet,
                                      'weight_decay': args.weight_decay},
                                     {'params': net.ft_net.conv1.parameters(),
-                                     'lr': args.lr_siamese,
+                                     'lr': args.lr_new,
                                      'weight_decay': args.weight_decay}]
             else:
                 learnable_params = [{'params': net.sm_net.parameters()},
@@ -664,26 +685,31 @@ class ModelMethods:
                                      'lr': args.lr_resnet,
                                      'weight_decay': args.weight_decay},
                                     {'params': net.ft_net.pool.parameters(),
-                                     'lr': args.lr_siamese,
+                                     'lr': args.lr_new,
                                      'weight_decay': args.weight_decay}]
 
             if net.local_features:
                 learnable_params += [{'params': net.local_features.parameters(),
-                                      'lr': args.lr_siamese,
+                                      'lr': args.lr_new,
                                       'weight_decay': args.weight_decay}]
 
             if net.diffsim_fc_net:
                 learnable_params += [{'params': net.diffsim_fc_net.parameters(),
-                                      'lr': args.lr_siamese,
+                                      'lr': args.lr_new,
                                       'weight_decay': args.weight_decay}]
 
             if net.classifier:
                 learnable_params += [{'params': net.classifier.parameters(),
-                                      'lr': args.lr_siamese,
+                                      'lr': args.lr_new,
+                                      'weight_decay': args.weight_decay}]
+
+            if net.ft_net.last_conv is not None:
+                learnable_params += [{'params': net.ft_net.last_conv.parameters(),
+                                      'lr': args.lr_new,
                                       'weight_decay': args.weight_decay}]
 
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-        opt = torch.optim.Adam(learnable_params, lr=args.lr_siamese, weight_decay=args.weight_decay)
+        opt = torch.optim.Adam(learnable_params, lr=args.lr_new, weight_decay=args.weight_decay)
         opt.zero_grad()
 
         time_start = time.time()
@@ -697,7 +723,8 @@ class ModelMethods:
 
         max_val_acc_knwn = 0
         max_val_acc_unknwn = 0
-        val_acc = 0
+        val_acc = -1
+        val_loss = -1
         val_rgt = 0
         val_err = 0
         best_model = ''
@@ -715,7 +742,11 @@ class ModelMethods:
             adaptive_scheduler = None
         else:
             scheduler = None
-            adaptive_scheduler = Adaptive_Scheduler(opt, gamma=args.gamma, logger=self.logger, tol=args.lr_tol)
+            adaptive_scheduler = Adaptive_Scheduler(opt, gamma=args.gamma,
+                                                    logger=self.logger,
+                                                    tol=args.lr_tol,
+                                                    val=not args.lr_adaptive_loss,
+                                                    loss=args.lr_adaptive_loss)
 
         for epoch in range(1, max_epochs + 1):
 
@@ -816,10 +847,10 @@ class ModelMethods:
 
                                 utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
 
-                                val_auc, val_acc, val_rgt_err, val_preds_pos_neg = self.test_metric(
-                                    args, net, loader,
-                                    loss_fn, bce_loss, val=True,
-                                    epoch=epoch, comment=comm)
+                                val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
+                                                                                                    args, net, loader,
+                                                                                                    loss_fn, bce_loss, val=True,
+                                                                                                    epoch=epoch, comment=comm)
 
                                 if comm not in results.keys():
                                     results[comm] = {}
@@ -830,6 +861,7 @@ class ModelMethods:
                                 results[comm]['val_auc'] = val_auc
                                 results[comm]['val_acc'] = val_acc
                                 results[comm]['val_acc_fewshot'] = val_acc_fewshot
+                                results[comm]['val_loss'] = val_loss
                                 # val_err_knwn = val_rgt_err_knwn['wrong']
                                 # val_rgt_knwn = val_rgt_err_knwn['right']
 
@@ -933,8 +965,11 @@ class ModelMethods:
 
                             val_acc = (val_rgt * 1.0) / (val_rgt + val_err)
 
+                            val_loss = (results['seen']['val_loss'] + results['unseen']['val_loss']) / 2
+
 
                         else:  # no seen and unseen dataset for validation
+                            val_loss = results['total']['val_loss']
                             val_acc = results['total']['val_acc']
                             val_rgt = results['total']['right']
                             val_err = results['total']['wrong']
@@ -945,6 +980,8 @@ class ModelMethods:
                             self.hparams_metric['Total_Val/Acc'] = val_acc
                         else:
                             self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
+
+                        self.writer.add_scalar('Total_Val/Loss', val_loss, epoch)
                         self.writer.flush()
 
                         if val_acc >= max_val_acc:
@@ -1037,7 +1074,7 @@ class ModelMethods:
             if scheduler:
                 scheduler.step()
             else:
-                adaptive_scheduler.step(train_loss / len(train_loader))
+                adaptive_scheduler.step(current_loss=val_loss, current_val=val_acc)
 
         # acc = 0.0
         # for d in queue:
@@ -1204,7 +1241,8 @@ class ModelMethods:
         self.writer.flush()
 
         return roc_auc, metric_ACC.get_acc(), metric_ACC.get_right_wrong(), {'pos': all_pos_predictions,
-                                                                             'neg': all_neg_predictions}
+                                                                             'neg': all_neg_predictions}, (
+                           test_loss / len(data_loader))
 
     def test_edgepred(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
@@ -1684,7 +1722,7 @@ class ModelMethods:
 
             reses.append(res_seen)
             modes.append(f'{mode}_seen')
-            paths.append(path[:path.rfind('.')] + f'_{mode}_seen' +  path[path.rfind('.'):])
+            paths.append(path[:path.rfind('.')] + f'_{mode}_seen' + path[path.rfind('.'):])
 
             reses.append(res_unseen)
             modes.append(f'{mode}_unseen')
@@ -2199,7 +2237,7 @@ class ModelMethods:
 
     def _tb_get_important_hparams(self, args):
         important_hp = {'Dataset': args.dataset_name,
-                        'Cls LR': args.lr_siamese,
+                        'Cls LR': args.lr_new,
                         'ResNet LR': args.lr_resnet,
                         'weight decay': args.weight_decay,
                         'merge method': args.merge_method,
@@ -2332,7 +2370,7 @@ class BaslineModel:
                                 {'params': self.model.layer3.parameters()},
                                 {'params': self.model.layer4.parameters()},
                                 {'params': self.model.avgpool.parameters()},
-                                {'params': self.model.fc.parameters(), 'lr': args.lr_siamese}],
+                                {'params': self.model.fc.parameters(), 'lr': args.lr_new}],
                                lr=args.lr_resnet, weight_decay=args.weight_decay)
 
         # opt = torch.optim.Adam([{'params': self.model.parameters()}],
