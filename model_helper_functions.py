@@ -29,7 +29,7 @@ EVAL_SET_NAMES = {1: ['total'],
 
 
 class Adaptive_Scheduler:
-    def __init__(self, opt, gamma, tol=3, logger=None, val=True, loss=False):
+    def __init__(self, opt, gamma, tol=3, logger=None, val=True, loss=False, min_lr=1e-6):
         if val == loss:
             raise Exception("val and loss can't be true (or false) together")
         self.opt = opt
@@ -38,9 +38,20 @@ class Adaptive_Scheduler:
         self.max_tol = tol
         self.level = 0
         self.logger = logger
+        self.min_lr = min_lr
 
         self.val_mode = val
         self.loss_mode = loss
+
+    def reduce_lr(self, lr):
+        lr *= self.gamma
+        if lr >= self.min_lr:
+            return lr
+        else:
+            if self.logger is not None:
+                self.logger.info(f'min_lr reached = {self.min_lr}')
+            return self.min_lr
+
 
     def step(self, current_loss, current_val):
         if self.metric == -1:
@@ -75,7 +86,7 @@ class Adaptive_Scheduler:
                     self.logger.info(
                         f"Tol = {self.max_tol} and previous loss = {self.metric} Decaying learning rate from {p['lr']} to {p['lr'] * self.gamma}")
 
-                p['lr'] *= self.gamma
+                p['lr'] = self.reduce_lr(p['lr'])
 
             self.level = 0
             self.metric = current_loss if self.loss_mode else current_val
