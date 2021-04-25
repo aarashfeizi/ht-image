@@ -1767,11 +1767,14 @@ class ModelMethods:
         last_silh_score = silhouette_score(X, labels, metric='euclidean')
         self.silhouette_scores[mode].append(last_silh_score)
 
-        self.writer.add_scalar(tb_tag + '/Silhouette_Score', last_silh_score, epoch)
-
         samples_silhouette = silhouette_samples(X, labels)
 
-        self.writer.add_histogram('Silhouette_Scores/' + tb_tag, samples_silhouette, epoch)
+        if epoch != -1:
+            self.writer.add_scalar(tb_tag + '/Silhouette_Score', last_silh_score, epoch)
+            self.writer.add_histogram('Silhouette_Scores/' + tb_tag, samples_silhouette, epoch)
+        else:
+            self.writer.add_scalar(tb_tag + '/Final_Silhouette_Score', last_silh_score, epoch)
+            self.writer.add_histogram('Final_Silhouette_Scores/' + tb_tag, samples_silhouette, epoch)
         self.writer.flush()
 
         if epoch != -1:
