@@ -1803,7 +1803,7 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
 
 
 @MY_DEC
-def get_euc_distances(dists, img_classes):
+def get_distances(dists, img_classes):
     diff_average_dist = np.zeros_like(dists[0])
     diff_min_dist = np.zeros_like(dists[0])
     diff_max_dist = np.zeros_like(dists[0])

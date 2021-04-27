@@ -10,6 +10,7 @@ import torch
 from PIL import Image
 from matplotlib.lines import Line2D
 from sklearn.metrics import confusion_matrix, roc_auc_score, euclidean_distances
+from sklearn.metrics.pairwise import cosine_distances
 from sklearn.metrics import silhouette_score, silhouette_samples
 from torch.autograd import Variable
 from tqdm import tqdm
@@ -1720,16 +1721,17 @@ class ModelMethods:
     # todo make customized dataloader for cam
     # todo easy cases?
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None):
-        dists = euclidean_distances(img_feats)
-        res = utils.get_euc_distances(dists, img_classes)
+        dists = cosine_distances(img_feats)
+
+        res = utils.get_distances(dists, img_classes)
 
         reses = [res]
         modes = [mode]
         paths = [path]
 
         if img_seen is not None:
-            res_seen = utils.get_euc_distances(dists[img_seen == 1, :][:, img_seen == 1], img_classes[img_seen == 1])
-            res_unseen = utils.get_euc_distances(dists[img_seen == 0, :][:, img_seen == 0], img_classes[img_seen == 0])
+            res_seen = utils.get_distances(dists[img_seen == 1, :][:, img_seen == 1], img_classes[img_seen == 1])
+            res_unseen = utils.get_distances(dists[img_seen == 0, :][:, img_seen == 0], img_classes[img_seen == 0])
 
             reses.append(res_seen)
             modes.append(f'{mode}_seen')
@@ -1775,7 +1777,7 @@ class ModelMethods:
 
     def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag):
 
-        last_silh_score = silhouette_score(X, labels, metric='euclidean')
+        last_silh_score = silhouette_score(X, labels, metric='cosine')
         self.silhouette_scores[mode].append(last_silh_score)
 
         samples_silhouette = silhouette_samples(X, labels)
@@ -2518,8 +2520,8 @@ class BaslineModel:
             self.logger.info('results at: ' + self.save_path)
 
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path):
-        dists = euclidean_distances(img_feats)
-        res = utils.get_euc_distances(dists, img_classes)
+        dists = cosine_distances(img_feats)
+        res = utils.get_distances(dists, img_classes)
         for k, v in self.class_diffs[mode].items():
             v.append(res[k])
 
@@ -2555,7 +2557,7 @@ class BaslineModel:
 
     def plot_silhouette_score(self, X, labels, epoch, mode, path):
 
-        self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='euclidean'))
+        self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='cosine'))
         samples_silhouette = silhouette_samples(X, labels)
 
         if epoch != -1:
