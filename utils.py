@@ -1947,7 +1947,7 @@ def get_logname(args, model):
                          'merge_method': 'mm',
                          'softmargin': 'softm',
                          'static_size': 'fcsize',
-                         'dim_reduction': 'fdim',
+                         'dim_reduction': 'dr',
                          'leaky_relu': 'lrel',
                          'bn_before_classifier': 'bnbc',
                          'weight_decay': 'decay',
@@ -1986,7 +1986,8 @@ def get_logname(args, model):
                       'softmax_diff_sim',
                       'gamma',
                       'merge_global',
-                      'no_global']
+                      'no_global',
+                      'dim_reduction']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -2024,6 +2025,8 @@ def get_logname(args, model):
             elif str(arg) == 'merge_global' and not getattr(args, arg):
                 continue
             elif str(arg) == 'no_global' and not getattr(args, arg):
+                continue
+            elif str(arg) == 'dim_reduction' and getattr(args, arg) == 0:
                 continue
 
             if type(getattr(args, arg)) is not bool:
