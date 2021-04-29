@@ -255,9 +255,15 @@ class ModelMethods:
 
         utils.make_dirs(heatmap_path_perepoch)
         self.cam_all += 1
-
         if self.merge_method.startswith('local'):
-            sub_methods = [f'Layer {i}' for i in args.feature_map_layers]
+            if self.merge_method == 'local-ds-attention':
+                sub_methods = []
+                for i in args.feature_map_layers:
+                    sub_methods += [f'Layer {i} diff']
+                    sub_methods += [f'Layer {i} sim']
+            else:
+                sub_methods = [f'Layer {i}' for i in args.feature_map_layers]
+
         else:
             sub_methods = self.merge_method.split('-')
 
@@ -1339,7 +1345,7 @@ class ModelMethods:
             test_seen = np.zeros(((len(data_loader.dataset))))
             test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
 
-            if self.merge_method == 'local-unequaldim':
+            if self.merge_method == 'local-attention' or self.merge_method == 'local-ds-attention':
                 coeff = len(args.feature_map_layers)
             else:
                 coeff = 1
@@ -2198,25 +2204,41 @@ class ModelMethods:
 
         plt.figure(figsize=(15, 15))
         legends = list(map(lambda x: x + ' value distribution', titles))
-        if len(classifier_weights_methods) == 1:
+        colors = []
+        lines = []
+        if len(classifier_weights_methods) >= 1:
             colors = ['b']
             lines = [Line2D([0], [0], color="b", lw=4)]
-        elif len(classifier_weights_methods) == 2:
-            colors = ['b', 'r']
-            lines = [Line2D([0], [0], color="b", lw=4),
-                     Line2D([0], [0], color="r", lw=4)]
-        elif len(classifier_weights_methods) == 3:
-            colors = ['b', 'r', 'g']
-            lines = [Line2D([0], [0], color="b", lw=4),
-                     Line2D([0], [0], color="r", lw=4),
-                     Line2D([0], [0], color="g", lw=4)]
-        elif len(classifier_weights_methods) == 4:
-            colors = ['b', 'r', 'g', 'y']
-            lines = [Line2D([0], [0], color="b", lw=4),
-                     Line2D([0], [0], color="r", lw=4),
-                     Line2D([0], [0], color="g", lw=4),
-                     Line2D([0], [0], color="y", lw=4)]
-        else:
+
+        if len(classifier_weights_methods) >= 2:
+            colors += ['r']
+            lines += [Line2D([0], [0], color="r", lw=4)]
+
+        if len(classifier_weights_methods) >= 3:
+            colors += ['g']
+            lines += [Line2D([0], [0], color="g", lw=4)]
+
+        if len(classifier_weights_methods) >= 4:
+            colors += ['y']
+            lines += [Line2D([0], [0], color="y", lw=4)]
+
+        if len(classifier_weights_methods) >= 5:
+            colors += ['c']
+            lines += [Line2D([0], [0], color="c", lw=4)]
+
+        if len(classifier_weights_methods) >= 6:
+            colors += ['m']
+            lines += [Line2D([0], [0], color="m", lw=4)]
+
+        if len(classifier_weights_methods) >= 7:
+            colors += ['darkblue']
+            lines += [Line2D([0], [0], color="darkblue", lw=4)]
+
+        if len(classifier_weights_methods) >= 8:
+            colors += ['peru']
+            lines += [Line2D([0], [0], color="peru", lw=4)]
+
+        if len(classifier_weights_methods) >= 9:
             raise Exception('too many sub method types for plotting')
 
         max = 0

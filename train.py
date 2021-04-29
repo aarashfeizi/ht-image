@@ -1,6 +1,4 @@
 import json
-import logging
-import sys
 from argparse import Namespace
 
 from torch.utils.data import DataLoader
@@ -18,16 +16,6 @@ from my_datasets import *
 EVAL_SET_NAMES = {1: ['total'],
                   2: ['seen', 'unseen']}
 
-
-@utils.MY_DEC
-def _logger(logname, env):
-    if env == 'hlr' or env == 'local':
-        logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
-                            filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
-    else:
-        logging.basicConfig(stream=sys.stdout,
-                            filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
-    return logging.getLogger()
 
 
 def main():
@@ -56,9 +44,9 @@ def main():
     torch.manual_seed(args.seed)
 
     # args.dataset_folder = dataset_info[args.dataset_name][]
-    model_name, id_str = utils.get_logname(args, 'top')
+    model_name, id_str = utils.get_logname(args)
 
-    logger = _logger(model_name, args.env)
+    logger = utils.get_logger(model_name, args.env)
 
     logger.info(f'Verbose: {args.verbose}')
     logger.info(f'Batch size is {args_dict["batch_size"]}')
@@ -99,20 +87,6 @@ def main():
     test_few_shot_dataset = None
     db_dataset = None
 
-    # if args.dataset_name == 'hotels':
-    # train_metric_dataset = HotelTrain_Metric
-    # test_few_shot_dataset = HotelTest_FewShot
-    # test_edgepred_dataset = HotelTest_EdgePred
-    # db_dataset = Hotel_DB
-    # elif args.dataset_name == 'cub':
-    # train_metric_dataset = HotelTrain_Metric
-    # test_few_shot_dataset = HotelTest_FewShot
-    # test_edgepred_dataset = CUBTest_EdgePred
-    # db_dataset = Hotel_DB
-    # else:
-    #     logger.error(f'Dataset not suppored:  {args.dataset_name}')
-
-    # train_classification_dataset = CUBClassification(args, transform=data_transforms, mode='train')
 
     logger.info('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None

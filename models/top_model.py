@@ -75,6 +75,7 @@ class LocalFeatureModule(nn.Module):
         self.merge_global = args.merge_global
         self.global_dim = global_dim
         self.no_global = args.no_global
+
         if FEATURE_MAP_SIZES[1] in self.in_channels:
             self.projector1 = Projector(256, global_dim) if self.global_dim != 256 else None
             # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
@@ -133,10 +134,20 @@ class LocalFeatureModule(nn.Module):
         for (C, H, W) in self.in_channels:
             total_channels += (H * W)  # todo residual connection?
 
+        if self.merge_method == 'local-ds-attention':
+            self.att_merge = 'diff-sim'
+            coeff = 2
+        elif self.merge_method == 'local-attention':
+            self.att_merge = 'sim'
+            coeff = 1
+        else:
+            self.att_merge = ''
+            coeff = -1  # to raise an error in case it is usesd
+
         # self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
 
         if not self.merge_method.startswith('local-diff-sim'):
-            self.classifier = nn.Sequential(nn.Linear(in_features=global_dim * len(in_channels), out_features=1))
+            self.classifier = nn.Sequential(nn.Linear(in_features=global_dim * len(in_channels) * coeff, out_features=1))
         else:
             self.classifier = None
 
@@ -203,13 +214,13 @@ class LocalFeatureModule(nn.Module):
 
         if not single:
             for (att_g_1, att_g_2) in zip(att_gs_1, att_gs_2):
-                att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method='sim'))
+                att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method=self.att_merge))
         else:
             att_gs = att_gs_1
 
         local_features = torch.cat(att_gs, dim=1)
 
-        if self.classifier:
+        if self.classifier and not single:
             ret = self.classifier(local_features)
         else:
             ret = local_features

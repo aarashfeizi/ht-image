@@ -237,7 +237,7 @@ class ResNet(tResNet):
             if isinstance(param, Parameter):
                 # backwards compatibility for serialized parameters
                 param = param.data
-            print(name, param.size())
+            # print(name, param.size())
             # print('pretrained:')
             # print('own:', own_state[name].size())
             if four_dim and name == 'conv1.weight':
@@ -249,8 +249,11 @@ class ResNet(tResNet):
 
 
 
-def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', output_dim=0, **kwargs):
+def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', output_dim=0, pretrained_model='', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), pooling_method=pooling_method, output_dim=output_dim, **kwargs)
+    if pretrained_model != '':
+        arch += '-' + pretrained_model
+
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
         if os.path.exists(pretrained_path):
@@ -276,7 +279,7 @@ def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                   mask=mask, fourth_dim=fourth_dim, project_path=args.project_path, pooling_method=args.pooling, output_dim=output_dim, **kwargs)
+                   mask=mask, fourth_dim=fourth_dim, project_path=args.project_path, pooling_method=args.pooling, output_dim=output_dim, pretrained_model=args.pretrained_model, **kwargs)
 
 
 
@@ -291,6 +294,11 @@ def resnet34(args, pretrained=False, progress=True, num_classes=1, **kwargs):
                    **kwargs)
 
 
+def simple_resnet50(args, pretrained=False, progress=True, num_classes=1, **kwargs):
+    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes,
+                   project_path=args.project_path,
+                   pretrained_model=args.pretrained_model, **kwargs)
+
 def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, output_dim=0, **kwargs):
     r"""ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
@@ -300,7 +308,7 @@ def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, f
     """
 
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes, project_path=args.project_path,
-                   mask=mask, fourth_dim=fourth_dim, pooling_method=args.pooling, output_dim=output_dim, **kwargs)
+                   mask=mask, fourth_dim=fourth_dim, pooling_method=args.pooling, output_dim=output_dim, pretrained_model=args.pretrained_model, **kwargs)
 
 
 def resnet101(pretrained=False, progress=True, **kwargs):

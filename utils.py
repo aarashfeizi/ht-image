@@ -1,6 +1,8 @@
 import argparse
 import datetime
 import json
+import logging
+import sys
 import math
 import multiprocessing
 import os
@@ -28,7 +30,7 @@ matplotlib.rc('font', size=24)
 MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'concat', 'diff-sim-con-att', 'concat-mid',
                  'diff-sim-con-complete', 'diff-sim-con-att-add',
-                 'local-unequaldim', 'local-diff-sim-concat-unequaldim',
+                 'local-attention', 'local-ds-attention', 'local-diff-sim-concat-unequaldim',
                  'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim']
 
 try:
@@ -135,6 +137,19 @@ class TransformLoader:
 
 
 # '../../dataset/omniglot/python/images_evaluation'
+
+@MY_DEC
+def get_logger(logname, env):
+    if env == 'hlr' or env == 'local':
+        logging.basicConfig(filename=os.path.join('logs', logname + '.log'),
+                            filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
+    else:
+        logging.basicConfig(stream=sys.stdout,
+                            filemode='a', format='%(asctime)s - %(message)s', level=logging.INFO)
+    return logging.getLogger()
+
+
+
 def get_args():
     parser = argparse.ArgumentParser()
 
@@ -160,6 +175,7 @@ def get_args():
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
                         choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16'])
+    parser.add_argument('--pretrained_model', default='', choices=['swav'])
     parser.add_argument('-pool', '--pooling', default='spoc',
                         choices=['spoc', 'gem', 'mac', 'rmac'])
     parser.add_argument('-fr', '--freeze_ext', default=False, action='store_true')
@@ -1900,7 +1916,7 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     plt.close('all')
 
 
-def get_logname(args, model):
+def get_logname(args):
     id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
     id_str = '-time_' + id_str.replace('.', '-')
 
