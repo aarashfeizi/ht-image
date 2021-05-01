@@ -64,19 +64,19 @@ class MLP(nn.Module):
         input_size = self.merge_input_shape
         print(f'*#* 1. input_size = {input_size}')
 
-        # if args.dim_reduction != 0:
+        if args.dim_reduction != 0:
         #     self.dim_reduction_layer = nn.Sequential(nn.Linear(self.input_shape, args.dim_reduction),
         #                                              nn.ReLU())
-        #     input_size = args.dim_reduction * method_coefficient
+            input_size = args.dim_reduction * method_coefficient
         # else:
         #     self.dim_reduction_layer = None
 
         if args.bn_before_classifier:
             layers.append(nn.BatchNorm1d(input_size))
 
-        self.attention = args.attention
-        if self.attention:
-            input_size += 2048
+        # self.attention = args.attention
+        # if self.attention:
+        #     input_size += 2048
 
         if self.extra_layer > 0:
             for i in range(self.extra_layer):
@@ -170,8 +170,6 @@ class MLP(nn.Module):
             elif self.merge_method == 'diff-sim-con-att-add':
                 out_dist = out_dist + att
 
-        if self.attention:
-            out_dist = utils.vector_merge_function(out_dist, mid_att, method='concat')
 
         if self.merge_method == 'diff-sim-con-complete':
             concat = utils.vector_merge_function(out1, out2, method='concat')
