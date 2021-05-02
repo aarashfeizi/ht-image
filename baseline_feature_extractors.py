@@ -67,7 +67,7 @@ def main():
 
     embbeddings, labels, seens = model_methods.get_embeddings(args, net, val_db_loader)
 
-    embedding_name = f'{args.dataset_name}_{args.pretrained_model}_{args.extra_name}'
+    embedding_name = f'{args.dataset_name}_val_{args.pretrained_model}_{args.extra_name}'
 
     utils.save_h5(f'{embedding_name}_classes', labels, 'i8',
                   os.path.join(model_methods.save_path, f'{embedding_name}_Classes.h5'))
@@ -75,6 +75,18 @@ def main():
                   os.path.join(model_methods.save_path, f'{embedding_name}_Feats.h5'))
     utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
                   os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
+
+    if args.test:
+        embbeddings, labels, seens = model_methods.get_embeddings(args, net, test_db_loader)
+
+        embedding_name = f'{args.dataset_name}_test_{args.pretrained_model}_{args.extra_name}'
+
+        utils.save_h5(f'{embedding_name}_classes', labels, 'i8',
+                      os.path.join(model_methods.save_path, f'{embedding_name}_Classes.h5'))
+        utils.save_h5(f'{embedding_name}_feats', embbeddings, 'f',
+                      os.path.join(model_methods.save_path, f'{embedding_name}_Feats.h5'))
+        utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
+                      os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
 
 
 
