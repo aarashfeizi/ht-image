@@ -256,17 +256,20 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
 
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
+        state_dict_key = 'model_state_dict'
 
         if not os.path.exists(pretrained_path):
             pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth.tar')
+            state_dict_key = 'state_dict'
 
         if not os.path.exists(pretrained_path):
             pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth')
+            state_dict_key = 'state_dict'
 
         if os.path.exists(pretrained_path):
 
             print(f'loading {arch} from pretrained')
-            state_dict = torch.load(pretrained_path)['model_state_dict']
+            state_dict = torch.load(pretrained_path)[state_dict_key]
         else:
             raise Exception(f'Model {arch} not found in {pretrained_path}')
             # state_dict = load_state_dict_from_url(model_urls[arch],
