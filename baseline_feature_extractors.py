@@ -34,6 +34,12 @@ def main():
 
     logger = utils.get_logger(model_name, args.env)
 
+
+    if args.gpu_ids != '':
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
+        logger.info(f"use gpu: {args.gpu_ids} to train.")
+
+
     data_transforms_val, transform_list_val = utils.TransformLoader(args.image_size,
                                                                     rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=False)
