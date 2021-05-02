@@ -251,25 +251,35 @@ class ResNet(tResNet):
 
 def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', output_dim=0, pretrained_model='', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), pooling_method=pooling_method, output_dim=output_dim, **kwargs)
-    if pretrained_model != '':
+
+    if pretrained and pretrained_model != '':
         arch += '-' + pretrained_model
+
+        if pretrained_model == 'byol':
+            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth')
+            state_dict = torch.load(pretrained_path, map_location='cuda:0')['online_network_state_dict']
+
+        elif pretrained_model == 'simclr':
+            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth.tar')
+            state_dict = torch.load(pretrained_path, map_location='cuda:0')['state_dict']
+
+        elif pretrained_model == 'swav':
+            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
+            state_dict = torch.load(pretrained_path)['model_state_dict']
+        else:
+            raise Exception(f'{pretrained_model} not supported!')
+
+        model.load_my_state_dict(state_dict, four_dim=(mask and fourth_dim))
+        print('pretrained loaded!')
+        return model
+
 
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
-        state_dict_key = 'model_state_dict'
-
-        if not os.path.exists(pretrained_path):
-            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth.tar')
-            state_dict_key = 'state_dict'
-
-        if not os.path.exists(pretrained_path):
-            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth')
-            state_dict_key = 'state_dict'
 
         if os.path.exists(pretrained_path):
-
             print(f'loading {arch} from pretrained')
-            state_dict = torch.load(pretrained_path)[state_dict_key]
+            state_dict = torch.load(pretrained_path)['model_state_dict']
         else:
             raise Exception(f'Model {arch} not found in {pretrained_path}')
             # state_dict = load_state_dict_from_url(model_urls[arch],
@@ -278,6 +288,7 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
 
         model.load_my_state_dict(state_dict, four_dim=(mask and fourth_dim))
         print('pretrained loaded!')
+
     return model
 
 
