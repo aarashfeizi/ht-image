@@ -256,6 +256,13 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
 
     if pretrained:
         pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
+
+        if not os.path.exists(pretrained_path):
+            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth.tar')
+
+        if not os.path.exists(pretrained_path):
+            pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth')
+
         if os.path.exists(pretrained_path):
 
             print(f'loading {arch} from pretrained')
