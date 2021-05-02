@@ -70,19 +70,19 @@ def main():
 
     model_methods = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=0,
                                                             model_name=model_name, id_str=id_str)
+    if not args.test:
+        embbeddings, labels, seens = model_methods.get_embeddings(args, net, val_db_loader)
 
-    embbeddings, labels, seens = model_methods.get_embeddings(args, net, val_db_loader)
+        embedding_name = f'{args.dataset_name}_val_{args.pretrained_model}_{args.extra_name}'
 
-    embedding_name = f'{args.dataset_name}_val_{args.pretrained_model}_{args.extra_name}'
+        utils.save_h5(f'{embedding_name}_classes', labels, 'i8',
+                      os.path.join(model_methods.save_path, f'{embedding_name}_Classes.h5'))
+        utils.save_h5(f'{embedding_name}_feats', embbeddings, 'f',
+                      os.path.join(model_methods.save_path, f'{embedding_name}_Feats.h5'))
+        utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
+                      os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
 
-    utils.save_h5(f'{embedding_name}_classes', labels, 'i8',
-                  os.path.join(model_methods.save_path, f'{embedding_name}_Classes.h5'))
-    utils.save_h5(f'{embedding_name}_feats', embbeddings, 'f',
-                  os.path.join(model_methods.save_path, f'{embedding_name}_Feats.h5'))
-    utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
-                  os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
-
-    if args.test:
+    else:
         embbeddings, labels, seens = model_methods.get_embeddings(args, net, test_db_loader)
 
         embedding_name = f'{args.dataset_name}_test_{args.pretrained_model}_{args.extra_name}'
@@ -94,7 +94,31 @@ def main():
         utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
 
+    unique_seens = np.unique(seens)
+    prmpt = 'Test results' if args.test else 'Val results'
+    print(prmpt)
+    if len(unique_seens) == 2:
+        seen_res = utils.evaluation(embbeddings[seens == 1], labels[seens == 1], Kset=[1, 2, 4, 5, 8, 10, 100, 1000])
+        print(f'Seen length: {len(labels[seens == 1])}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(seen_res)
+        unseen_res = utils.evaluation(embbeddings[seens == 0], labels[seens == 0], Kset=[1, 2, 4, 5, 8, 10, 100, 1000])
+        print(f'Unseen length: {len(labels[seens == 0])}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(unseen_res)
 
+        res = utils.evaluation(embbeddings, labels, Kset=[1, 2, 4, 5, 8, 10, 100, 1000])
+        print(f'Total length: {len(labels)}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(res)
+
+    elif len(unique_seens) == 1:
+        res = utils.evaluation(embbeddings, labels, Kset=[1, 2, 4, 5, 8, 10, 100, 1000])
+        print(f'Total length: {len(labels)}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(res)
+    else:
+        raise Exception(f"More than 2 values in 'seens'. len(unique_seens) = {len(unique_seens)}")
 
 if __name__ == '__main__':
     main()
