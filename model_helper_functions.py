@@ -1605,32 +1605,44 @@ class ModelMethods:
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
         if batch_size is None:
-            batch_size = args.batch_size
+            batch_size = args.db_batch
 
         if args.feat_extractor == 'resnet50':
             embs = np.zeros((len(data_loader.dataset), 2048))
         elif args.feat_extractor == 'resnet18':
             embs = np.zeros((len(data_loader.dataset), 512))
+        else:
+            raise Exception('Arch not handled for "get_embeddings" function')
 
         labels = np.zeros((len(data_loader.dataset)))
-        seen = np.zeros((len(data_loader.dataset)))
+        seens = np.zeros((len(data_loader.dataset)))
 
-        for idx, (img, lbl, seen, _) in enumerate(data_loader):
+        with tqdm(total=len(data_loader), desc='Storing embeddings...') as t:
+            for idx, tpl in enumerate(data_loader):
 
-            if args.cuda:
-                img = img.cuda()
-            img = Variable(img)
+                if len(tpl) == 4:
+                    img, lbl, seen, _ = tpl
+                else:
+                    img, lbl, _ = tpl
+                    seen = -1
 
-            output = net.forward(img, None, single=True)
-            output = output.data.cpu().numpy()
+                if args.cuda:
+                    img = img.cuda()
+                img = Variable(img)
 
-            end = min((idx + 1) * batch_size, len(embs))
+                output = net.forward(img)  # for only a resnet (not custom to my implementation)
+                output = output.data.cpu().numpy()
 
-            embs[idx * batch_size:end, :] = output
-            labels[idx * batch_size:end] = lbl
-            seen[idx * batch_size:end] = seen.to(int)
+                end = min((idx + 1) * batch_size, len(embs))
 
-        return embs, labels, seen
+                embs[idx * batch_size:end, :] = output
+                labels[idx * batch_size:end] = lbl
+
+                if len(tpl) == 4:
+                    seens[idx * batch_size:end] = seen.to(int)
+                t.update()
+
+        return embs, labels, seens
 
     def apply_edgepred_eval(self, args, net, data_loader):
 

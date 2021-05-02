@@ -2,10 +2,10 @@ import argparse
 import datetime
 import json
 import logging
-import sys
 import math
 import multiprocessing
 import os
+import sys
 import time
 
 import cv2
@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from PIL import Image, ImageOps
 from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
@@ -149,7 +149,6 @@ def get_logger(logname, env):
     return logging.getLogger()
 
 
-
 def get_args():
     parser = argparse.ArgumentParser()
 
@@ -222,10 +221,9 @@ def get_args():
     parser.add_argument('-lr_tol', '--lr_tol', default=3, type=int, help="Adaptive Learning Rate Scheduler Tolerance")
     parser.add_argument('-lr_adp_loss', '--lr_adaptive_loss', default=False, action='store_true')
 
-
-
     parser.add_argument('-kbm', '--k_best_maps', nargs='+', help="list of k best activation maps")
-    parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[], help="feature maps for local merge") # 1, 2, 3, 4
+    parser.add_argument('-fml', '--feature_map_layers', nargs='+', default=[],
+                        help="feature maps for local merge")  # 1, 2, 3, 4
 
     parser.add_argument('-merge_global', '--merge_global', default=False, action='store_true')
     parser.add_argument('-no_global', '--no_global', default=False, action='store_true')
@@ -293,6 +291,7 @@ def loading_time(args, train_set, use_cuda, num_workers, pin_memory, logger):
     logger.info("  Used {} second with num_workers = {}".format(end - start, num_workers))
     return end - start
 
+
 def get_file_name(file_path):
     temp = file_path[file_path.rfind('/') + 1:]
     ret = temp[:temp.rfind('.')]
@@ -302,6 +301,7 @@ def get_file_name(file_path):
 def get_number_of_parameters(net):
     total_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
     return total_params
+
 
 def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], starting_from=0, logger=None):
     use_cuda = torch.cuda.is_available()
@@ -416,7 +416,7 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
     metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
     metric_seen = metrics.Accuracy_At_K(classes=np.array(seen_lbls))
     metric_unseen = metrics.Accuracy_At_K(classes=np.array(unseen_lbls))
-
+    # TODO FIX THIS SHIT!! RETURN BOTH R@1 R@2 R@4 R@8 AND ALSO TOP-1 AND TOP-5 ACCURACIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  + COLOR JITTER AND HORIZONTAL FLIP
     for idx, (row, lbl, seen) in enumerate(zip(sim_mat, img_lbls, seen_list)):
         ret_scores = np.delete(row, idx)
         ret_lbls = np.delete(img_lbls, idx)
@@ -1591,7 +1591,8 @@ def apply_grad_heatmaps(grads, activations, img_dict, label, id, path, plot_titl
 @MY_DEC
 def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
                           titles=[''], histogram_path='',
-                          merge_method='sim', classifier_weights=None, softmax=False, tb_path=None, epoch=None, writer=None):
+                          merge_method='sim', classifier_weights=None, softmax=False, tb_path=None, epoch=None,
+                          writer=None):
     """
 
     :param acts: [anch_activation_p,
@@ -1710,8 +1711,6 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
         ax_anchpos_pos_ww = plt.subplot2grid(subplot_grid_shape, (3, 9), rowspan=3, colspan=3)
         ax_anchneg_neg_ww = plt.subplot2grid(subplot_grid_shape, (10, 9), rowspan=3, colspan=3)
 
-
-
         create_subplot(ax_anch, titles[0] + ' org', pics[0])
         create_subplot(ax_pos, titles[1] + ' org', pics[1])
         create_subplot(ax_neg, titles[2] + ' org', pics[2])
@@ -1802,7 +1801,8 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
     for idx, (att, (title, im)) in enumerate(zip(atts, img_list)):
         # import pdb
         # pdb.set_trace()
-        heatmaps = get_heatmaps(att, shape=shape, classifier_weights=None, attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
+        heatmaps = get_heatmaps(att, shape=shape, classifier_weights=None,
+                                attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
         pics = []
         for h in heatmaps:
             pics.append(merge_heatmap_img(im, h))
@@ -1815,7 +1815,6 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
         #         merge_heatmap_img(img_list[2][1], heatmaps[2])
         #         ]
     writer.flush()
-
 
 
 @MY_DEC
@@ -2069,8 +2068,6 @@ def get_logname(args):
                         name += f'VAL'
                     name += f'-tol{args.lr_tol}'
 
-
-
     if args.pretrained_model_dir != '':
         name = args.pretrained_model_dir + '_pretrained'
 
@@ -2079,6 +2076,9 @@ def get_logname(args):
 
     if args.loss == 'batchhard':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
+
+    if args.pretrained_model != '':
+        name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
 
     name += id_str
 
@@ -2315,6 +2315,7 @@ def get_resnet(args, model_name):
 
     return model
 
+
 def plot_class_dist(datas, plottitle, path):
     # import pdb
     # pdb.set_trace()
@@ -2345,3 +2346,28 @@ def plot_class_dist(datas, plottitle, path):
         plt.title(plottitle + ' count dist')
         plt.savefig(count_dist_path)
         plt.close()
+
+
+# softtriplet loss code
+def evaluation(X, Y, Kset):
+    num = X.shape[0]
+    classN = np.max(Y) + 1
+    kmax = np.max(Kset)
+    recallK = np.zeros(len(Kset))
+    # compute NMI
+    # kmeans = KMeans(n_clusters=classN).fit(X)
+    # nmi = normalized_mutual_info_score(Y, kmeans.labels_, average_method='arithmetic')
+    # compute Recall@K
+    sim = X.dot(X.T)
+    minval = np.min(sim) - 1.
+    sim -= np.diag(np.diag(sim))
+    sim += np.diag(np.ones(num) * minval)
+    indices = np.argsort(-sim, axis=1)[:, : kmax]
+    YNN = Y[indices]
+    for i in range(0, len(Kset)):
+        pos = 0.
+        for j in range(0, num):
+            if Y[j] in YNN[j, :Kset[i]]:
+                pos += 1.
+        recallK[i] = pos / num
+    return recallK
