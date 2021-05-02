@@ -9,10 +9,14 @@ from torch.autograd import Variable
 
 import model_helper_functions
 import utils
-from models import resnet
+from models.resnet import simple_resnet50, simple_resnet18
+from models.resnet import *
 from my_datasets import *
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+
+MODEL_BACKBONE = {'resnet50': simple_resnet50,
+                  'resnet18': simple_resnet18}
 
 
 def main():
@@ -45,7 +49,7 @@ def main():
         aug=args.aug, random_crop=False)
     logger.info(f'val transforms: {transform_list_val}')
 
-    net = resnet.simple_resnet50(args, pretrained=True)
+    net = MODEL_BACKBONE[args.feat_extractor](args, pretrained=True)
 
     if args.cuda:
         net.cuda()

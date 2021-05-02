@@ -306,6 +306,11 @@ def simple_resnet50(args, pretrained=False, progress=True, num_classes=1, **kwar
                    project_path=args.project_path,
                    pretrained_model=args.pretrained_model, **kwargs)
 
+def simple_resnet18(args, pretrained=False, progress=True, num_classes=1, **kwargs):
+    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
+                   project_path=args.project_path,
+                   pretrained_model=args.pretrained_model, **kwargs)
+
 def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, output_dim=0, **kwargs):
     r"""ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
