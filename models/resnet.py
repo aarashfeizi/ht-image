@@ -254,7 +254,7 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
 
     if pretrained and pretrained_model != '':
         arch += '-' + pretrained_model
-
+        print(f'loading {arch} from pretrained')
         if pretrained_model == 'byol':
             pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pth')
             state_dict = torch.load(pretrained_path, map_location='cuda:0')['online_network_state_dict']
@@ -267,7 +267,7 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
             pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
             state_dict = torch.load(pretrained_path)['model_state_dict']
         else:
-            raise Exception(f'{pretrained_model} not supported!')
+            raise Exception(f'{arch} not supported!')
 
         model.load_my_state_dict(state_dict, four_dim=(mask and fourth_dim))
         print('pretrained loaded!')
