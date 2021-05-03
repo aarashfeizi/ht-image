@@ -174,7 +174,7 @@ def get_args():
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
                         choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16'])
-    parser.add_argument('--pretrained_model', default='', choices=['swav', 'simclr', 'byol'])
+    parser.add_argument('--pretrained_model', default='', choices=['swav', 'simclr', 'byol', 'dino'])
     parser.add_argument('-pool', '--pooling', default='spoc',
                         choices=['spoc', 'gem', 'mac', 'rmac'])
     parser.add_argument('-fr', '--freeze_ext', default=False, action='store_true')
