@@ -571,9 +571,10 @@ class DB_Dataset(Dataset):
 
         path = self.all_shuffled_data[index][1].split('/')
 
-        id = path[-4]
-        id += '-' + path[-3]
-        id += '-' + path[-1].split('.')[0]
+        id = index
+        # id = path[-4]
+        # id += '-' + path[-3]
+        # id += '-' + path[-1].split('.')[0]
 
         if self.transform:
             if self.aug_mask:

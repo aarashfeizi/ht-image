@@ -1616,14 +1616,15 @@ class ModelMethods:
 
         labels = np.zeros((len(data_loader.dataset)))
         seens = np.zeros((len(data_loader.dataset)))
+        ids = np.zeros((len(data_loader.dataset)))
 
         with tqdm(total=len(data_loader), desc='Storing embeddings...') as t:
             for idx, tpl in enumerate(data_loader):
 
                 if len(tpl) == 4:
-                    img, lbl, seen, _ = tpl
+                    img, lbl, seen, id = tpl
                 else:
-                    img, lbl, _ = tpl
+                    img, lbl, id = tpl
                     seen = -1
 
                 if args.cuda:
@@ -1637,12 +1638,13 @@ class ModelMethods:
 
                 embs[idx * batch_size:end, :] = output
                 labels[idx * batch_size:end] = lbl
+                ids[idx * batch_size:end] = id
 
                 if len(tpl) == 4:
                     seens[idx * batch_size:end] = seen.to(int)
                 t.update()
 
-        return embs, labels, seens
+        return embs, labels, seens, ids
 
     def apply_edgepred_eval(self, args, net, data_loader):
 

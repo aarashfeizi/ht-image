@@ -2349,7 +2349,7 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(X, Y, Kset):
+def evaluation(X, Y, ids, writer, loader, Kset, split):
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = np.max(Kset)
@@ -2364,12 +2364,44 @@ def evaluation(X, Y, Kset):
     sim += np.diag(np.ones(num) * minval)
     indices = np.argsort(-sim, axis=1)[:, : kmax]
     YNN = Y[indices]
+    idxNN = ids[indices]
+    counter = 0
     for i in range(0, len(Kset)):
         pos = 0.
         for j in range(0, num):
             if Y[j] in YNN[j, :Kset[i]]:
                 pos += 1.
+
+            if Y[j] == YNN[j, 0]:
+                if np.random.rand() < 0.1:
+                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{counter}_{split}')
+                    counter += 1
+            elif Y[j] in YNN[j, :10]:
+                if np.random.rand() < 0.05:
+                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{counter}_{split}')
+                    counter += 1
+            elif np.random.rand() < 0.001:
+                plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
+                counter += 1
+
         recallK[i] = pos / num
     return recallK
 
+def plot_images(org_idx, org_lbl, top_10_indx, top_10_lbl, writer, loader, tb_label):
+    writer.add_image(tb_label + f'/0_q_class{org_lbl}',
+                     get_image_from_dataloader(loader, org_idx),
+                     0, dataformats='CHW')
+
+    for i in range(len(top_10_lbl)):
+        writer.add_image(tb_label + f'/{i + 1}_class{top_10_lbl[i]}',
+                         get_image_from_dataloader(loader, top_10_indx[i]),
+                         0, dataformats='CHW')
+
+    writer.flush()
+
+
 # testing merge
+def get_image_from_dataloader(loader, index):
+    img = Image.open(loader.dataset.all_shuffled_data[int(index)][1]).convert('RGB')
+    img = loader.dataset.transform(img).numpy()
+    return img
