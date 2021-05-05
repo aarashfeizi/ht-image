@@ -2366,6 +2366,8 @@ def evaluation(X, Y, ids, writer, loader, Kset, split):
     YNN = Y[indices]
     idxNN = ids[indices]
     counter = 0
+    r1_counter = 0
+    r10_counter = 0
     for i in range(0, len(Kset)):
         pos = 0.
         for j in range(0, num):
@@ -2373,14 +2375,14 @@ def evaluation(X, Y, ids, writer, loader, Kset, split):
                 pos += 1.
 
             if Y[j] == YNN[j, 0]:
-                if np.random.rand() < 0.1:
-                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{counter}_{split}')
-                    counter += 1
+                if r1_counter < 20:
+                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{r1_counter}_{split}')
+                    r1_counter += 1
             elif Y[j] in YNN[j, :10]:
-                if np.random.rand() < 0.05:
-                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{counter}_{split}')
-                    counter += 1
-            elif np.random.rand() < 0.001:
+                if r10_counter < 20:
+                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{r10_counter}_{split}')
+                    r10_counter += 1
+            elif counter < 20:
                 plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
                 counter += 1
 
