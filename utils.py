@@ -2378,13 +2378,16 @@ def evaluation(X, Y, ids, writer, loader, Kset, split):
                 if r1_counter < 20:
                     plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{r1_counter}_{split}')
                     r1_counter += 1
+                    print('r1_counter = ', r1_counter)
             elif Y[j] in YNN[j, :10]:
                 if r10_counter < 20:
                     plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{r10_counter}_{split}')
                     r10_counter += 1
+                    print('r10_counter = ', r10_counter)
             elif counter < 20:
                 plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
                 counter += 1
+                print('counter = ', counter)
 
         recallK[i] = pos / num
     return recallK
