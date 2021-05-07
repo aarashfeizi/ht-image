@@ -3,15 +3,16 @@ import os
 import time
 from collections import deque
 
+import faiss
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
 from matplotlib.lines import Line2D
-from sklearn.metrics import confusion_matrix, roc_auc_score, euclidean_distances
-from sklearn.metrics.pairwise import cosine_distances
+from sklearn.metrics import confusion_matrix, roc_auc_score
 from sklearn.metrics import silhouette_score, silhouette_samples
+from sklearn.metrics.pairwise import cosine_distances
 from torch.autograd import Variable
 from tqdm import tqdm
 
@@ -52,7 +53,6 @@ class Adaptive_Scheduler:
             if self.logger is not None:
                 self.logger.info(f'min_lr reached = {self.min_lr}')
             return self.min_lr
-
 
     def step(self, current_loss, current_val):
         if self.metric == -1:
@@ -866,9 +866,9 @@ class ModelMethods:
                                 utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
 
                                 val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
-                                                                                                    args, net, loader,
-                                                                                                    loss_fn, bce_loss, val=True,
-                                                                                                    epoch=epoch, comment=comm)
+                                    args, net, loader,
+                                    loss_fn, bce_loss, val=True,
+                                    epoch=epoch, comment=comm)
 
                                 if comm not in results.keys():
                                     results[comm] = {}
@@ -1260,7 +1260,7 @@ class ModelMethods:
 
         return roc_auc, metric_ACC.get_acc(), metric_ACC.get_right_wrong(), {'pos': all_pos_predictions,
                                                                              'neg': all_neg_predictions}, (
-                           test_loss / len(data_loader))
+                       test_loss / len(data_loader))
 
     def test_edgepred(self, args, net, data_loader, loss_fn, val=False, epoch=0, comment=''):
         net.eval()
@@ -1608,9 +1608,9 @@ class ModelMethods:
             batch_size = args.db_batch
 
         if args.feat_extractor == 'resnet50':
-            embs = np.zeros((len(data_loader.dataset), 2048))
+            embs = np.zeros((len(data_loader.dataset), 2048), dtype=np.float32)
         elif args.feat_extractor == 'resnet18':
-            embs = np.zeros((len(data_loader.dataset), 512))
+            embs = np.zeros((len(data_loader.dataset), 512), dtype=np.float32)
         else:
             raise Exception('Arch not handled for "get_embeddings" function')
 

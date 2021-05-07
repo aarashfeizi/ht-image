@@ -63,7 +63,27 @@ def main():
 
     model_methods = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=0,
                                                         model_name=model_name, id_str=id_str)
-    if not args.test:
+
+    if args.store_features_knn:
+        train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name)
+
+        train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                     pin_memory=pin_memory, drop_last=args.drop_last)
+
+
+        embbeddings, labels, seens, ids = model_methods.get_embeddings(args, net, train_db_loader)
+
+        knn_path = os.path.join(model_methods.save_path, 'knn')
+        utils.save_knn(embbeddings, knn_path, gpu=args.cuda)
+
+        with open(os.path.join(knn_path, 'labels.pkl'), 'wb') as f:
+            import pickle
+            pickle.dump(labels, f)
+
+
+        loader = train_db_loader
+
+    elif not args.test:
         embbeddings, labels, seens, ids = model_methods.get_embeddings(args, net, val_db_loader)
         loader = val_db_loader
 
@@ -94,26 +114,27 @@ def main():
     print(prmpt)
     if len(unique_seens) == 2:
         seen_res = utils.evaluation(embbeddings[seens == 1], labels[seens == 1],
-                                    ids[seens == 1], model_methods.writer, loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen')
+                                    ids[seens == 1], model_methods.writer, loader,
+                                    Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', gpu=args.cuda)
         print(f'Seen length: {len(labels[seens == 1])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(seen_res)
         unseen_res = utils.evaluation(embbeddings[seens == 0], labels[seens == 0],
                                       ids[seens == 0], model_methods.writer, loader,
-                                      Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen')
+                                      Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', gpu=args.cuda)
         print(f'Unseen length: {len(labels[seens == 0])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(unseen_res)
 
         res = utils.evaluation(embbeddings, labels, ids, model_methods.writer,
-                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total')
+                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', gpu=args.cuda)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(res)
 
     elif len(unique_seens) == 1:
         res = utils.evaluation(embbeddings, labels, ids, model_methods.writer,
-                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total')
+                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', gpu=args.cuda)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(res)

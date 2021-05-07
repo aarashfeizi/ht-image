@@ -23,6 +23,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
+import faiss
+
 import metrics
 
 matplotlib.rc('font', size=24)
@@ -202,6 +204,7 @@ def get_args():
     parser.add_argument('-ep', '--epochs', default=1, type=int, help="number of epochs before stopping")
     parser.add_argument('-es', '--early_stopping', default=20, type=int, help="number of tol for validation acc")
     parser.add_argument('-tst', '--test', default=False, action='store_true')
+    parser.add_argument('-store_features_knn', '--store_features_knn', default=False, action='store_true')
     parser.add_argument('-katn', '--katn', default=False, action='store_true')
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
     parser.add_argument('-sr', '--sampled_results', default=False, action='store_true')
@@ -721,7 +724,6 @@ def get_shuffled_data(datas, seed=0, one_hot=True, both_seen_unseen=False, shuff
 def make_dirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
-
     return True
 
 
@@ -2349,20 +2351,22 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(X, Y, ids, writer, loader, Kset, split):
+def evaluation(X, Y, ids, writer, loader, Kset, split, gpu=False):
     num = X.shape[0]
     classN = np.max(Y) + 1
-    kmax = np.max(Kset)
+    kmax = min(np.max(Kset), num)
+    print(f'kmax = {kmax}')
     recallK = np.zeros(len(Kset))
     # compute NMI
     # kmeans = KMeans(n_clusters=classN).fit(X)
     # nmi = normalized_mutual_info_score(Y, kmeans.labels_, average_method='arithmetic')
     # compute Recall@K
-    sim = X.dot(X.T)
-    minval = np.min(sim) - 1.
-    sim -= np.diag(np.diag(sim))
-    sim += np.diag(np.ones(num) * minval)
-    indices = np.argsort(-sim, axis=1)[:, : kmax]
+    # sim = X.dot(X.T)
+    # minval = np.min(sim) - 1.
+    # sim -= np.diag(np.diag(sim))
+    # sim += np.diag(np.ones(num) * minval)
+    _, indices = get_faiss_knn(X, k=int(kmax), gpu=gpu)
+
     YNN = Y[indices]
     idxNN = ids[indices]
     counter = 0
@@ -2410,3 +2414,41 @@ def get_image_from_dataloader(loader, index):
     img = Image.open(loader.dataset.all_shuffled_data[int(index)][1]).convert('RGB')
     img = loader.dataset.transform(img).numpy()
     return img
+
+def get_faiss_knn(reps, k=1000, gpu=False):
+
+    assert reps.dtype == np.float32
+
+    d = reps.shape[1]
+    # index_flat = faiss.IndexFlatIP(d)
+    index_flat = faiss.IndexFlatL2(d)
+    if gpu:
+        res = faiss.StandardGpuResources()
+        index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
+        print('Using GPU for KNN!! Thanks FAISS!')
+    else:
+        print('No gpus for faiss! :( ')
+
+    index_flat.add(reps)  # add vectors to the index
+    assert (index_flat.ntotal == reps.shape[0])
+
+    D, I = index_flat.search(reps, k)
+
+    assert np.array_equal(I[:, 0], np.arange(reps.shape[0]))
+
+    I = I[:, 1:]
+
+    return D, I
+
+
+def save_knn(embbeddings, path, gpu=False):
+    import pickle
+    make_dirs(path=path)
+    distances, indicies = get_faiss_knn(embbeddings, gpu=gpu)
+    with open(os.path.join(f'{path}', 'indicies.pkl'), 'wb') as f:
+        pickle.dump(indicies, f)
+
+    with open(os.path.join(f'{path}', 'embeddings.pkl'), 'wb') as f:
+        pickle.dump(indicies, f)
+
+    return
