@@ -102,10 +102,13 @@ class TransformLoader:
             return method(**self.normalize_param)
         elif transform_type == 'RandomRotation':
             return method(self.rotate)
+        elif transform_type == 'ColorJitter':
+            return method(brightness=0.5, hue=0.5, contrast=0.5, saturation=0.5)
+
         else:
             return method()
 
-    def get_composed_transform(self, aug=False, random_crop=False, for_network=True):
+    def get_composed_transform(self, aug=False, random_crop=False, for_network=True, color_jitter=False):
         transform_list = []
 
         if aug:
@@ -119,6 +122,9 @@ class TransformLoader:
             transform_list.extend(['RandomResizedCrop'])
         else:
             transform_list.extend(['CenterCrop'])
+
+        if color_jitter:
+            transform_list.extend(['ColorJitter'])
 
         if for_network:
             transform_list.extend(['ToTensor'])
@@ -2351,7 +2357,7 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(X, Y, ids, writer, loader, Kset, split, gpu=False):
+def evaluation(X, Y, ids, writer, loader, Kset, split, path, gpu=False):
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = min(np.max(Kset), num)
@@ -2365,7 +2371,36 @@ def evaluation(X, Y, ids, writer, loader, Kset, split, gpu=False):
     # minval = np.min(sim) - 1.
     # sim -= np.diag(np.diag(sim))
     # sim += np.diag(np.ones(num) * minval)
-    _, indices = get_faiss_knn(X, k=int(kmax), gpu=gpu)
+    distances, indices = get_faiss_knn(X, k=int(kmax), gpu=gpu)
+    D_notself = []
+    I_notself = []
+
+    self_distance = []
+
+    start = time.time()
+    for i, (i_row, d_row) in enumerate(zip(indices, distances)):
+        self_distance.append(d_row[np.where(i_row == i)])
+        I_notself.append(np.delete(i_row, np.where(i_row == i)))
+        D_notself.append(np.delete(d_row, np.where(i_row == i)))
+    end = time.time()
+
+    self_distance = np.array(self_distance)
+    distances = np.array(D_notself)
+    indices = np.array(I_notself, dtype=np.int)
+
+    print(f'D and I cleaning time: {end - start}')
+
+    label_to_simlabels = {}
+    for i, (d_row, i_row) in enumerate(zip(distances, indices)):
+        leq_indx = i_row[d_row <= self_distance[i]]
+        leq_dist = d_row[d_row <= self_distance[i]]
+        label_to_simlabels[Y[i]] = {'i': [Y[j] for j in leq_indx if j != i],
+                                    'd': leq_dist}
+
+
+    import pickle
+    with open(os.path.join(path, split + '_too_close_otherlabels.pkl'), 'wb') as f:
+        pickle.dump(label_to_simlabels, f)
 
     YNN = Y[indices]
     idxNN = ids[indices]
@@ -2396,6 +2431,7 @@ def evaluation(X, Y, ids, writer, loader, Kset, split, gpu=False):
         recallK[i] = pos / num
     return recallK
 
+
 def plot_images(org_idx, org_lbl, top_10_indx, top_10_lbl, writer, loader, tb_label):
     writer.add_image(tb_label + f'/0_q_class{org_lbl}',
                      get_image_from_dataloader(loader, org_idx),
@@ -2415,8 +2451,8 @@ def get_image_from_dataloader(loader, index):
     img = loader.dataset.transform(img).numpy()
     return img
 
-def get_faiss_knn(reps, k=1000, gpu=False):
 
+def get_faiss_knn(reps, k=1000, gpu=False):
     assert reps.dtype == np.float32
 
     d = reps.shape[1]
@@ -2431,12 +2467,9 @@ def get_faiss_knn(reps, k=1000, gpu=False):
 
     index_flat.add(reps)  # add vectors to the index
     assert (index_flat.ntotal == reps.shape[0])
-
+    I_notself = []
+    D_notself = []
     D, I = index_flat.search(reps, k)
-
-    assert np.array_equal(I[:, 0], np.arange(reps.shape[0]))
-
-    I = I[:, 1:]
 
     return D, I
 

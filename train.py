@@ -50,11 +50,11 @@ def main():
 
     logger.info(f'Verbose: {args.verbose}')
     logger.info(f'Batch size is {args_dict["batch_size"]}')
-    basic_aug = (args.overfit_num == 0)
+    train_aug = (args.overfit_num == 0)
 
     data_transforms_train, transform_list_train = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=basic_aug)
+        aug=args.aug, random_crop=train_aug, color_jitter=train_aug)
 
     logger.info(f'train transforms: {transform_list_train}')
 
