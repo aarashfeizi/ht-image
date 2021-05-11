@@ -2388,7 +2388,6 @@ def evaluation(X, Y, ids, writer, loader, Kset, split, path, gpu=False):
     distances = np.array(D_notself)
     indices = np.array(I_notself, dtype=np.int)
 
-
     print(f'D and I cleaning time: {end - start}')
 
     label_to_simlabels = {}
