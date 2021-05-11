@@ -2467,8 +2467,8 @@ def get_faiss_knn(reps, k=1000, gpu=False):
 
     index_flat.add(reps)  # add vectors to the index
     assert (index_flat.ntotal == reps.shape[0])
-    I_notself = []
-    D_notself = []
+
+
     D, I = index_flat.search(reps, k)
 
     return D, I
