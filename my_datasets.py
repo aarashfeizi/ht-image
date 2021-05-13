@@ -3,6 +3,7 @@ import random
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
@@ -14,7 +15,7 @@ from utils import get_shuffled_data, loadDataToMem, loadDataToMem_2, get_overfit
 
 class Metric_Dataset_Train(Dataset):
     def __init__(self, args, transform=None, mode='', save_pictures=False, overfit=False, return_paths=False,
-                 batchhard=[False, 0, 0]):
+                 batchhard=[False, 0, 0], allow_same_chain_negative=True):
         super(Metric_Dataset_Train, self).__init__()
         self.fourth_dim = args.fourth_dim
         np.random.seed(args.seed)
@@ -28,6 +29,19 @@ class Metric_Dataset_Train(Dataset):
         self.batchhard = batchhard[0]
         self.bh_P = batchhard[1]
         self.bh_K = batchhard[2]
+
+        self.allow_same_chain_negative = allow_same_chain_negative
+
+        super_labels = pd.read_csv(os.path.join(args.splits_file_path, 'label2chain.csv'))
+        self.lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+
+        if (not allow_same_chain_negative) and args.negative_path is not None:
+            negative_result = self.load_best_negatives(args.negative_path)
+        else:
+            negative_result = False
+            self.negative_list = None
+
+        self.get_best_negatives = negative_result
 
         start = time.time()
 
@@ -47,9 +61,9 @@ class Metric_Dataset_Train(Dataset):
 
         else:
             self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem_2(args.dataset_path, args.dataset_folder,
-                                                                    mode=mode,
-                                                                    portion=args.portion,
-                                                                    return_bg=return_bg)
+                                                                                        mode=mode,
+                                                                                        portion=args.portion,
+                                                                                        return_bg=return_bg)
 
             # utils.plot_class_dist(self.datas, f'{args.dataset_folder} {mode} dist', f'dataset_plots/{args.dataset_folder}_{mode}_dist.png')
 
@@ -83,6 +97,13 @@ class Metric_Dataset_Train(Dataset):
     def __len__(self):
         return self.length
 
+    def legal_class_condition(self, lbl1, lbl2):
+        if self.allow_same_chain_negative:
+            return lbl1 != lbl2
+        else:
+            return (self.lbl2chain[lbl1] != self.lbl2chain[lbl2]) or\
+                   (lbl1 != lbl2 and np.random.random() < 0.001)
+
     def __triplet_getitem__(self, index):
 
         paths = []
@@ -107,9 +128,9 @@ class Metric_Dataset_Train(Dataset):
         else:  # not overfitting
             anch_idx = random.randint(0, self.num_classes - 1)
             anch_class = self.labels[anch_idx]
-            random_path = random.choice(self.datas[anch_class])
-            paths.append(random_path)
-            anch = Image.open(random_path)
+            random_anch_path = random.choice(self.datas[anch_class])
+            paths.append(random_anch_path)
+            anch = Image.open(random_anch_path)
 
             # get pos image from same class
 
@@ -123,15 +144,22 @@ class Metric_Dataset_Train(Dataset):
                 neg_idx = random.randint(0, self.num_classes - 1)
                 neg_class = self.labels[neg_idx]
 
-                while anch_class == neg_class:
-                    neg_idx = random.randint(0, self.num_classes - 1)
-                    neg_class = self.labels[neg_idx]
+                if not self.get_best_negatives:
+                    while not self.legal_class_condition(anch_class, neg_class):
+                        neg_idx = random.randint(0, self.num_classes - 1)
+                        neg_class = self.labels[neg_idx]
+                        # class1 = self.labels[idx1]
+                        # image1 = Image.open(random.choice(self.datas[self.class1]))
 
-                    # class1 = self.labels[idx1]
+                    random_path = random.choice(self.datas[neg_class])
+                    # print('random!')
+                else:
+                    if self.negative_list is None:
+                        raise Exception('wtf?')
+                    print(f'using best {self.negative_list[random_anch_path][0]} for {random_anch_path}')
+                    random_path = self.negative_list[random_anch_path][0]
+                    neg_class = self.negative_list[random_anch_path][1]
 
-                    # image1 = Image.open(random.choice(self.datas[self.class1]))
-
-                random_path = random.choice(self.datas[neg_class])
                 paths.append(random_path)
                 neg = Image.open(random_path)
 
@@ -283,6 +311,17 @@ class Metric_Dataset_Train(Dataset):
         img = self.transform(img)
         img = self.normalize(img)
         return img
+
+    def load_best_negatives(self, path):
+        import pickle
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                self.negative_list = pickle.load(f)  # map each img to it's best negative image ({path: neg_path for all images})
+            self.get_best_negatives = True
+            return True
+        else:
+            self.get_best_negatives = False
+            return False
 
 
 class FewShot_Dataset_Test(Dataset):

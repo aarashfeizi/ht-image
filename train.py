@@ -37,6 +37,7 @@ def main():
     args_dict['bcecoefficient'] = bco
     args_dict['trplcoefficient'] = tco
 
+
     args_dict.update(dataset_info[args.dataset_name])
     args = Namespace(**args_dict)
 
@@ -110,7 +111,8 @@ def main():
 
     train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode=args.train_folder_name,
                                      save_pictures=False, overfit=True,
-                                     batchhard=[is_batchhard, args.bh_P, args.bh_K])
+                                     batchhard=[is_batchhard, args.bh_P, args.bh_K],
+                                     allow_same_chain_negative=True)
 
     logger.info('*' * 10)
     val_set_known_metric = None
@@ -293,6 +295,7 @@ def main():
 
     logger.info(model_methods_top.save_path)
 
+    ##todo create first best negatives
     # multi gpu
     # if len(args.gpu_ids.split(",")) > 1:
     #     tm_net = torch.nn.DataParallel(tm_net)

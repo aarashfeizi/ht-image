@@ -154,6 +154,11 @@ class ModelMethods:
         utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_train'))
         utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_val'))
 
+        if args.negative_path != '':
+            args.negative_path = os.path.join(self.save_path, args.negative_path)
+            utils.make_dirs(os.path.split(args.negative_path)[0])
+
+
         if args.cam:
             utils.make_dirs(f'{self.save_path}/heatmap/')
 
@@ -770,6 +775,22 @@ class ModelMethods:
 
             epoch_start = time.time()
 
+            if args.negative_path != '':
+                self.save_best_negatives(args, net.ft_net, train_db_loader)
+                train_loader.dataset.load_best_negatives(args.negative_path)
+
+            if args.train_diff_plot:
+
+                self.logger.info('plotting train class diff plot...')
+                self.make_emb_db(args, net, train_db_loader,
+                                 eval_sampled=args.sampled_results,
+                                 eval_per_class=args.per_class_results,
+                                 newly_trained=True,
+                                 batch_size=args.db_batch,
+                                 mode='train',
+                                 epoch=epoch,
+                                 k_at_n=True)
+
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
@@ -1362,29 +1383,32 @@ class ModelMethods:
             if args.dim_reduction != 0:
                 test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff))
 
-            for idx, tpl in enumerate(data_loader):
+            with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode}') as t:
+                for idx, tpl in enumerate(data_loader):
 
-                end = min((idx + 1) * batch_size, len(test_feats))
+                    end = min((idx + 1) * batch_size, len(test_feats))
 
-                if return_bg and mode != 'train':
-                    (img, lbl, seen, path) = tpl
-                else:
-                    (img, lbl, path) = tpl
+                    if return_bg and mode != 'train':
+                        (img, lbl, seen, path) = tpl
+                    else:
+                        (img, lbl, path) = tpl
 
-                if args.cuda:
-                    img = img.cuda()
+                    if args.cuda:
+                        img = img.cuda()
 
-                img = Variable(img)
+                    img = Variable(img)
 
-                output = net.forward(img, None, single=True)
-                output = output.data.cpu().numpy()
+                    output = net.forward(img, None, single=True)
+                    output = output.data.cpu().numpy()
 
-                test_feats[idx * batch_size:end, :] = output
-                test_classes[idx * batch_size:end] = lbl
-                test_paths[idx * batch_size:end] = path
+                    test_feats[idx * batch_size:end, :] = output
+                    test_classes[idx * batch_size:end] = lbl
+                    test_paths[idx * batch_size:end] = path
 
-                if return_bg and mode != 'train':  # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
-                    test_seen[idx * batch_size:end] = seen.to(int)
+                    if return_bg and mode != 'train':  # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
+                        test_seen[idx * batch_size:end] = seen.to(int)
+
+                    t.update()
 
             utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
@@ -1607,9 +1631,11 @@ class ModelMethods:
         if batch_size is None:
             batch_size = args.db_batch
 
-        if args.feat_extractor == 'resnet50':
+        if args.dim_reduction != 0:
+            embs = np.zeros((len(data_loader.dataset), args.dim_reduction), dtype=np.float32)
+        elif args.feat_extractor == 'resnet50':
             embs = np.zeros((len(data_loader.dataset), 2048), dtype=np.float32)
-        elif args.feat_extractor == 'resnet18':
+        elif args.feat_extractor == 'resnet18' or args.feat_extractor == 'vgg16':
             embs = np.zeros((len(data_loader.dataset), 512), dtype=np.float32)
         else:
             raise Exception('Arch not handled for "get_embeddings" function')
@@ -2310,6 +2336,15 @@ class ModelMethods:
             important_hp['softmax-diffsim'] = args.softmax_diff_sim
 
         return important_hp
+
+    def save_best_negatives(self, args, net, loader):
+        embbeddings, labels, seens, ids = self.get_embeddings(args, net, loader)
+
+        res = utils.evaluation(args, embbeddings, labels, ids, self.writer,
+                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=self.save_path,
+                               gpu=args.cuda,
+                               path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'))
+        self.logger.info(str(res))
 
 
 class BaslineModel:

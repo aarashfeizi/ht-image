@@ -319,12 +319,12 @@ def resnet34(args, pretrained=False, progress=True, num_classes=1, **kwargs):
 def simple_resnet50(args, pretrained=False, progress=True, num_classes=1, **kwargs):
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, num_classes,
                    project_path=args.project_path,
-                   pretrained_model=args.pretrained_model, **kwargs)
+                   pretrained_model=args.pretrained_model, output_dim=args.dim_reduction, **kwargs)
 
 def simple_resnet18(args, pretrained=False, progress=True, num_classes=1, **kwargs):
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
                    project_path=args.project_path,
-                   pretrained_model=args.pretrained_model, **kwargs)
+                   pretrained_model=args.pretrained_model, output_dim=args.dim_reduction, **kwargs)
 
 def resnet50(args, pretrained=False, progress=True, num_classes=1, mask=False, fourth_dim=False, output_dim=0, **kwargs):
     r"""ResNet-50 model from

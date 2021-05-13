@@ -70,10 +70,13 @@ def main():
         train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                      pin_memory=pin_memory, drop_last=args.drop_last)
 
-        embbeddings, labels, seens, ids = model_methods.get_embeddings(args, net, train_db_loader)
 
+
+        embeddings, labels, seens, ids = model_methods.get_embeddings(args, net, train_db_loader)
+        print(embeddings.shape)
+        input()
         knn_path = os.path.join(model_methods.save_path, 'knn')
-        utils.save_knn(embbeddings, knn_path, gpu=args.cuda)
+        utils.save_knn(embeddings, knn_path, gpu=args.cuda)
 
         with open(os.path.join(knn_path, 'labels.pkl'), 'wb') as f:
             import pickle
@@ -82,27 +85,27 @@ def main():
         loader = train_db_loader
 
     elif not args.test:
-        embbeddings, labels, seens, ids = model_methods.get_embeddings(args, net, val_db_loader)
+        embeddings, labels, seens, ids = model_methods.get_embeddings(args, net, val_db_loader)
         loader = val_db_loader
 
         embedding_name = f'{args.dataset_name}_val_{args.pretrained_model}_{args.extra_name}'
 
         utils.save_h5(f'{embedding_name}_classes', labels, 'i8',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Classes.h5'))
-        utils.save_h5(f'{embedding_name}_feats', embbeddings, 'f',
+        utils.save_h5(f'{embedding_name}_feats', embeddings, 'f',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Feats.h5'))
         utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
 
     else:
-        embbeddings, labels, seens, ids = model_methods.get_embeddings(args, net, test_db_loader)
+        embeddings, labels, seens, ids = model_methods.get_embeddings(args, net, test_db_loader)
         loader = test_db_loader
 
         embedding_name = f'{args.dataset_name}_test_{args.pretrained_model}_{args.extra_name}'
 
         utils.save_h5(f'{embedding_name}_classes', labels, 'i8',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Classes.h5'))
-        utils.save_h5(f'{embedding_name}_feats', embbeddings, 'f',
+        utils.save_h5(f'{embedding_name}_feats', embeddings, 'f',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Feats.h5'))
         utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
@@ -111,32 +114,33 @@ def main():
     prmpt = 'Test results' if args.test else 'Val results'
     print(prmpt)
     if len(unique_seens) == 2:
-        seen_res = utils.evaluation(embbeddings[seens == 1], labels[seens == 1],
+        seen_res = utils.evaluation(args, embeddings[seens == 1], labels[seens == 1],
                                     ids[seens == 1], model_methods.writer, loader,
                                     Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', path=model_methods.save_path,
-                                    gpu=args.cuda)
+                                    gpu=args.cuda, tb_draw=True)
         print(f'Seen length: {len(labels[seens == 1])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(seen_res)
-        unseen_res = utils.evaluation(embbeddings[seens == 0], labels[seens == 0],
+        unseen_res = utils.evaluation(args, embeddings[seens == 0], labels[seens == 0],
                                       ids[seens == 0], model_methods.writer, loader,
                                       Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', path=model_methods.save_path,
-                                      gpu=args.cuda)
+                                      gpu=args.cuda, tb_draw=True)
         print(f'Unseen length: {len(labels[seens == 0])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(unseen_res)
 
-        res = utils.evaluation(embbeddings, labels, ids, model_methods.writer,
+        res = utils.evaluation(args, embeddings, labels, ids, model_methods.writer,
                                loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=model_methods.save_path,
-                               gpu=args.cuda)
+                               gpu=args.cuda, tb_draw=True)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(res)
 
     elif len(unique_seens) == 1:
-        res = utils.evaluation(embbeddings, labels, ids, model_methods.writer,
+        res = utils.evaluation(args, embeddings, labels, ids, model_methods.writer,
                                loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=model_methods.save_path,
-                               gpu=args.cuda)
+                               gpu=args.cuda, path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
+                               tb_draw=True)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(res)

@@ -7,6 +7,7 @@ import multiprocessing
 import os
 import sys
 import time
+import pickle
 
 import cv2
 import h5py
@@ -19,7 +20,7 @@ import torch.nn.functional as F
 from PIL import Image, ImageOps
 from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
@@ -172,6 +173,11 @@ def get_args():
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
     parser.add_argument('-nor', '--number_of_runs', default=1, type=int, help="Number of times to sample for k@n")
     parser.add_argument('-sp', '--save_path', default='savedmodels/', help="path to store model")
+    parser.add_argument('-np', '--negative_path', default='', help="path to store best negative "
+                                                                                          "images, should be a "
+                                                                                          "dictionary that maps each "
+                                                                                          "image paths to its best "
+                                                                                          "negative image paths") # 'negatives/negatives.pkl'
     parser.add_argument('-lp', '--log_path', default='logs/', help="path to log")
     parser.add_argument('-tbp', '--tb_path', default='tensorboard/', help="path for tensorboard")
     parser.add_argument('-a', '--aug', default=False, action='store_true')
@@ -420,19 +426,19 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
 
-    sim_mat = cosine_similarity(img_feats)
+
+    k_max = min(1000, img_feats.shape[0])
+
+    _, I, self_D = get_faiss_knn(img_feats, k=k_max, gpu=True)
 
     metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
     metric_seen = metrics.Accuracy_At_K(classes=np.array(seen_lbls))
     metric_unseen = metrics.Accuracy_At_K(classes=np.array(unseen_lbls))
-    # TODO FIX THIS SHIT!! RETURN BOTH R@1 R@2 R@4 R@8 AND ALSO TOP-1 AND TOP-5 ACCURACIES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  + COLOR JITTER AND HORIZONTAL FLIP
-    for idx, (row, lbl, seen) in enumerate(zip(sim_mat, img_lbls, seen_list)):
-        ret_scores = np.delete(row, idx)
-        ret_lbls = np.delete(img_lbls, idx)
-        ret_seens = np.delete(seen_list, idx)
 
-        ret_lbls = _sort_according_to(ret_lbls, ret_scores)
-        ret_seens = _sort_according_to(ret_seens, ret_scores)
+    for idx, (lbl, seen) in enumerate(zip(img_lbls, seen_list)):
+
+        ret_seens = seen_list[I[idx, :]]
+        ret_lbls = img_lbls[I[idx, :]]
 
         metric_total.update(lbl, ret_lbls)
 
@@ -2357,7 +2363,7 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(X, Y, ids, writer, loader, Kset, split, path, gpu=False):
+def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False):
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = min(np.max(Kset), num)
@@ -2371,24 +2377,28 @@ def evaluation(X, Y, ids, writer, loader, Kset, split, path, gpu=False):
     # minval = np.min(sim) - 1.
     # sim -= np.diag(np.diag(sim))
     # sim += np.diag(np.ones(num) * minval)
-    distances, indices = get_faiss_knn(X, k=int(kmax), gpu=gpu)
-    D_notself = []
-    I_notself = []
+    distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu)
 
-    self_distance = []
 
-    start = time.time()
-    for i, (i_row, d_row) in enumerate(zip(indices, distances)):
-        self_distance.append(d_row[np.where(i_row == i)])
-        I_notself.append(np.delete(i_row, np.where(i_row == i)))
-        D_notself.append(np.delete(d_row, np.where(i_row == i)))
-    end = time.time()
+    if path_to_lbl2chain != '':
+        super_labels = pd.read_csv(path_to_lbl2chain)
+        lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+        best_negatives = {}
+        for i, (i_row) in enumerate(indices):
+            query_label = Y[i]
+            for j in i_row:
+                negative_idx = j
+                negative_label = Y[j]
+                if lbl2chain[query_label] != lbl2chain[negative_label]:
+                    break
+            best_negatives[loader.dataset.all_shuffled_data[i][1]] = (loader.dataset.all_shuffled_data[negative_idx][1], negative_label)
 
-    self_distance = np.array(self_distance)
-    distances = np.array(D_notself)
-    indices = np.array(I_notself, dtype=np.int)
+        with open(args.negative_path, 'wb') as f:
+            print('new negative set creeated')
+            pickle.dump(best_negatives, f)
 
-    print(f'D and I cleaning time: {end - start}')
+    else:
+        lbl2chain = None
 
     label_to_simlabels = {}
     for i, (d_row, i_row) in enumerate(zip(distances, indices)):
@@ -2397,8 +2407,6 @@ def evaluation(X, Y, ids, writer, loader, Kset, split, path, gpu=False):
         label_to_simlabels[Y[i]] = {'i': [Y[j] for j in leq_indx if j != i],
                                     'd': leq_dist}
 
-
-    import pickle
     with open(os.path.join(path, split + '_too_close_otherlabels.pkl'), 'wb') as f:
         pickle.dump(label_to_simlabels, f)
 
@@ -2412,21 +2420,21 @@ def evaluation(X, Y, ids, writer, loader, Kset, split, path, gpu=False):
         for j in range(0, num):
             if Y[j] in YNN[j, :Kset[i]]:
                 pos += 1.
-
-            if Y[j] == YNN[j, 0]:
-                if r1_counter < 20:
-                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{r1_counter}_{split}')
-                    r1_counter += 1
-                    print('r1_counter = ', r1_counter)
-            elif Y[j] in YNN[j, :10]:
-                if r10_counter < 20:
-                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{r10_counter}_{split}')
-                    r10_counter += 1
-                    print('r10_counter = ', r10_counter)
-            elif counter < 20:
-                plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
-                counter += 1
-                print('counter = ', counter)
+            if tb_draw:
+                if Y[j] == YNN[j, 0]:
+                    if r1_counter < 20:
+                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{r1_counter}_{split}')
+                        r1_counter += 1
+                        print('r1_counter = ', r1_counter)
+                elif Y[j] in YNN[j, :10]:
+                    if r10_counter < 20:
+                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{r10_counter}_{split}')
+                        r10_counter += 1
+                        print('r10_counter = ', r10_counter)
+                elif counter < 20:
+                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
+                    counter += 1
+                    print('counter = ', counter)
 
         recallK[i] = pos / num
     return recallK
@@ -2458,26 +2466,48 @@ def get_faiss_knn(reps, k=1000, gpu=False):
     d = reps.shape[1]
     # index_flat = faiss.IndexFlatIP(d)
     index_flat = faiss.IndexFlatL2(d)
+    faiss.IndexFlatL2(d)
     if gpu:
-        res = faiss.StandardGpuResources()
-        index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
-        print('Using GPU for KNN!! Thanks FAISS!')
+        try:
+            res = faiss.StandardGpuResources()
+            index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
+            print('Using GPU for KNN!!'
+                  ' Thanks FAISS!')
+        except:
+            print('Didn\'t fit it GPU, No gpus for faiss! :( ')
     else:
         print('No gpus for faiss! :( ')
 
     index_flat.add(reps)  # add vectors to the index
     assert (index_flat.ntotal == reps.shape[0])
 
-
     D, I = index_flat.search(reps, k)
 
-    return D, I
+    D_notself = []
+    I_notself = []
+
+    self_distance = []
+
+    start = time.time()
+    for i, (i_row, d_row) in enumerate(zip(I, D)):
+        self_distance.append(d_row[np.where(i_row == i)])
+        I_notself.append(np.delete(i_row, np.where(i_row == i)))
+        D_notself.append(np.delete(d_row, np.where(i_row == i)))
+    end = time.time()
+
+    self_D = np.array(self_distance)
+    D = np.array(D_notself)
+    I = np.array(I_notself, dtype=np.int)
+
+    print(f'D and I cleaning time: {end - start}')
+
+    return D, I, self_D
 
 
 def save_knn(embbeddings, path, gpu=False):
     import pickle
     make_dirs(path=path)
-    distances, indicies = get_faiss_knn(embbeddings, gpu=gpu)
+    distances, indicies, _ = get_faiss_knn(embbeddings, gpu=gpu)
     with open(os.path.join(f'{path}', 'indicies.pkl'), 'wb') as f:
         pickle.dump(indicies, f)
 
