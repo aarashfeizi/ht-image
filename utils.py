@@ -283,6 +283,8 @@ def get_args():
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
+    parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
+
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
     parser.add_argument('-smds', '--softmax_diff_sim', default=False, action='store_true')
@@ -2467,19 +2469,21 @@ def get_faiss_knn(reps, k=1000, gpu=False):
     d = reps.shape[1]
     # index_flat = faiss.IndexFlatIP(d)
     index_flat = faiss.IndexFlatL2(d)
-    faiss.IndexFlatL2(d)
     if gpu:
         try:
             res = faiss.StandardGpuResources()
             index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
+            index_flat.add(reps)  # add vectors to the index
             print('Using GPU for KNN!!'
                   ' Thanks FAISS!')
         except:
             print('Didn\'t fit it GPU, No gpus for faiss! :( ')
+            index_flat = faiss.IndexFlatL2(d)
+            index_flat.add(reps)  # add vectors to the index
     else:
         print('No gpus for faiss! :( ')
 
-    index_flat.add(reps)  # add vectors to the index
+
     assert (index_flat.ntotal == reps.shape[0])
 
     D, I = index_flat.search(reps, k)
