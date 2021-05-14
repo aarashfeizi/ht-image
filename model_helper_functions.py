@@ -779,17 +779,6 @@ class ModelMethods:
                 self.save_best_negatives(args, net.ft_net, train_db_loader)
                 train_loader.dataset.load_best_negatives(args.negative_path)
 
-            if args.train_diff_plot:
-
-                self.logger.info('plotting train class diff plot...')
-                self.make_emb_db(args, net, train_db_loader,
-                                 eval_sampled=args.sampled_results,
-                                 eval_per_class=args.per_class_results,
-                                 newly_trained=True,
-                                 batch_size=args.db_batch,
-                                 mode='train',
-                                 epoch=epoch,
-                                 k_at_n=True)
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
