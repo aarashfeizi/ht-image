@@ -73,8 +73,14 @@ def main():
 
 
         embeddings, labels, seens, ids = model_methods.get_embeddings(args, net, train_db_loader)
-        print(embeddings.shape)
-        input()
+
+        embedding_name = f'{args.dataset_name}_train_{args.pretrained_model}_{args.extra_name}'
+
+        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Classes_all.npz'), labels)
+        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Feats_all.npz'), embeddings)
+        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Seen_all.npz'), seens)
+        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Seen_all.npz'), ids)
+
         knn_path = os.path.join(model_methods.save_path, 'knn')
         utils.save_knn(embeddings, knn_path, gpu=args.cuda)
 

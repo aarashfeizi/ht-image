@@ -2380,7 +2380,7 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
     distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu)
 
 
-    if path_to_lbl2chain != '':
+    if path_to_lbl2chain != '' and args.negative_path != '':
         super_labels = pd.read_csv(path_to_lbl2chain)
         lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
         best_negatives = {}
@@ -2392,6 +2392,7 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
                 if lbl2chain[query_label] != lbl2chain[negative_label]:
                     break
             best_negatives[loader.dataset.all_shuffled_data[i][1]] = (loader.dataset.all_shuffled_data[negative_idx][1], negative_label)
+
 
         with open(args.negative_path, 'wb') as f:
             print('new negative set creeated')
