@@ -75,6 +75,7 @@ class LocalFeatureModule(nn.Module):
         self.merge_global = args.merge_global
         self.global_dim = global_dim
         self.no_global = args.no_global
+        self.global_attention = not args.local_to_local
 
         if FEATURE_MAP_SIZES[1] in self.in_channels:
             self.projector1 = Projector(256, global_dim) if self.global_dim != 256 else None
@@ -176,7 +177,7 @@ class LocalFeatureModule(nn.Module):
         att_gs = []
 
         for (C, _, _), l in zip(self.in_channels, loc_feat):
-            if self.no_global or (glob_feat_2 is None):
+            if self.no_global or (glob_feat is None):
                 att, att_g = self.atts[C](l, None)
 
             elif self.merge_global:
@@ -184,6 +185,19 @@ class LocalFeatureModule(nn.Module):
 
             else:
                 att, att_g = self.atts[C](l, glob_feat)
+
+            atts.append(att)
+            att_gs.append(att_g)
+
+        return atts, att_gs
+
+    def __attend_to_local_w_local(self, loc_feat, loc_feat2):
+
+        atts = []
+        att_gs = []
+
+        for (C, _, _), l1, l2 in zip(self.in_channels, loc_feat, loc_feat2):
+            att, att_g = self.atts[C](l1, l2)
 
             atts.append(att)
             att_gs.append(att_g)
@@ -201,11 +215,16 @@ class LocalFeatureModule(nn.Module):
         else:
             li_2s = None
 
-
-        atts_1, att_gs_1 = self.__attend_to_locals(li_1s, x1_global, glob_feat_2=x2_global)
+        if self.global_attention:
+            atts_1, att_gs_1 = self.__attend_to_locals(li_1s, x1_global, glob_feat_2=x2_global)
+        else:
+            atts_1, att_gs_1 = self.__attend_to_local_w_local(li_1s, li_2s)
 
         if not single:
-            atts_2, att_gs_2 = self.__attend_to_locals(li_2s, x2_global, glob_feat_2=x1_global)
+            if self.global_attention:
+                atts_2, att_gs_2 = self.__attend_to_locals(li_2s, x2_global, glob_feat_2=x1_global)
+            else:
+                atts_2, att_gs_2 = self.__attend_to_local_w_local(li_2s, li_1s)
         else:
             att_gs_2 = []
             atts_2 = []

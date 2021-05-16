@@ -65,21 +65,35 @@ def main():
                                                         model_name=model_name, id_str=id_str)
 
     if args.store_features_knn:
-        train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name)
-
-        train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                     pin_memory=pin_memory, drop_last=args.drop_last)
-
-
-
-        embeddings, labels, seens, ids = model_methods.get_embeddings(args, net, train_db_loader)
-
         embedding_name = f'{args.dataset_name}_train_{args.pretrained_model}_{args.extra_name}'
 
-        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Classes_all.npz'), labels)
-        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Feats_all.npz'), embeddings)
-        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Seen_all.npz'), seens)
-        np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Seen_all.npz'), ids)
+        if os.path.exists(os.path.join(args.local_path, 'previous_saves', f'{embedding_name}_Feats_all.npz')):
+            print('Loading previous embeddings...')
+            labels = np.load(os.path.join(args.local_path, 'previous_saves',  f'{embedding_name}_Classes_all.npz'))
+            embeddings = np.load(os.path.join(args.local_path, 'previous_saves',  f'{embedding_name}_Feats_all.npz'))
+            ids = np.load(os.path.join(args.local_path, 'previous_saves',  f'{embedding_name}_Seen_ids.npz'))
+            if os.path.exists(os.path.join(args.local_path, 'previous_saves',  f'{embedding_name}_Seen_all.npz')):
+                seens = np.savez(os.path.join(args.local_path, 'previous_saves',  f'{embedding_name}_Seen_all.npz'))
+            else:
+                seens = np.zeros_like(labels)
+
+        else:
+            print(f'No previous embeddings found at {os.path.join(args.local_path, "previous_saves", f"{embedding_name}_Feats_all.npz")}')
+
+            train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name)
+
+            train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                         pin_memory=pin_memory, drop_last=args.drop_last)
+
+
+
+            embeddings, labels, seens, ids = model_methods.get_embeddings(args, net, train_db_loader)
+
+
+            np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Classes_all.npz'), labels)
+            np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Feats_all.npz'), embeddings)
+            np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Seen_all.npz'), seens)
+            np.savez(os.path.join(model_methods.save_path, f'{embedding_name}_Seen_ids.npz'), ids)
 
         knn_path = os.path.join(model_methods.save_path, 'knn')
         utils.save_knn(embeddings, knn_path, gpu=args.cuda)
@@ -119,6 +133,9 @@ def main():
     unique_seens = np.unique(seens)
     prmpt = 'Test results' if args.test else 'Val results'
     print(prmpt)
+
+    import pdb
+    pdb.set_trace()
     if len(unique_seens) == 2:
         seen_res = utils.evaluation(args, embeddings[seens == 1], labels[seens == 1],
                                     ids[seens == 1], model_methods.writer, loader,
