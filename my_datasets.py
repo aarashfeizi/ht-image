@@ -95,7 +95,10 @@ class Metric_Dataset_Train(Dataset):
         print('HotelTrain_Metric hotel train length: ', self.length)
 
     def __len__(self):
-        return self.length
+        if self.overfit:
+            return len(self.overfit_samples) * 3
+        else:
+            return self.length
 
     def legal_class_condition(self, lbl1, lbl2):
         if self.allow_same_chain_negative:
