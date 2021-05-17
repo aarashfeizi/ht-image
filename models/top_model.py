@@ -258,7 +258,10 @@ class LocalFeatureModule(nn.Module):
                 att_gs.append(att_g)
         else:
             for (C, _, _), l1 in zip(self.in_channels, loc_feat):
-                att, att_g = self.atts[C](l1, None)
+                if x1_global is not None:
+                    att, att_g = self.atts[C](l1, None, x1_global)
+                else:
+                    att, att_g = self.atts[C](l1, None)
 
                 atts.append(att)
                 att_gs.append(att_g)
