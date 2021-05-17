@@ -96,7 +96,7 @@ class Metric_Dataset_Train(Dataset):
 
     def __len__(self):
         if self.overfit:
-            return len(self.overfit_samples) * 3
+            return len(self.overfit_samples) * 10
         else:
             return self.length
 
