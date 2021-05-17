@@ -52,7 +52,8 @@ class LinearAttentionBlock_Channel(nn.Module):
             c = torch.sum(c, dim=(2, 3)).view(N, C, 1, 1)
             c = self.op(c)
         else:
-            c = self.op(l1)
+            c = torch.sum(l1, dim=(2, 3)).view(N, C, 1, 1)
+            c = self.op(c)
 
         if self.normalize_attn:
             a = F.softmax(c.view(N, C), dim=1).view(N, C, 1, 1)
