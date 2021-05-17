@@ -43,17 +43,19 @@ class LinearAttentionBlock_Channel(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock_Channel, self).__init__()
         self.normalize_attn = normalize_attn
+        self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
 
     def forward(self, l1, l2):
         N, C, W, H = l1.size()
         if l2 is not None:
             c = l1 + l2  # batch_sizex1xWxH
-            c = torch.sum(c, dim=(2, 3))
+            c = torch.sum(c, dim=(2, 3)).view(N, C, 1, 1)
+            c = self.op(c)
         else:
-            c = l1
+            c = self.op(l1)
 
         if self.normalize_attn:
-            a = F.softmax(c, dim=1).view(N, C, 1, 1)
+            a = F.softmax(c.view(N, C), dim=1).view(N, C, 1, 1)
         else:
             a = torch.sigmoid(c)
 
