@@ -13,9 +13,9 @@ FEATURE_MAP_SIZES = {1: (256, 56, 56),
 
 # https://github.com/SaoYan/LearnToPayAttention/
 
-class LinearAttentionBlock(nn.Module):
+class LinearAttentionBlock_Spatial(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
-        super(LinearAttentionBlock, self).__init__()
+        super(LinearAttentionBlock_Spatial, self).__init__()
         self.normalize_attn = normalize_attn
         self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
 
@@ -35,6 +35,33 @@ class LinearAttentionBlock(nn.Module):
             l_att = l_att.view(N, C, -1).sum(dim=2)  # batch_sizexC
         else:
             l_att = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
+        # return c.view(N, 1, W, H), g
+        return a, l_att
+
+
+class LinearAttentionBlock_Channel(nn.Module):
+    def __init__(self, in_features, normalize_attn=True):
+        super(LinearAttentionBlock_Channel, self).__init__()
+        self.normalize_attn = normalize_attn
+
+    def forward(self, l1, l2):
+        N, C, W, H = l1.size()
+        if l2 is not None:
+            c = l1 + l2  # batch_sizex1xWxH
+            c = torch.sum(c, dim=(2, 3))
+        else:
+            c = l1
+
+        if self.normalize_attn:
+            a = F.softmax(c, dim=1).view(N, C, 1, 1)
+        else:
+            a = torch.sigmoid(c)
+
+        a = torch.mul(a.expand_as(l1), l1)
+        if self.normalize_attn:
+            l_att = a.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        else:
+            l_att = F.adaptive_avg_pool2d(a, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
         return a, l_att
 
@@ -77,10 +104,15 @@ class LocalFeatureModule(nn.Module):
         self.no_global = args.no_global
         self.global_attention = not args.local_to_local
 
+        if args.spatial_att:
+            att_module = LinearAttentionBlock_Spatial
+        else:
+            att_module = LinearAttentionBlock_Channel
+
         if FEATURE_MAP_SIZES[1] in self.in_channels:
             self.projector1 = Projector(256, global_dim) if self.global_dim != 256 else None
             # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
-            self.att_1 = LinearAttentionBlock(global_dim)
+            self.att_1 = att_module(global_dim)
         else:
             self.projector1 = None
             # self.fc_block_1 = None
@@ -89,7 +121,7 @@ class LocalFeatureModule(nn.Module):
         if FEATURE_MAP_SIZES[2] in self.in_channels:
             self.projector2 = Projector(512, global_dim) if self.global_dim != 512 else None
             # self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
-            self.att_2 = LinearAttentionBlock(global_dim)
+            self.att_2 = att_module(global_dim)
         else:
             self.projector2 = None
             # self.fc_block_2 = None
@@ -98,7 +130,7 @@ class LocalFeatureModule(nn.Module):
         if FEATURE_MAP_SIZES[3] in self.in_channels:
             self.projector3 = Projector(1024, global_dim) if self.global_dim != 1024 else None
             # self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
-            self.att_3 = LinearAttentionBlock(global_dim)
+            self.att_3 = att_module(global_dim)
         else:
             self.projector3 = None
             # self.fc_block_3 = None
@@ -107,7 +139,7 @@ class LocalFeatureModule(nn.Module):
         if FEATURE_MAP_SIZES[4] in self.in_channels:
 
             self.projector4 = Projector(2048, global_dim) if self.global_dim != 2048 else None
-            self.att_4 = LinearAttentionBlock(global_dim)
+            self.att_4 = att_module(global_dim)
         else:
             self.projector4 = None
             # self.fc_block_4 = None
