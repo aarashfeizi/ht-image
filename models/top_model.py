@@ -32,11 +32,11 @@ class LinearAttentionBlock_Spatial(nn.Module):
             a = torch.sigmoid(c)
         l_att = torch.mul(a.expand_as(l), l)
         if self.normalize_attn:
-            l_att = l_att.view(N, C, -1).sum(dim=2)  # batch_sizexC
+            l_att_vector = l_att.view(N, C, -1).sum(dim=2)  # batch_sizexC
         else:
-            l_att = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
+            l_att_vector = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
-        return a, l_att
+        return l_att, l_att_vector
 
 
 class LinearAttentionBlock_Channel(nn.Module):
@@ -62,11 +62,11 @@ class LinearAttentionBlock_Channel(nn.Module):
 
         a = torch.mul(a.expand_as(l1), l1)
         if self.normalize_attn:
-            l_att = a.view(N, C, -1).sum(dim=2)  # batch_sizexC
+            l_att_vector = a.view(N, C, -1).sum(dim=2)  # batch_sizexC
         else:
-            l_att = F.adaptive_avg_pool2d(a, (1, 1)).view(N, C)
+            l_att_vector = F.adaptive_avg_pool2d(a, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
-        return a, l_att
+        return a,  l_att_vector
 
 
 class LinearAttentionBlock_BOTH(nn.Module):
