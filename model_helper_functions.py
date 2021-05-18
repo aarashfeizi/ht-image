@@ -594,6 +594,7 @@ class ModelMethods:
                 pos_name = utils.get_file_name(pos_path)
                 neg_name = utils.get_file_name(neg_path)
                 if args.local_to_local or self.merge_global:
+
                     utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],
                                                   [(anch_name, anch_org), (pos_name, pos_org)],
                                                   id,

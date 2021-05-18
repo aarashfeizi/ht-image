@@ -1796,6 +1796,16 @@ def apply_forward_heatmap(acts, img_list, id, heatmap_path, overall_title,
     # cv2.imwrite(path, pic)
 
 
+def seperate_pos_neg(ts):
+    pos_ts = []
+    neg_ts = []
+    for t in ts:
+        pos_ts.append(t.relu())
+        neg_ts.append((-t).relu())
+
+    return pos_ts, neg_ts
+
+
 def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
                             titles=[''], tb_path=None, epoch=None, writer=None):
     """
@@ -1819,14 +1829,34 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
     for idx, (att, (title, im)) in enumerate(zip(atts, img_list)):
         # import pdb
         # pdb.set_trace()
-        heatmaps = get_heatmaps(att, shape=shape, classifier_weights=None,
-                                attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
-        pics = []
-        for h in heatmaps:
-            pics.append(merge_heatmap_img(im, h))
+        pos_att, neg_att = seperate_pos_neg(att)
 
-        for layer, pic in enumerate(pics, 1):
-            writer.add_image(tb_path + f'/{title}_layer{layer}', pic, epoch, dataformats='HWC')
+        equal = True
+        for a, ap in zip(att, pos_att):
+            if not torch.equal(a, ap):
+                equal = False
+                break
+        if not equal:
+
+            for (a, v) in [(pos_att, 'POS'), (neg_att, 'NEG')]:
+                heatmaps = get_heatmaps(a, shape=shape, classifier_weights=None,
+                                        attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
+                pics = []
+                for h in heatmaps:
+                    pics.append(merge_heatmap_img(im, h))
+
+                for layer, pic in enumerate(pics, 1):
+                    writer.add_image(tb_path + '_' + v + f'/{title}_layer{layer}', pic, epoch, dataformats='HWC')
+
+        else:
+            heatmaps = get_heatmaps(att, shape=shape, classifier_weights=None,
+                                    attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
+            pics = []
+            for h in heatmaps:
+                pics.append(merge_heatmap_img(im, h))
+
+            for layer, pic in enumerate(pics, 1):
+                writer.add_image(tb_path + f'/{title}_layer{layer}', pic, epoch, dataformats='HWC')
 
         # pics = [merge_heatmap_img(im, heatmaps[0]),
         #         merge_heatmap_img(im, heatmaps[1]),
