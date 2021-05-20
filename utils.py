@@ -1026,7 +1026,7 @@ def create_save_path(path, id_str, logger):
         logger.info(
             f'Created save and tensorboard directories:\n{path}\n')
     else:
-        logger.info(f'Save directory {path} already exists, but how?? {id_str}')  # almost impossible
+        logger.info(f'Save directory {path} already exists, but how?? id_str = {id_str}')  # almost impossible if not pretrained
 
 
 def read_masks(path):
@@ -1984,7 +1984,7 @@ def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
 
 
 def get_logname(args):
-    id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
+    id_str = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
     id_str = '-time_' + id_str.replace('.', '-')
 
     if args.job_id != '':
@@ -2139,7 +2139,8 @@ def get_logname(args):
                     name += f'-tol{args.lr_tol}'
 
     if args.pretrained_model_dir != '':
-        name = args.pretrained_model_dir + '_pretrained'
+        name = args.pretrained_model_dir + '_PTRN'
+        id_str = ''
 
     if args.baseline_model != '':
         name = 'baseline_' + args.baseline_model + '-' + args.loss + gpu_info
@@ -2147,7 +2148,7 @@ def get_logname(args):
     if args.loss == 'batchhard':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
-    if args.pretrained_model != '':
+    if args.pretrained_model != '': # for running baselines and feature extractors
         name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
 
     name += id_str
