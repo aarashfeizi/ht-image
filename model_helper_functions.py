@@ -158,7 +158,6 @@ class ModelMethods:
             args.negative_path = os.path.join(self.save_path, args.negative_path)
             utils.make_dirs(os.path.split(args.negative_path)[0])
 
-
         if args.cam:
             utils.make_dirs(f'{self.save_path}/heatmap/')
 
@@ -780,7 +779,6 @@ class ModelMethods:
                 self.save_best_negatives(args, net.ft_net, train_db_loader)
                 train_loader.dataset.load_best_negatives(args.negative_path)
 
-
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
@@ -1054,7 +1052,16 @@ class ModelMethods:
 
             if args.train_diff_plot:
                 self.logger.info('plotting train class diff plot...')
-                self.make_emb_db(args, net, train_db_loader,
+                if args.my_dist:
+                    self.make_all_emb_dist_db(args, net, train_db_loader,
+                                              eval_sampled=args.sampled_results,
+                                              eval_per_class=args.per_class_results,
+                                              batch_size=args.db_batch,
+                                              mode='train',
+                                              epoch=epoch,
+                                              k_at_n=False)
+                else:
+                    self.make_emb_db(args, net, train_db_loader,
                                  eval_sampled=args.sampled_results,
                                  eval_per_class=args.per_class_results,
                                  newly_trained=True,
@@ -1065,7 +1072,16 @@ class ModelMethods:
 
             if val_db_loader:
                 self.logger.info('plotting val class diff plot...')
-                self.make_emb_db(args, net, val_db_loader,
+                if args.my_dist:
+                    self.make_all_emb_dist_db(args, net, val_db_loader,
+                                              eval_sampled=args.sampled_results,
+                                              eval_per_class=args.per_class_results,
+                                              batch_size=args.db_batch,
+                                              mode='val',
+                                              epoch=epoch,
+                                              k_at_n=False)
+                else:
+                    self.make_emb_db(args, net, val_db_loader,
                                  eval_sampled=args.sampled_results,
                                  eval_per_class=args.per_class_results,
                                  newly_trained=True,
@@ -1319,7 +1335,129 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc, tests_predictions
 
-    @utils.MY_DEC
+    def make_all_emb_dist_db(self, args, net, data_loader, eval_sampled, eval_per_class, batch_size=None,
+                             mode='val', epoch=-1, k_at_n=True):
+        """
+
+        :param batch_size:
+        :param eval_sampled:
+        :param eval_per_class:
+        :param newly_trained:
+        :param mode:
+        :param args: utils args
+        :param net: trained top_model network
+        :param data_loader: DataLoader object
+        :param epoch: epoch we're in
+        :param k_at_n: Do k at n
+        :return: None
+        """
+
+        return_bg = (mode.startswith('val') and
+                     args.vu_folder_name != 'none') \
+                    or \
+                    (mode.startswith('test') and
+                     args.tu_folder_name != 'none')
+
+        if (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))):
+            net.eval()
+            # device = f'cuda:{net.device_ids[0]}'
+            if batch_size is None:
+                batch_size = args.batch_size
+
+            test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
+
+            test_sim = -1 * np.ones(shape=len(data_loader.dataset))
+
+            lbls, seen = data_loader.dataset.get_info()
+            test_classes = np.array(lbls)
+            test_seen = np.array(seen, dtype=int)
+
+            chunks = len(args.feature_map_layers)
+
+            with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode}') as t:
+
+                for idx, tpl in enumerate(data_loader):
+
+                    end_dist = min((idx + 1) * batch_size, len(test_sim))
+
+                    if return_bg and mode != 'train':
+                        (img1, img2, lbl1, lbl2, seen1, seen2, path1, path2) = tpl
+                    else:
+                        (img1, lbl1, seen1, path1) = tpl
+
+                    if args.cuda:
+                        img1 = img1.cuda()
+                        img2 = img2.cuda()
+
+                    img1 = Variable(img1)
+                    img2 = Variable(img2)
+
+                    _, _, img1_feat, img2_feat = net.forward(img1, img2, feats=True)
+                    output = utils.calc_custom_cosine_sim(img1_feat.chunk(chunks=chunks, dim=1),
+                                                          img2_feat.chunk(chunks=chunks, dim=1))
+                    output = output.data.cpu().numpy().flatten()
+
+                    test_sim[idx * batch_size:end_dist] = output
+
+                    t.update()
+
+            test_sim = test_sim.reshape((len(test_classes), len(test_classes)))
+            utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_sim', test_sim, 'f',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))
+
+            if return_bg and mode != 'train':
+                utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
+                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+
+        test_seen = np.zeros(((len(data_loader.dataset))))
+        test_sim = utils.load_h5(f'{args.dataset_name}_{mode}_sim',
+                                  os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))
+        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
+                                     os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+        if return_bg and mode != 'train':
+            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
+                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+
+        # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
+
+        # self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
+
+        ##  for drawing tsne plot
+        # tsne_path = os.path.join(self.gen_plot_path, f'{mode}/tsne_{epoch}.png')
+        # self.draw_dim_reduced(test_feats, test_classes, method='tsne', title=f"{mode}, epoch: " + str(epoch),
+        #                       path=tsne_path)
+
+        if mode != 'test':
+
+            if mode == 'val':
+                tb_tag = 'Val'
+            elif mode == 'train':
+                tb_tag = 'Train'
+            else:
+                tb_tag = 'Other'
+
+            # self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path,
+            #                            f'Total_{tb_tag}')
+
+        # import pdb
+        # pdb.set_trace()
+        if k_at_n:
+            utils.calculate_k_at_n(args, None, test_classes, test_seen, logger=self.logger,
+                                   limit=args.limit_samples,
+                                   run_number=args.number_of_runs,
+                                   save_path=self.save_path,
+                                   sampled=eval_sampled,
+                                   even_sampled=False,
+                                   per_class=eval_per_class,
+                                   mode=mode,
+                                   sim_matrix=test_sim)
+
+            self.logger.info('results at: ' + self.save_path)
+
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
         """

@@ -176,15 +176,15 @@ def main():
 
     val_db_set = None
 
-    train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name)
+    train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name, return_pairs=args.my_dist)
 
     if args.vs_folder_name != 'none':
-        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name)
+        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name, return_pairs=args.my_dist)
     else:
-        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name)
+        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name, return_pairs=args.my_dist)
 
     if args.test:
-        test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name)
+        test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name, return_pairs=args.my_dist)
     # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
@@ -341,7 +341,14 @@ def main():
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
         if val_db_loader:
-            model_methods_top.make_emb_db(args, net, val_db_loader,
+            if args.my_dist:
+                model_methods_top.make_all_emb_dist_db(args, net, val_db_loader,
+                                          eval_sampled=args.sampled_results,
+                                          eval_per_class=args.per_class_results,
+                                          batch_size=args.db_batch,
+                                          mode='val')
+            else:
+                model_methods_top.make_emb_db(args, net, val_db_loader,
                                           eval_sampled=args.sampled_results,
                                           eval_per_class=args.per_class_results, newly_trained=False,
                                           batch_size=args.db_batch,
@@ -374,7 +381,14 @@ def main():
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
         if val_db_loader:
-            model_methods_top.make_emb_db(args, net, val_db_loader,
+            if args.my_dist:
+                model_methods_top.make_all_emb_dist_db(args, net, val_db_loader,
+                                          eval_sampled=args.sampled_results,
+                                          eval_per_class=args.per_class_results,
+                                          batch_size=args.db_batch,
+                                          mode='val')
+            else:
+                model_methods_top.make_emb_db(args, net, val_db_loader,
                                           eval_sampled=args.sampled_results,
                                           eval_per_class=args.per_class_results, newly_trained=True,
                                           batch_size=args.db_batch,

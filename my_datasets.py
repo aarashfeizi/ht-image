@@ -60,7 +60,8 @@ class Metric_Dataset_Train(Dataset):
             # utils.plot_class_dist(self.datas, f'hotels-{args.portion} {mode} dist', f'dataset_plots/hotels-{args.portion}_{mode}_dist.png')
 
         else:
-            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem_2(args.dataset_path,
+                                                                                        args.dataset_folder,
                                                                                         mode=mode,
                                                                                         portion=args.portion,
                                                                                         return_bg=return_bg)
@@ -104,7 +105,7 @@ class Metric_Dataset_Train(Dataset):
         if self.allow_same_chain_negative:
             return lbl1 != lbl2
         else:
-            return (self.lbl2chain[lbl1] != self.lbl2chain[lbl2]) or\
+            return (self.lbl2chain[lbl1] != self.lbl2chain[lbl2]) or \
                    (lbl1 != lbl2 and np.random.random() < 0.001)
 
     def __triplet_getitem__(self, index):
@@ -319,7 +320,8 @@ class Metric_Dataset_Train(Dataset):
         import pickle
         if os.path.exists(path):
             with open(path, 'rb') as f:
-                self.negative_list = pickle.load(f)  # map each img to it's best negative image ({path: neg_path for all images})
+                self.negative_list = pickle.load(
+                    f)  # map each img to it's best negative image ({path: neg_path for all images})
             self.get_best_negatives = True
             return True
         else:
@@ -361,7 +363,8 @@ class FewShot_Dataset_Test(Dataset):
             # utils.plot_class_dist(self.datas, f'hotels-{args.portion} {mode} dist', f'dataset_plots/hotels-{args.portion}_{mode}_dist.png')
 
         else:
-            self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+            self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem_2(args.dataset_path,
+                                                                                          args.dataset_folder,
                                                                                           mode=mode,
                                                                                           portion=args.portion,
                                                                                           return_bg=return_bg)
@@ -369,8 +372,6 @@ class FewShot_Dataset_Test(Dataset):
             # utils.plot_class_dist(self.datas, f'{args.dataset_folder} {mode} dist', f'dataset_plots/{args.dataset_folder}_{mode}_dist.png')
 
         self.aug_mask = args.aug_mask
-
-
 
         if self.aug_mask:
             self.masks = get_masks(args.dataset_path, args.dataset_folder,
@@ -543,7 +544,7 @@ class HotelTest_EdgePred(Dataset):
 
 
 class DB_Dataset(Dataset):
-    def __init__(self, args, transform=None, mode='test'):
+    def __init__(self, args, transform=None, mode='test', return_pairs=False):
         np.random.seed(args.seed)
         super(DB_Dataset, self).__init__()
         self.transform = transform
@@ -552,6 +553,7 @@ class DB_Dataset(Dataset):
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
         self.colored_mask = args.colored_mask
+        self.return_pairs = return_pairs
 
         total = True
         if self.mode == 'val' or self.mode == 'test':  # mode == *_seen or *_unseen or train
@@ -562,10 +564,10 @@ class DB_Dataset(Dataset):
             total = False
 
         self.return_bg = (mode.startswith('val') and
-                     args.vu_folder_name != 'none') \
-                    or \
-                    (mode.startswith('test') and
-                     args.tu_folder_name != 'none')
+                          args.vu_folder_name != 'none') \
+                         or \
+                         (mode.startswith('test') and
+                          args.tu_folder_name != 'none')
         if args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
                                                                                         'hotels',
@@ -573,9 +575,11 @@ class DB_Dataset(Dataset):
                                                                                         split_file_path=args.splits_file_path,
                                                                                         portion=args.portion,
                                                                                         dataset_folder=args.dataset_folder,
-                                                                                        return_bg=(self.mode != 'train'))
+                                                                                        return_bg=(
+                                                                                                self.mode != 'train'))
         else:
-            self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path, args.dataset_folder,
+            self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path,
+                                                                                          args.dataset_folder,
                                                                                           mode=mode,
                                                                                           portion=args.portion,
                                                                                           return_bg=self.return_bg)
@@ -603,35 +607,91 @@ class DB_Dataset(Dataset):
         print(f'Hotel_DB hotel {self.mode} length: ', self.__len__())
 
     def __len__(self):
-        return len(self.all_shuffled_data)
+        if self.return_pairs:
+            l = len(self.all_shuffled_data) * len(self.all_shuffled_data)
+        else:
+            l = len(self.all_shuffled_data)
+
+        return l
+
+    def get_info(self):
+        lbls = list(list(zip(*self.all_shuffled_data))[0])
+        if self.mode != 'train' and self.return_bg:
+            seen = list(list(zip(*self.all_shuffled_data))[2])
+        else:
+            seen = [0 for _ in lbls]
+
+        return [lbls, seen]
 
     def __getitem__(self, index):
-        lbl = self.all_shuffled_data[index][0]
-        img = Image.open(self.all_shuffled_data[index][1]).convert('RGB')
-        if self.mode != 'train' and self.return_bg:
-            bl = self.all_shuffled_data[index][2]
+        if self.return_pairs:
+            i = index // len(self.all_shuffled_data)
+            j = index % len(self.all_shuffled_data)
 
-        path = self.all_shuffled_data[index][1].split('/')
+            lbl1 = self.all_shuffled_data[i][0]
+            lbl2 = self.all_shuffled_data[j][0]
 
-        id = index
-        # id = path[-4]
-        # id += '-' + path[-3]
-        # id += '-' + path[-1].split('.')[0]
+            img1 = Image.open(self.all_shuffled_data[i][1]).convert('RGB')
+            img2 = Image.open(self.all_shuffled_data[j][1]).convert('RGB')
 
-        if self.transform:
-            if self.aug_mask:
-                img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-                img, masked_img, img_mask, _ = utils.add_mask(img, img_mask, colored=self.colored_mask)
+            if self.mode != 'train' and self.return_bg:
+                bl1 = self.all_shuffled_data[i][2]
+                bl2 = self.all_shuffled_data[j][2]
 
-                if not self.fourth_dim:
-                    img = masked_img
+            # path = self.all_shuffled_data[index][1].split('/')
 
-            img = self.do_transform(img)
+            id1 = i
+            id2 = j
+            # id = path[-4]
+            # id += '-' + path[-3]
+            # id += '-' + path[-1].split('.')[0]
 
-        if self.mode != 'train' and self.return_bg:
-            return img, lbl, bl, id
+            if self.transform:
+                if self.aug_mask:
+                    img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                    img1, masked_img1, img_mask1, _ = utils.add_mask(img1, img_mask, colored=self.colored_mask)
+
+                    img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                    img2, masked_img2, img_mask2, _ = utils.add_mask(img2, img_mask, colored=self.colored_mask)
+
+                    if not self.fourth_dim:
+                        img1 = masked_img1
+                        img2 = masked_img2
+
+                img1 = self.do_transform(img1)
+                img2 = self.do_transform(img2)
+
+            if self.mode != 'train' and self.return_bg:
+                return img1, img2, lbl1, lbl2, bl1, bl2, id1, id2
+            else:
+                return img1, img2, lbl1, lbl2, id1, id2
         else:
-            return img, lbl, id
+            lbl = self.all_shuffled_data[index][0]
+            img = Image.open(self.all_shuffled_data[index][1]).convert('RGB')
+            if self.mode != 'train' and self.return_bg:
+                bl = self.all_shuffled_data[index][2]
+
+            path = self.all_shuffled_data[index][1].split('/')
+
+            id = index
+            # id = path[-4]
+            # id += '-' + path[-3]
+            # id += '-' + path[-1].split('.')[0]
+
+            if self.transform:
+                if self.aug_mask:
+                    img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                    img, masked_img, img_mask, _ = utils.add_mask(img, img_mask, colored=self.colored_mask)
+
+                    if not self.fourth_dim:
+                        img = masked_img
+
+                img = self.do_transform(img)
+
+            if self.mode != 'train' and self.return_bg:
+                return img, lbl, bl, id
+            else:
+                return img, lbl, id
 
     def do_transform(self, img):
         img = self.transform(img)

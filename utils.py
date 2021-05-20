@@ -243,6 +243,8 @@ def get_args():
     parser.add_argument('-merge_global', '--merge_global', default=False, action='store_true')
     parser.add_argument('-no_global', '--no_global', default=False, action='store_true')
 
+    parser.add_argument('-my_dist', '--my_dist', default=False, action='store_true')
+
     parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
     parser.add_argument('-n', '--normalize', default=False, action='store_true')
     parser.add_argument('-dg', '--debug_grad', default=False, action='store_true')
@@ -396,10 +398,10 @@ def load_h5(data_description, path):
 
 def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True,
                      even_sampled=True,
-                     per_class=False, save_path='', mode=''):
+                     per_class=False, save_path='', mode='', sim_matrix=None):
     if per_class:
         logger.info('K@N per class')
-        total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode)
+        total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=sim_matrix)
         total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
                      index=False)
         seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
@@ -410,7 +412,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
     if sampled:
         logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
-                                                                 run_number, mode, even_sampled=even_sampled)
+                                                                 run_number, mode, even_sampled=even_sampled, sim_matrix=sim_matrix)
         kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
                     index=False)
         kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True,
@@ -425,15 +427,23 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
     return True
 
 
-def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode):
+def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=None):
     all_lbls = np.unique(img_lbls)
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
+    num = img_lbls.shape[0]
 
+    k_max = min(1000, img_lbls.shape[0])
 
-    k_max = min(1000, img_feats.shape[0])
+    if sim_matrix is None:
+        _, I, self_D = get_faiss_knn(img_feats, k=k_max, gpu=True)
+    else:
+        minval = np.min(sim_matrix) - 1.
+        self_D = -(np.diag(sim_matrix))
+        sim_matrix -= np.diag(np.diag(sim_matrix))
+        sim_matrix += np.diag(np.ones(num) * minval)
+        I = (-sim_matrix).argsort()[:, :-1]
 
-    _, I, self_D = get_faiss_knn(img_feats, k=k_max, gpu=True)
 
     metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
     metric_seen = metrics.Accuracy_At_K(classes=np.array(seen_lbls))
@@ -500,7 +510,7 @@ def _log_per_class(logger, df, split_kind=''):
 
 
 def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='',
-                          even_sampled=False):
+                          even_sampled=False, sim_matrix=None):
     all_lbls = np.unique(img_lbls)
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
@@ -553,25 +563,35 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
 
             assert np.array_equal(sampled_labels, chosen_img_lbls)
 
-        else:  # dataset os cub
+        else:
             logger.info(f'### Run {run} with NOT even samples...')
 
             chosen_img_feats = img_feats
             chosen_img_lbls = img_lbls
             chosen_seen_list = seen_list
 
-        sim_mat = cosine_similarity(chosen_img_feats)
+        # sim_mat = cosine_similarity(chosen_img_feats)
+        k_max = min(1000, img_lbls.shape[0])
+
+        if sim_matrix is not None:
+            num = img_lbls.shape[0]
+
+            minval = np.min(sim_matrix) - 1.
+            self_D = -(np.diag(sim_matrix))
+            sim_matrix -= np.diag(np.diag(sim_matrix))
+            sim_matrix += np.diag(np.ones(num) * minval)
+            I = (-sim_matrix).argsort()[:, :-1]
+        else:
+            _, I, self_D = get_faiss_knn(chosen_img_feats, k=k_max, gpu=True)
+
         metric_total = metrics.Accuracy_At_K(classes=all_lbls)
         metric_seen = metrics.Accuracy_At_K(classes=seen_lbls)
         metric_unseen = metrics.Accuracy_At_K(classes=unseen_lbls)
 
-        for idx, (row, lbl, seen) in enumerate(zip(sim_mat, chosen_img_lbls, chosen_seen_list)):
-            ret_scores = np.delete(row, idx)
-            ret_lbls = np.delete(chosen_img_lbls, idx)
-            ret_seens = np.delete(chosen_seen_list, idx)
+        for idx, (lbl, seen) in enumerate(zip(chosen_img_lbls, chosen_seen_list)):
 
-            ret_lbls = _sort_according_to(ret_lbls, ret_scores)
-            ret_seens = _sort_according_to(ret_seens, ret_scores)
+            ret_seens = chosen_seen_list[I[idx, :]]
+            ret_lbls = chosen_img_lbls[I[idx, :]]
 
             metric_total.update(lbl, ret_lbls)
 
@@ -2554,3 +2574,13 @@ def save_knn(embbeddings, path, gpu=False):
         pickle.dump(indicies, f)
 
     return
+
+def calc_custom_cosine_sim(feat1, feat2, agg='mean', weights=[]):
+
+    sims = torch.zeros(size=(feat1[0].shape[0], len(feat1)))
+    for idx, (f1, f2) in enumerate(zip(feat1, feat2)):
+        sims[:, idx] = torch.nn.functional.cosine_similarity(f1, f2)
+
+    return sims.mean(dim=1)
+
+
