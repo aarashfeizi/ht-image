@@ -1358,7 +1358,7 @@ class ModelMethods:
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
 
-        if (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))):
+        if (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))):
             net.eval()
             # device = f'cuda:{net.device_ids[0]}'
             if batch_size is None:
