@@ -1364,13 +1364,14 @@ class ModelMethods:
             if batch_size is None:
                 batch_size = args.batch_size
 
-            test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
 
             test_sim = -1 * np.ones(shape=len(data_loader.dataset))
 
             lbls, seen = data_loader.dataset.get_info()
             test_classes = np.array(lbls)
             test_seen = np.array(seen, dtype=int)
+
+            # test_paths = np.array([i for i in range(len(lbls))])
 
             chunks = len(args.feature_map_layers)
 
@@ -1402,8 +1403,8 @@ class ModelMethods:
                     t.update()
 
             test_sim = test_sim.reshape((len(test_classes), len(test_classes)))
-            utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+            # utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
+            #               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_sim', test_sim, 'f',
