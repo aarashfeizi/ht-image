@@ -2518,14 +2518,20 @@ def get_image_from_dataloader(loader, index):
     return img
 
 
-def get_faiss_knn(reps, k=1000, gpu=False):
+def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
     assert reps.dtype == np.float32
 
     d = reps.shape[1]
     # index_flat = faiss.IndexFlatIP(d)
-    index_flat = faiss.IndexFlatL2(d)
+    if method == 'l2':
+        index_function = faiss.IndexFlatL2
+    elif method == 'cos':
+        faiss.normalize_L2(reps)
+        index_function = faiss.IndexFlatIP
+
     if gpu:
         try:
+            index_flat = index_function(d)
             res = faiss.StandardGpuResources()
             index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
             index_flat.add(reps)  # add vectors to the index
@@ -2533,7 +2539,7 @@ def get_faiss_knn(reps, k=1000, gpu=False):
                   ' Thanks FAISS!')
         except:
             print('Didn\'t fit it GPU, No gpus for faiss! :( ')
-            index_flat = faiss.IndexFlatL2(d)
+            index_flat = index_function(d)
             index_flat.add(reps)  # add vectors to the index
     else:
         print('No gpus for faiss! :( ')
