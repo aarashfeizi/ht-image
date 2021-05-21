@@ -2518,6 +2518,18 @@ def get_image_from_dataloader(loader, index):
     return img
 
 
+def get_attention_normalized(reps, chunks):
+    rep_chunks = np.split(reps, chunks, axis=1)
+    final_reps = []
+    for rep in rep_chunks:
+        rep = np.array(rep, order='C')
+        faiss.normalize_L2(rep)
+        final_reps.append(rep)
+
+    reps = np.concatenate(final_reps, axis=1)
+    return reps
+
+
 def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
     assert reps.dtype == np.float32
 
@@ -2526,8 +2538,11 @@ def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
     if method == 'l2':
         index_function = faiss.IndexFlatL2
     elif method == 'cos':
-        faiss.normalize_L2(reps)
+        reps = get_attention_normalized(reps, chunks=4)
         index_function = faiss.IndexFlatIP
+    else:
+        index_function = None
+        raise Exception(f'get_faiss_knn unsupported method {method}')
 
     if gpu:
         try:
