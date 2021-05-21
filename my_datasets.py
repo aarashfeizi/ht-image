@@ -32,8 +32,12 @@ class Metric_Dataset_Train(Dataset):
 
         self.allow_same_chain_negative = allow_same_chain_negative
 
-        super_labels = pd.read_csv(os.path.join(args.splits_file_path, 'label2chain.csv'))
-        self.lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+        if args.dataset_name.startswith('hotels'):
+            super_labels = pd.read_csv(os.path.join(args.splits_file_path, 'label2chain.csv'))
+            self.lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+        else:
+            self.lbl2chain = None
+
 
         if (not allow_same_chain_negative) and args.negative_path is not None:
             negative_result = self.load_best_negatives(args.negative_path)
@@ -102,7 +106,7 @@ class Metric_Dataset_Train(Dataset):
             return self.length
 
     def legal_class_condition(self, lbl1, lbl2):
-        if self.allow_same_chain_negative:
+        if (self.allow_same_chain_negative) or (self.lbl2chain is None):
             return lbl1 != lbl2
         else:
             return (self.lbl2chain[lbl1] != self.lbl2chain[lbl2]) or \
