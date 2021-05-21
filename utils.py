@@ -287,6 +287,8 @@ def get_args():
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
     parser.add_argument('-att_mode_sc', '--att_mode_sc', default='channel', choices=['spatial', 'channel', 'both'])
+    parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
+
 
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
@@ -2125,8 +2127,9 @@ def get_logname(args):
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('local'):
                 lays = '-l'.join(args.feature_map_layers)
                 att_type = args.att_mode_sc
+                if args.att_on_all:
+                    att_type += '-all'
                 name += f'-l{lays}-{att_type}'
-
 
             if str(arg) == 'gamma':
                 name += f'-step{args.gamma_step}'

@@ -26,7 +26,7 @@ class LinearAttentionBlock_Spatial(nn.Module):
         else:
             c = self.op(l)
 
-        if self.normalize_attn:
+        if self.normalize_attn: # todo plot "a" for "att_all"
             a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
         else:
             a = torch.sigmoid(c)
@@ -122,6 +122,12 @@ class LocalFeatureModule(nn.Module):
         self.no_global = args.no_global
         self.global_attention = not args.local_to_local
         self.att_mode_sc = args.att_mode_sc
+
+        if args.att_on_all:
+            self.att_all = LinearAttentionBlock_Spatial(global_dim)
+        else:
+            self.att_all = None
+
         # spatial_att
         if args.att_mode_sc == 'both':
             att_module = LinearAttentionBlock_BOTH
@@ -222,7 +228,7 @@ class LocalFeatureModule(nn.Module):
 
         return lis
 
-    def __attend_to_locals(self, loc_feat, glob_feat, glob_feat_2=None):
+    def __attend_to_locals(self, loc_feat, glob_feat, glob_feat_2=None, all=False):
 
         atts = []
         att_gs = []
@@ -239,6 +245,19 @@ class LocalFeatureModule(nn.Module):
 
             atts.append(att)
             att_gs.append(att_g)
+
+
+        if all:
+            num = len(att_gs)
+            att_gs, _ = self.att_all(torch.stack(att_gs, dim=2).unsqueeze(dim=3), glob_feat)
+            att_gs = att_gs.squeeze()
+            att_gs = torch.chunk(att_gs, num, dim=2)
+
+            to_ret = []
+            for a in att_gs:
+                to_ret.append(a.squeeze())
+
+            att_gs = to_ret
 
         return atts, att_gs
 
