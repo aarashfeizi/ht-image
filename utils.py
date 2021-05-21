@@ -1887,7 +1887,6 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
     writer.flush()
 
 
-@MY_DEC
 def get_distances(dists, img_classes):
     diff_average_dist = np.zeros_like(dists[0])
     diff_min_dist = np.zeros_like(dists[0])
@@ -2541,7 +2540,6 @@ def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
     if method == 'l2':
         index_function = faiss.IndexFlatL2
     elif method == 'cos':
-        reps = get_attention_normalized(reps, chunks=4)
         index_function = faiss.IndexFlatIP
     else:
         index_function = None

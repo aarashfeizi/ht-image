@@ -1476,6 +1476,8 @@ class ModelMethods:
         :return: None
         """
 
+        has_attention = 'attention' in args.merge_method
+
         return_bg = (mode.startswith('val') and
                      args.vu_folder_name != 'none') \
                     or \
@@ -1539,6 +1541,12 @@ class ModelMethods:
 
                     t.update()
 
+            if has_attention:
+                if test_feats.dtype != np.float32:
+                    test_feats = test_feats.astype(np.float32)
+                test_feats = utils.get_attention_normalized(test_feats, chunks=4)
+
+
             utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
@@ -1574,12 +1582,12 @@ class ModelMethods:
                                            epoch=epoch,
                                            mode=mode,
                                            path=diff_class_path,
-                                           img_seen=test_seen)
+                                           img_seen=test_seen, attention=has_attention)
             else:
                 self.plot_class_diff_plots(test_feats, test_classes,
                                            epoch=epoch,
                                            mode=mode,
-                                           path=diff_class_path)
+                                           path=diff_class_path, attention=has_attention)
 
         silhouette_path = ['', '']
         silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
@@ -1596,7 +1604,7 @@ class ModelMethods:
                 tb_tag = 'Other'
 
             self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path,
-                                       f'Total_{tb_tag}')
+                                       f'Total_{tb_tag}', attention=has_attention)
 
             if return_bg and mode == 'val':
                 silhouette_path[0] = os.path.join(self.gen_plot_path,
@@ -1605,7 +1613,7 @@ class ModelMethods:
                                                   f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}_seen.png')
                 self.plot_silhouette_score(test_feats[test_seen == 1], test_classes[test_seen == 1], epoch,
                                            mode + '_seen', silhouette_path,
-                                           f'seen_{tb_tag}')
+                                           f'seen_{tb_tag}', attention=has_attention)
 
                 silhouette_path[0] = os.path.join(self.gen_plot_path,
                                                   f'{args.dataset_name}_{mode}/silhouette_scores_plot_unseen.png')
@@ -1614,7 +1622,7 @@ class ModelMethods:
 
                 self.plot_silhouette_score(test_feats[test_seen == 0], test_classes[test_seen == 0], epoch,
                                            mode + '_unseen', silhouette_path,
-                                           f'unseen_{tb_tag}')
+                                           f'unseen_{tb_tag}', attention=has_attention)
 
         # import pdb
         # pdb.set_trace()
@@ -1895,11 +1903,8 @@ class ModelMethods:
 
     # todo make customized dataloader for cam
     # todo easy cases?
-    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None):
-        if img_feats.dtype != np.float32:
-            img_feats = img_feats.astype(np.float32)
+    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False):
 
-        img_feats = utils.get_attention_normalized(img_feats, chunks=4)
         dists = cosine_distances(img_feats)
 
         res = utils.get_distances(dists, img_classes)
@@ -1954,11 +1959,7 @@ class ModelMethods:
             plt.savefig(p)
             plt.close('all')
 
-    def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag):
-        if X.dtype != np.float32:
-            img_feats = X.astype(np.float32)
-
-        X = utils.get_attention_normalized(X, chunks=4)
+    def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False):
 
         last_silh_score = silhouette_score(X, labels, metric='cosine')
         self.silhouette_scores[mode].append(last_silh_score)
