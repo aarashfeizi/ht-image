@@ -1896,6 +1896,10 @@ class ModelMethods:
     # todo make customized dataloader for cam
     # todo easy cases?
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None):
+        if img_feats.dtype != np.float32:
+            img_feats = img_feats.astype(np.float32)
+
+        img_feats = utils.get_attention_normalized(img_feats, chunks=4)
         dists = cosine_distances(img_feats)
 
         res = utils.get_distances(dists, img_classes)
@@ -1951,6 +1955,10 @@ class ModelMethods:
             plt.close('all')
 
     def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag):
+        if X.dtype != np.float32:
+            img_feats = X.astype(np.float32)
+
+        X = utils.get_attention_normalized(X, chunks=4)
 
         last_silh_score = silhouette_score(X, labels, metric='cosine')
         self.silhouette_scores[mode].append(last_silh_score)
