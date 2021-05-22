@@ -174,10 +174,10 @@ def get_args():
     parser.add_argument('-nor', '--number_of_runs', default=1, type=int, help="Number of times to sample for k@n")
     parser.add_argument('-sp', '--save_path', default='savedmodels/', help="path to store model")
     parser.add_argument('-np', '--negative_path', default='', help="path to store best negative "
-                                                                                          "images, should be a "
-                                                                                          "dictionary that maps each "
-                                                                                          "image paths to its best "
-                                                                                          "negative image paths") # 'negatives/negatives.pkl'
+                                                                   "images, should be a "
+                                                                   "dictionary that maps each "
+                                                                   "image paths to its best "
+                                                                   "negative image paths")  # 'negatives/negatives.pkl'
     parser.add_argument('-lp', '--log_path', default='logs/', help="path to log")
     parser.add_argument('-tbp', '--tb_path', default='tensorboard/', help="path for tensorboard")
     parser.add_argument('-a', '--aug', default=False, action='store_true')
@@ -288,8 +288,6 @@ def get_args():
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
     parser.add_argument('-att_mode_sc', '--att_mode_sc', default='channel', choices=['spatial', 'channel', 'both'])
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
-
-
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
@@ -403,7 +401,8 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
                      per_class=False, save_path='', mode='', sim_matrix=None):
     if per_class:
         logger.info('K@N per class')
-        total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=sim_matrix)
+        total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
+                                                      sim_matrix=sim_matrix)
         total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
                      index=False)
         seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
@@ -414,7 +413,8 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
     if sampled:
         logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
-                                                                 run_number, mode, even_sampled=even_sampled, sim_matrix=sim_matrix)
+                                                                 run_number, mode, even_sampled=even_sampled,
+                                                                 sim_matrix=sim_matrix)
         kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
                     index=False)
         kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True,
@@ -445,7 +445,6 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, 
         sim_matrix -= np.diag(np.diag(sim_matrix))
         sim_matrix += np.diag(np.ones(num) * minval)
         I = (-sim_matrix).argsort()[:, :-1]
-
 
     metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
     metric_seen = metrics.Accuracy_At_K(classes=np.array(seen_lbls))
@@ -651,33 +650,33 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
     unseen = metric_unseen.get_per_class_metrics()
 
     logger.info('Avg Total: ' + str(metric_total.n))
-    logger.info('k@1: ' + str(np.array(k1s).mean()))
-    logger.info('k@2: ' + str(np.array(k2s).mean()))
-    logger.info('k@4: ' + str(np.array(k4s).mean()))
-    logger.info('k@5: ' + str(np.array(k5s).mean()))
-    logger.info('k@8: ' + str(np.array(k8s).mean()))
-    logger.info('k@10: ' + str(np.array(k10s).mean()))
-    logger.info('k@100: ' + str(np.array(k100s).mean()))
+    logger.info('k@1: ' + str(np.round(np.array(k1s).mean(), decimals=3)))
+    logger.info('k@2: ' + str(np.round(np.array(k2s).mean(), decimals=3)))
+    logger.info('k@4: ' + str(np.round(np.array(k4s).mean(), decimals=3)))
+    logger.info('k@5: ' + str(np.round(np.array(k5s).mean(), decimals=3)))
+    logger.info('k@8: ' + str(np.round(np.array(k8s).mean(), decimals=3)))
+    logger.info('k@10: ' + str(np.round(np.array(k10s).mean(), decimals=3)))
+    logger.info('k@100: ' + str(np.round(np.array(k100s).mean(), decimals=3)))
     logger.info("*" * 50)
 
     logger.info('Avg Seen: ' + str(metric_seen.n))
-    logger.info('k@1: ' + str(np.array(k1s_s).mean()))
-    logger.info('k@2: ' + str(np.array(k2s_s).mean()))
-    logger.info('k@4: ' + str(np.array(k4s_s).mean()))
-    logger.info('k@5: ' + str(np.array(k5s_s).mean()))
-    logger.info('k@8: ' + str(np.array(k8s_s).mean()))
-    logger.info('k@10: ' + str(np.array(k10s_s).mean()))
-    logger.info('k@100: ' + str(np.array(k100s_s).mean()))
+    logger.info('k@1: ' + str(np.round(np.array(k1s_s).mean(), decimals=3)))
+    logger.info('k@2: ' + str(np.round(np.array(k2s_s).mean(), decimals=3)))
+    logger.info('k@4: ' + str(np.round(np.array(k4s_s).mean(), decimals=3)))
+    logger.info('k@5: ' + str(np.round(np.array(k5s_s).mean(), decimals=3)))
+    logger.info('k@8: ' + str(np.round(np.array(k8s_s).mean(), decimals=3)))
+    logger.info('k@10: ' + str(np.round(np.array(k10s_s).mean(), decimals=3)))
+    logger.info('k@100: ' + str(np.round(np.array(k100s_s).mean(), decimals=3)))
     logger.info("*" * 50)
 
     logger.info('Avg Unseen: ' + str(metric_unseen.n))
-    logger.info('k@1: ' + str(np.array(k1s_u).mean()))
-    logger.info('k@2: ' + str(np.array(k2s_u).mean()))
-    logger.info('k@4: ' + str(np.array(k4s_u).mean()))
-    logger.info('k@5: ' + str(np.array(k5s_u).mean()))
-    logger.info('k@8: ' + str(np.array(k8s_u).mean()))
-    logger.info('k@10: ' + str(np.array(k10s_u).mean()))
-    logger.info('k@100: ' + str(np.array(k100s_u).mean()))
+    logger.info('k@1: ' + str(np.round(np.array(k1s_u).mean(), decimals=3)))
+    logger.info('k@2: ' + str(np.round(np.array(k2s_u).mean(), decimals=3)))
+    logger.info('k@4: ' + str(np.round(np.array(k4s_u).mean(), decimals=3)))
+    logger.info('k@5: ' + str(np.round(np.array(k5s_u).mean(), decimals=3)))
+    logger.info('k@8: ' + str(np.round(np.array(k8s_u).mean(), decimals=3)))
+    logger.info('k@10: ' + str(np.round(np.array(k10s_u).mean(), decimals=3)))
+    logger.info('k@100: ' + str(np.round(np.array(k100s_u).mean(), decimals=3)))
     logger.info("*" * 50)
 
     d = {'run': [i for i in range(run_number)],
@@ -703,27 +702,27 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
          'kAT10_unseen': k10s_u,
          'kAT100_unseen': k100s_u}
 
-    average_tot = pd.DataFrame(data={'avg_kAT1': [np.array(k1s).mean()],
-                                     'avg_kAT2': [np.array(k2s).mean()],
-                                     'avg_kAT4': [np.array(k4s).mean()],
-                                     'avg_kAT5': [np.array(k5s).mean()],
-                                     'avg_kAT8': [np.array(k8s).mean()],
-                                     'avg_kAT10': [np.array(k10s).mean()],
-                                     'avg_kAT100': [np.array(k100s).mean()],
-                                     'avg_kAT1_seen': [np.array(k1s_s).mean()],
-                                     'avg_kAT2_seen': [np.array(k2s_s).mean()],
-                                     'avg_kAT4_seen': [np.array(k4s_s).mean()],
-                                     'avg_kAT5_seen': [np.array(k5s_s).mean()],
-                                     'avg_kAT8_seen': [np.array(k8s_s).mean()],
-                                     'avg_kAT10_seen': [np.array(k10s_s).mean()],
-                                     'avg_kAT100_seen': [np.array(k100s_s).mean()],
-                                     'avg_kAT1_unseen': [np.array(k1s_u).mean()],
-                                     'avg_kAT2_unseen': [np.array(k2s_u).mean()],
-                                     'avg_kAT4_unseen': [np.array(k4s_u).mean()],
-                                     'avg_kAT5_unseen': [np.array(k5s_u).mean()],
-                                     'avg_kAT8_unseen': [np.array(k8s_u).mean()],
-                                     'avg_kAT10_unseen': [np.array(k10s_u).mean()],
-                                     'avg_kAT100_unseen': [np.array(k100s_u).mean()]})
+    average_tot = pd.DataFrame(data={'avg_kAT1': [np.round(np.array(k1s).mean(), decimals=3)],
+                                     'avg_kAT2': [np.round(np.array(k2s).mean(), decimals=3)],
+                                     'avg_kAT4': [np.round(np.array(k4s).mean(), decimals=3)],
+                                     'avg_kAT5': [np.round(np.array(k5s).mean(), decimals=3)],
+                                     'avg_kAT8': [np.round(np.array(k8s).mean(), decimals=3)],
+                                     'avg_kAT10': [np.round(np.array(k10s).mean(), decimals=3)],
+                                     'avg_kAT100': [np.round(np.array(k100s).mean(), decimals=3)],
+                                     'avg_kAT1_seen': [np.round(np.array(k1s_s).mean(), decimals=3)],
+                                     'avg_kAT2_seen': [np.round(np.array(k2s_s).mean(), decimals=3)],
+                                     'avg_kAT4_seen': [np.round(np.array(k4s_s).mean(), decimals=3)],
+                                     'avg_kAT5_seen': [np.round(np.array(k5s_s).mean(), decimals=3)],
+                                     'avg_kAT8_seen': [np.round(np.array(k8s_s).mean(), decimals=3)],
+                                     'avg_kAT10_seen': [np.round(np.array(k10s_s).mean(), decimals=3)],
+                                     'avg_kAT100_seen': [np.round(np.array(k100s_s).mean(), decimals=3)],
+                                     'avg_kAT1_unseen': [np.round(np.array(k1s_u).mean(), decimals=3)],
+                                     'avg_kAT2_unseen': [np.round(np.array(k2s_u).mean(), decimals=3)],
+                                     'avg_kAT4_unseen': [np.round(np.array(k4s_u).mean(), decimals=3)],
+                                     'avg_kAT5_unseen': [np.round(np.array(k5s_u).mean(), decimals=3)],
+                                     'avg_kAT8_unseen': [np.round(np.array(k8s_u).mean(), decimals=3)],
+                                     'avg_kAT10_unseen': [np.round(np.array(k10s_u).mean(), decimals=3)],
+                                     'avg_kAT100_unseen': [np.round(np.array(k100s_u).mean(), decimals=3)]})
 
     return average_tot, pd.DataFrame(data=d), total, seen, unseen
 
@@ -1028,7 +1027,8 @@ def create_save_path(path, id_str, logger):
         logger.info(
             f'Created save and tensorboard directories:\n{path}\n')
     else:
-        logger.info(f'Save directory {path} already exists, but how?? id_str = {id_str}')  # almost impossible if not pretrained
+        logger.info(
+            f'Save directory {path} already exists, but how?? id_str = {id_str}')  # almost impossible if not pretrained
 
 
 def read_masks(path):
@@ -2150,7 +2150,7 @@ def get_logname(args):
     if args.loss == 'batchhard':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
-    if args.pretrained_model != '': # for running baselines and feature extractors
+    if args.pretrained_model != '':  # for running baselines and feature extractors
         name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
 
     name += id_str
@@ -2438,7 +2438,6 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
     # sim += np.diag(np.ones(num) * minval)
     distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu)
 
-
     if path_to_lbl2chain != '' and args.negative_path != '':
         super_labels = pd.read_csv(path_to_lbl2chain)
         lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
@@ -2450,8 +2449,8 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
                 negative_label = Y[j]
                 if lbl2chain[query_label] != lbl2chain[negative_label]:
                     break
-            best_negatives[loader.dataset.all_shuffled_data[i][1]] = (loader.dataset.all_shuffled_data[negative_idx][1], negative_label)
-
+            best_negatives[loader.dataset.all_shuffled_data[i][1]] = (
+                loader.dataset.all_shuffled_data[negative_idx][1], negative_label)
 
         with open(args.negative_path, 'wb') as f:
             print('new negative set creeated')
@@ -2483,12 +2482,14 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
             if tb_draw:
                 if Y[j] == YNN[j, 0]:
                     if r1_counter < 20:
-                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@1_{r1_counter}_{split}')
+                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader,
+                                    f'r@1_{r1_counter}_{split}')
                         r1_counter += 1
                         print('r1_counter = ', r1_counter)
                 elif Y[j] in YNN[j, :10]:
                     if r10_counter < 20:
-                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'r@10_{r10_counter}_{split}')
+                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader,
+                                    f'r@10_{r10_counter}_{split}')
                         r10_counter += 1
                         print('r10_counter = ', r10_counter)
                 elif counter < 20:
@@ -2532,7 +2533,7 @@ def get_attention_normalized(reps, chunks):
     return reps
 
 
-def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
+def get_faiss_knn(reps, k=1000, gpu=False, method='cos'):  # method "cos" or "l2"
     assert reps.dtype == np.float32
 
     d = reps.shape[1]
@@ -2560,7 +2561,6 @@ def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
     else:
         print('No gpus for faiss! :( ')
 
-
     assert (index_flat.ntotal == reps.shape[0])
 
     D, I = index_flat.search(reps, k)
@@ -2579,7 +2579,7 @@ def get_faiss_knn(reps, k=1000, gpu=False, method='cos'): #method "cos" or "l2"
 
     self_D = np.array(self_distance)
     D = np.array(D_notself)
-    I = np.array(I_notself, dtype=np.int)
+    I = np.array(I_notself)
 
     print(f'D and I cleaning time: {end - start}')
 
@@ -2598,12 +2598,10 @@ def save_knn(embbeddings, path, gpu=False):
 
     return
 
-def calc_custom_cosine_sim(feat1, feat2, agg='mean', weights=[]):
 
+def calc_custom_cosine_sim(feat1, feat2, agg='mean', weights=[]):
     sims = torch.zeros(size=(feat1[0].shape[0], len(feat1)))
     for idx, (f1, f2) in enumerate(zip(feat1, feat2)):
         sims[:, idx] = torch.nn.functional.cosine_similarity(f1, f2)
 
     return sims.mean(dim=1)
-
-
