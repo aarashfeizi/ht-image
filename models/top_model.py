@@ -228,7 +228,7 @@ class LocalFeatureModule(nn.Module):
 
         return lis
 
-    def __attend_to_locals(self, loc_feat, glob_feat, glob_feat_2=None, all=False):
+    def __attend_to_locals(self, loc_feat, glob_feat, glob_feat_2=None):
 
         atts = []
         att_gs = []
@@ -247,7 +247,7 @@ class LocalFeatureModule(nn.Module):
             att_gs.append(att_g)
 
 
-        if all:
+        if self.att_all is not None:
             num = len(att_gs)
             att_gs, _ = self.att_all(torch.stack(att_gs, dim=2).unsqueeze(dim=3), glob_feat)
             att_gs = att_gs.squeeze()
