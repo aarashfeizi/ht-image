@@ -12,7 +12,7 @@ FEATURE_MAP_SIZES = {1: (256, 56, 56),
 
 
 # https://github.com/SaoYan/LearnToPayAttention/
-
+A_SUM = [0, 0]
 class LinearAttentionBlock_Spatial(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock_Spatial, self).__init__()
@@ -30,6 +30,14 @@ class LinearAttentionBlock_Spatial(nn.Module):
             a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
         else:
             a = torch.sigmoid(c)
+
+        if H == 1:
+            A_SUM[0] += torch.sum(a, dim=0).cpu().data.numpy()
+            if type(N) != int:
+                A_SUM[1] += N.cpu().data.numpy()
+            else:
+                A_SUM[1] += N
+
         l_att = torch.mul(a.expand_as(l), l)
         if self.normalize_attn:
             l_att_vector = l_att.view(N, C, -1).sum(dim=2)  # batch_sizexC

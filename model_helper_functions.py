@@ -17,6 +17,7 @@ from torch.autograd import Variable
 from tqdm import tqdm
 
 import metrics
+import models.top_model
 import utils
 # from torch.utils.tensorboard import SummaryWriter
 from Tensorboard_Writer import SummaryWriter
@@ -779,6 +780,8 @@ class ModelMethods:
                 self.save_best_negatives(args, net.ft_net, train_db_loader)
                 train_loader.dataset.load_best_negatives(args.negative_path)
 
+            models.top_model.A_SUM = [0, 0]
+
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
@@ -1046,6 +1049,11 @@ class ModelMethods:
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
 
+            if models.top_model.A_SUM[1] != 0:
+                print(
+                    f'#$#$#$ A_SUM = {models.top_model.A_SUM} and:\n{models.top_model.A_SUM[0] / models.top_model.A_SUM[1]}')
+                models.top_model.A_SUM = [0, 0]
+
             epoch_end = time.time()
             if utils.MY_DEC.enabled:
                 self.logger.info(f'########### one epoch (after batch loop) time: {epoch_end - epoch_start}')
@@ -1062,13 +1070,13 @@ class ModelMethods:
                                               k_at_n=False)
                 else:
                     self.make_emb_db(args, net, train_db_loader,
-                                 eval_sampled=args.sampled_results,
-                                 eval_per_class=args.per_class_results,
-                                 newly_trained=True,
-                                 batch_size=args.db_batch,
-                                 mode='train',
-                                 epoch=epoch,
-                                 k_at_n=False)
+                                     eval_sampled=args.sampled_results,
+                                     eval_per_class=args.per_class_results,
+                                     newly_trained=True,
+                                     batch_size=args.db_batch,
+                                     mode='train',
+                                     epoch=epoch,
+                                     k_at_n=False)
 
             if val_db_loader:
                 self.logger.info('plotting val class diff plot...')
@@ -1082,13 +1090,13 @@ class ModelMethods:
                                               k_at_n=False)
                 else:
                     self.make_emb_db(args, net, val_db_loader,
-                                 eval_sampled=args.sampled_results,
-                                 eval_per_class=args.per_class_results,
-                                 newly_trained=True,
-                                 batch_size=args.db_batch,
-                                 mode='val',
-                                 epoch=epoch,
-                                 k_at_n=False)
+                                     eval_sampled=args.sampled_results,
+                                     eval_per_class=args.per_class_results,
+                                     newly_trained=True,
+                                     batch_size=args.db_batch,
+                                     mode='val',
+                                     epoch=epoch,
+                                     k_at_n=False)
 
             if max_val_between_epochs <= max_val_acc:
                 max_val_between_epochs = max_val_acc
@@ -1364,7 +1372,6 @@ class ModelMethods:
             if batch_size is None:
                 batch_size = args.batch_size
 
-
             test_sim = -1 * np.ones(shape=len(data_loader.dataset))
 
             lbls, seen = data_loader.dataset.get_info()
@@ -1416,7 +1423,7 @@ class ModelMethods:
 
         test_seen = np.zeros(((len(data_loader.dataset))))
         test_sim = utils.load_h5(f'{args.dataset_name}_{mode}_sim',
-                                  os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))
+                                 os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))
         test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if return_bg and mode != 'train':
@@ -1545,7 +1552,6 @@ class ModelMethods:
                 if test_feats.dtype != np.float32:
                     test_feats = test_feats.astype(np.float32)
                 test_feats = utils.get_attention_normalized(test_feats, chunks=4)
-
 
             utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
