@@ -1050,8 +1050,7 @@ class ModelMethods:
                         best_model = self.save_model(args, net, epoch, 0.0)
 
             if models.top_model.A_SUM[1] != 0:
-                print(
-                    f'#$#$#$ A_SUM = {models.top_model.A_SUM} and:\n{models.top_model.A_SUM[0] / models.top_model.A_SUM[1]}')
+                self.logger.info(f'#$#$#$ A_SUM = {models.top_model.A_SUM} and:\n{models.top_model.A_SUM[0] / models.top_model.A_SUM[1]}')
                 models.top_model.A_SUM = [0, 0]
 
             epoch_end = time.time()
