@@ -257,7 +257,7 @@ class LocalFeatureModule(nn.Module):
 
         if self.att_all is not None:
             num = len(att_gs)
-            att_gs, _ = self.att_all(torch.stack(att_gs, dim=2).unsqueeze(dim=3), glob_feat)
+            att_gs, _ = self.att_all(torch.stack(att_gs, dim=2).unsqueeze(dim=3), None)
             att_gs = att_gs.squeeze(dim=3)
             att_gs = torch.chunk(att_gs, num, dim=2)
 
