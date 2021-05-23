@@ -591,8 +591,8 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
 
         for idx, (lbl, seen) in enumerate(zip(chosen_img_lbls, chosen_seen_list)):
 
-            ret_seens = chosen_seen_list[I[idx, :]]
-            ret_lbls = chosen_img_lbls[I[idx, :]]
+            ret_seens = chosen_seen_list[I[idx]]
+            ret_lbls = chosen_img_lbls[I[idx]]
 
             metric_total.update(lbl, ret_lbls)
 
