@@ -452,8 +452,8 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, 
 
     for idx, (lbl, seen) in enumerate(zip(img_lbls, seen_list)):
 
-        ret_seens = seen_list[I[idx, :]]
-        ret_lbls = img_lbls[I[idx, :]]
+        ret_seens = seen_list[I[idx]]
+        ret_lbls = img_lbls[I[idx]]
 
         metric_total.update(lbl, ret_lbls)
 
