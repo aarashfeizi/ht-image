@@ -1014,7 +1014,7 @@ class ModelMethods:
                         self.writer.add_scalar('Total_Val/Loss', val_loss, epoch)
                         self.writer.flush()
 
-                        if val_acc >= max_val_acc:
+                        if val_acc >= max_val_acc or epoch == max_epochs:
                             utils.print_gpu_stuff(args.cuda, 'Before saving model')
                             val_counter = 0
                             if args.train_fewshot:
@@ -1097,7 +1097,7 @@ class ModelMethods:
                                      epoch=epoch,
                                      k_at_n=False)
 
-            if max_val_between_epochs <= max_val_acc:
+            if max_val_between_epochs <= max_val_acc or epoch == max_epochs:
                 max_val_between_epochs = max_val_acc
                 if args.cam:
                     print(f'Drawing heatmaps on epoch {epoch}...')
