@@ -1547,10 +1547,12 @@ class ModelMethods:
 
                     t.update()
 
+            chunks = len(args.feature_map_layers)
+
             if has_attention:
                 if test_feats.dtype != np.float32:
                     test_feats = test_feats.astype(np.float32)
-                test_feats = utils.get_attention_normalized(test_feats, chunks=4)
+                test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
 
             utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
