@@ -12,7 +12,7 @@ from PIL import Image
 from matplotlib.lines import Line2D
 from sklearn.metrics import confusion_matrix, roc_auc_score
 from sklearn.metrics import silhouette_score, silhouette_samples
-from sklearn.metrics.pairwise import cosine_distances
+from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
 from torch.autograd import Variable
 from tqdm import tqdm
 
@@ -122,6 +122,13 @@ class ModelMethods:
         self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name)
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
+
+        if 'attention' in self.merge_method:
+            self.metric = 'cosine'
+        else:
+            self.metric = 'euclidean'
+
+        self.logger.info(f'Metric is {self.metric}')
 
         if args.pretrained_model_dir == '':
             utils.make_dirs(os.path.join(args.local_path, args.save_path))
@@ -1641,7 +1648,8 @@ class ModelMethods:
                                    sampled=eval_sampled,
                                    even_sampled=False,
                                    per_class=eval_per_class,
-                                   mode=mode)
+                                   mode=mode,
+                                   metric=self.metric)
 
             self.logger.info('results at: ' + self.save_path)
 
@@ -1912,7 +1920,12 @@ class ModelMethods:
     # todo easy cases?
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False):
 
-        dists = cosine_distances(img_feats)
+        if self.metric == 'cosine':
+            dists = cosine_distances(img_feats)
+        elif self.metric == 'euclidean':
+            dists = euclidean_distances(img_feats)
+        else:
+            raise Exception(f'NoT SuPpoRTeD metric: {self.metric}')
 
         res = utils.get_distances(dists, img_classes)
 
@@ -1968,7 +1981,7 @@ class ModelMethods:
 
     def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False):
 
-        last_silh_score = silhouette_score(X, labels, metric='cosine')
+        last_silh_score = silhouette_score(X, labels, metric=self.metric)
         self.silhouette_scores[mode].append(last_silh_score)
 
         samples_silhouette = silhouette_samples(X, labels)

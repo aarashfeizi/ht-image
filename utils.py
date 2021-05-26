@@ -397,12 +397,12 @@ def load_h5(data_description, path):
 
 
 def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True,
-                     even_sampled=True,
-                     per_class=False, save_path='', mode='', sim_matrix=None):
+                     even_sampled=True, per_class=False, save_path='', mode='',
+                     sim_matrix=None, metric='cosine'):
     if per_class:
         logger.info('K@N per class')
         total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
-                                                      sim_matrix=sim_matrix)
+                                                      sim_matrix=sim_matrix, metric=metric)
         total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
                      index=False)
         seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
@@ -414,7 +414,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
         logger.info('K@N for sampled')
         kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
                                                                  run_number, mode, even_sampled=even_sampled,
-                                                                 sim_matrix=sim_matrix)
+                                                                 sim_matrix=sim_matrix, metric=metric)
         kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
                     index=False)
         kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True,
@@ -429,7 +429,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
     return True
 
 
-def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=None):
+def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=None, metric='cosine'):
     all_lbls = np.unique(img_lbls)
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
@@ -438,7 +438,7 @@ def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, 
     k_max = min(1000, img_lbls.shape[0])
 
     if sim_matrix is None:
-        _, I, self_D = get_faiss_knn(img_feats, k=k_max, gpu=True)
+        _, I, self_D = get_faiss_knn(img_feats, k=k_max, gpu=True, metric=metric)
     else:
         minval = np.min(sim_matrix) - 1.
         self_D = -(np.diag(sim_matrix))
@@ -511,7 +511,7 @@ def _log_per_class(logger, df, split_kind=''):
 
 
 def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='',
-                          even_sampled=False, sim_matrix=None):
+                          even_sampled=False, sim_matrix=None, metric='cosine'):
     all_lbls = np.unique(img_lbls)
     seen_lbls = np.unique(img_lbls[seen_list == 1])
     unseen_lbls = np.unique(img_lbls[seen_list == 0])
@@ -583,7 +583,7 @@ def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0,
             sim_matrix += np.diag(np.ones(num) * minval)
             I = (-sim_matrix).argsort()[:, :-1]
         else:
-            _, I, self_D = get_faiss_knn(chosen_img_feats, k=k_max, gpu=True)
+            _, I, self_D = get_faiss_knn(chosen_img_feats, k=k_max, gpu=True, metric=metric)
 
         metric_total = metrics.Accuracy_At_K(classes=all_lbls)
         metric_seen = metrics.Accuracy_At_K(classes=seen_lbls)
@@ -2422,7 +2422,7 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False):
+def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False, metric='cosine'):
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = min(np.max(Kset), num)
@@ -2436,7 +2436,7 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
     # minval = np.min(sim) - 1.
     # sim -= np.diag(np.diag(sim))
     # sim += np.diag(np.ones(num) * minval)
-    distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu)
+    distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu, metric=metric)
 
     if path_to_lbl2chain != '' and args.negative_path != '':
         super_labels = pd.read_csv(path_to_lbl2chain)
@@ -2533,18 +2533,19 @@ def get_attention_normalized(reps, chunks):
     return reps
 
 
-def get_faiss_knn(reps, k=1000, gpu=False, method='cos'):  # method "cos" or "l2"
+def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
     assert reps.dtype == np.float32
 
+    print(f'get_faiss_knn metric is: {metric}')
+
     d = reps.shape[1]
-    # index_flat = faiss.IndexFlatIP(d)
-    if method == 'l2':
+    if metric == 'euclidean':
         index_function = faiss.IndexFlatL2
-    elif method == 'cos':
+    elif metric == 'cosine':
         index_function = faiss.IndexFlatIP
     else:
         index_function = None
-        raise Exception(f'get_faiss_knn unsupported method {method}')
+        raise Exception(f'get_faiss_knn unsupported method {metric}')
 
     if gpu:
         try:
@@ -2586,10 +2587,10 @@ def get_faiss_knn(reps, k=1000, gpu=False, method='cos'):  # method "cos" or "l2
     return D, I, self_D
 
 
-def save_knn(embbeddings, path, gpu=False):
+def save_knn(embbeddings, path, gpu=False, metric='cosine'):
     import pickle
     make_dirs(path=path)
-    distances, indicies, _ = get_faiss_knn(embbeddings, gpu=gpu)
+    distances, indicies, _ = get_faiss_knn(embbeddings, gpu=gpu, metric=metric)
     with open(os.path.join(f'{path}', 'indicies.pkl'), 'wb') as f:
         pickle.dump(indicies, f)
 
