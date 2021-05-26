@@ -2606,3 +2606,11 @@ def calc_custom_cosine_sim(feat1, feat2, agg='mean', weights=[]):
         sims[:, idx] = torch.nn.functional.cosine_similarity(f1, f2)
 
     return sims.mean(dim=1)
+
+def calc_custom_euc(feat, chunks=4):
+    feats = np.split(feat, chunks, axis=1)
+    eucs = []
+    for f in feats:
+        eucs.append(euclidean_distances(f))
+    return sum(eucs)
+

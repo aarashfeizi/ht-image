@@ -1922,11 +1922,14 @@ class ModelMethods:
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False):
 
         if self.metric == 'cosine':
-            sims = img_feats.dot(img_feats.T)
-            max_sim = np.max(sims)
-            dists = -sims
-            dists += max_sim
-            np.fill_diagonal(dists, 0)
+            # sims = img_feats.dot(img_feats.T)
+            # max_sim = np.max(sims)
+            # dists = -sims
+            # dists += max_sim
+            # np.fill_diagonal(dists, 0)
+
+            dists = utils.calc_custom_euc(img_feats, chunks=4) # todo hardcoded
+
         elif self.metric == 'euclidean':
             dists = euclidean_distances(img_feats)
         else:
@@ -1987,11 +1990,13 @@ class ModelMethods:
     def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False):
 
         if self.metric == 'cosine':
-            sims = X.dot(X.T)
-            max_sim = np.max(sims)
-            dists = -sims
-            dists += max_sim
-            np.fill_diagonal(dists, 0)
+            # sims = X.dot(X.T)
+            # max_sim = np.max(sims)
+            # dists = -sims
+            # dists += max_sim
+            # np.fill_diagonal(dists, 0)
+
+            dists = utils.calc_custom_euc(X, chunks=4) # todo chunks hardcoded
 
         elif self.metric == 'euclidean':
             dists = euclidean_distances(X)
