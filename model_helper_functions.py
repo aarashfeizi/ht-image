@@ -123,10 +123,6 @@ class ModelMethods:
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
 
-        if 'attention' in self.merge_method:
-            self.metric = 'cosine'
-        else:
-            self.metric = 'euclidean'
 
         self.logger.info(f'Metric is {self.metric}')
 
@@ -143,6 +139,11 @@ class ModelMethods:
 
         self.merge_method = args.merge_method
         self.logger.info(f'Merging with {self.merge_method}')
+
+        if 'attention' in self.merge_method:
+            self.metric = 'cosine'
+        else:
+            self.metric = 'euclidean'
 
         if args.debug_grad:
             self.draw_grad = True
