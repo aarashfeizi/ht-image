@@ -124,7 +124,6 @@ class ModelMethods:
         self.writer = SummaryWriter(self.tensorboard_path)
 
 
-        self.logger.info(f'Metric is {self.metric}')
 
         if args.pretrained_model_dir == '':
             utils.make_dirs(os.path.join(args.local_path, args.save_path))
@@ -144,6 +143,7 @@ class ModelMethods:
             self.metric = 'cosine'
         else:
             self.metric = 'euclidean'
+        self.logger.info(f'Metric is {self.metric}')
 
         if args.debug_grad:
             self.draw_grad = True
