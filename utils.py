@@ -286,7 +286,7 @@ def get_args():
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
-    parser.add_argument('-att_mode_sc', '--att_mode_sc', default='channel', choices=['spatial', 'channel', 'both'])
+    parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial', 'channel', 'both'])
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
@@ -297,7 +297,7 @@ def get_args():
 
     return args
 
-
+# https://www.overleaf.com/5846741514dywtdjdpmxwn
 def loading_time(args, train_set, use_cuda, num_workers, pin_memory, logger):
     kwargs = {'num_workers': num_workers, 'pin_memory': pin_memory} if use_cuda else {}
     train_loader = torch.utils.data.DataLoader(
