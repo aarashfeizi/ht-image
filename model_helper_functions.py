@@ -1922,7 +1922,11 @@ class ModelMethods:
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False):
 
         if self.metric == 'cosine':
-            dists = cosine_distances(img_feats)
+            sims = img_feats.dot(img_feats.T)
+            max_sim = np.max(sims)
+            dists = -sims
+            dists += max_sim
+            np.fill_diagonal(dists, 0)
         elif self.metric == 'euclidean':
             dists = euclidean_distances(img_feats)
         else:
@@ -1982,7 +1986,19 @@ class ModelMethods:
 
     def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False):
 
-        last_silh_score = silhouette_score(X, labels, metric=self.metric)
+        if self.metric == 'cosine':
+            sims = X.dot(X.T)
+            max_sim = np.max(sims)
+            dists = -sims
+            dists += max_sim
+            np.fill_diagonal(dists, 0)
+
+        elif self.metric == 'euclidean':
+            dists = euclidean_distances(X)
+        else:
+            raise Exception(f'Metric {self.metric} not supported')
+
+        last_silh_score = silhouette_score(dists, labels, metric='precomputed')
         self.silhouette_scores[mode].append(last_silh_score)
 
         samples_silhouette = silhouette_samples(X, labels)
