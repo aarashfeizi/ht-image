@@ -1557,10 +1557,10 @@ class ModelMethods:
 
             chunks = len(args.feature_map_layers)
 
-            if has_attention:
-                if test_feats.dtype != np.float32:
-                    test_feats = test_feats.astype(np.float32)
-                test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
+            # if has_attention:
+            #     if test_feats.dtype != np.float32:
+            #         test_feats = test_feats.astype(np.float32)
+            #     test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
 
             utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
@@ -1936,13 +1936,13 @@ class ModelMethods:
     def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False):
 
         if self.metric == 'cosine':
-            # sims = img_feats.dot(img_feats.T)
-            # max_sim = np.max(sims)
-            # dists = -sims
-            # dists += max_sim
-            # np.fill_diagonal(dists, 0)
+            sims = img_feats.dot(img_feats.T)
+            max_sim = np.max(sims)
+            dists = -sims
+            dists += max_sim
+            np.fill_diagonal(dists, 0)
 
-            dists = utils.calc_custom_euc(img_feats, chunks=4)  # todo hardcoded
+            # dists = utils.calc_custom_euc(img_feats, chunks=4)  # todo hardcoded
 
         elif self.metric == 'euclidean':
             dists = euclidean_distances(img_feats)
@@ -2004,13 +2004,13 @@ class ModelMethods:
     def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False):
 
         if self.metric == 'cosine':
-            # sims = X.dot(X.T)
-            # max_sim = np.max(sims)
-            # dists = -sims
-            # dists += max_sim
-            # np.fill_diagonal(dists, 0)
+            sims = X.dot(X.T)
+            max_sim = np.max(sims)
+            dists = -sims
+            dists += max_sim
+            np.fill_diagonal(dists, 0)
 
-            dists = utils.calc_custom_euc(X, chunks=4)  # todo chunks hardcoded
+            # dists = utils.calc_custom_euc(X, chunks=4)  # todo chunks hardcoded
 
         elif self.metric == 'euclidean':
             dists = euclidean_distances(X)
