@@ -123,8 +123,6 @@ class ModelMethods:
         self.logger = logger
         self.writer = SummaryWriter(self.tensorboard_path)
 
-
-
         if args.pretrained_model_dir == '':
             utils.make_dirs(os.path.join(args.local_path, args.save_path))
             self.save_path = os.path.join(args.local_path, args.save_path, self.model_name)
@@ -1058,7 +1056,8 @@ class ModelMethods:
                         best_model = self.save_model(args, net, epoch, 0.0)
 
             if models.top_model.A_SUM[1] != 0:
-                self.logger.info(f'Epoch {epoch} A_SUM = {models.top_model.A_SUM} and:\n{models.top_model.A_SUM[0] / models.top_model.A_SUM[1]}')
+                self.logger.info(
+                    f'Epoch {epoch} A_SUM = {models.top_model.A_SUM} and:\n{models.top_model.A_SUM[0] / models.top_model.A_SUM[1]}')
                 models.top_model.A_SUM = [0, 0]
 
             epoch_end = time.time()
@@ -1094,7 +1093,7 @@ class ModelMethods:
                                               batch_size=args.db_batch,
                                               mode='val',
                                               epoch=epoch,
-                                              k_at_n=False)
+                                              k_at_n=args.katn)
                 else:
                     self.make_emb_db(args, net, val_db_loader,
                                      eval_sampled=args.sampled_results,
@@ -1103,7 +1102,7 @@ class ModelMethods:
                                      batch_size=args.db_batch,
                                      mode='val',
                                      epoch=epoch,
-                                     k_at_n=False)
+                                     k_at_n=args.katn)
 
             if max_val_between_epochs <= max_val_acc or epoch == max_epochs:
                 max_val_between_epochs = max_val_acc
@@ -1275,6 +1274,7 @@ class ModelMethods:
 
                 t.update()
 
+        self.logger.info(f'Lnegth of true_label_auc for calculating is: {len(true_label_auc)}')
         roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
 
         self.logger.info('$' * 70)
@@ -1642,17 +1642,31 @@ class ModelMethods:
         # import pdb
         # pdb.set_trace()
         if k_at_n:
-            utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
-                                   limit=args.limit_samples,
-                                   run_number=args.number_of_runs,
-                                   save_path=self.save_path,
-                                   sampled=eval_sampled,
-                                   even_sampled=False,
-                                   per_class=eval_per_class,
-                                   mode=mode,
-                                   metric=self.metric)
+            kavg = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
+                                          limit=args.limit_samples,
+                                          run_number=args.number_of_runs,
+                                          save_path=self.save_path,
+                                          sampled=True,
+                                          even_sampled=False,
+                                          per_class=eval_per_class,
+                                          mode=mode,
+                                          metric=self.metric)
 
-            self.logger.info('results at: ' + self.save_path)
+            for c in list(kavg.columns):
+                if 'kAT' in c:
+                    tb_tag = c.replace('AT', '@')
+                    cmode = mode[0].upper() + mode[1:]  # capitalize
+
+                    if return_bg and mode == 'val':
+                        if 'unseen' in c:
+                            self.writer.add_scalar(f'unseen_{cmode}/{tb_tag}', kavg[c][0])
+                        elif 'seen' in c:
+                            self.writer.add_scalar(f'seen_{cmode}/{tb_tag}', kavg[c][0])
+                    if 'seen' not in c:
+                        self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0])
+
+            self.writer.flush()
+        self.logger.info('results at: ' + self.save_path)
 
     def load_model(self, args, net, best_model):
         if args.cuda:
@@ -1928,7 +1942,7 @@ class ModelMethods:
             # dists += max_sim
             # np.fill_diagonal(dists, 0)
 
-            dists = utils.calc_custom_euc(img_feats, chunks=4) # todo hardcoded
+            dists = utils.calc_custom_euc(img_feats, chunks=4)  # todo hardcoded
 
         elif self.metric == 'euclidean':
             dists = euclidean_distances(img_feats)
@@ -1996,7 +2010,7 @@ class ModelMethods:
             # dists += max_sim
             # np.fill_diagonal(dists, 0)
 
-            dists = utils.calc_custom_euc(X, chunks=4) # todo chunks hardcoded
+            dists = utils.calc_custom_euc(X, chunks=4)  # todo chunks hardcoded
 
         elif self.metric == 'euclidean':
             dists = euclidean_distances(X)

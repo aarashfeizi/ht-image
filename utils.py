@@ -426,7 +426,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
         unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'),
                       header=True, index=False)
 
-    return True
+    return kavg
 
 
 def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=None, metric='cosine'):
