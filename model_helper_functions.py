@@ -781,14 +781,7 @@ class ModelMethods:
         for epoch in range(1, max_epochs + 1):
 
             epoch_start = time.time()
-            self.make_emb_db(args, net, val_db_loader,
-                             eval_sampled=args.sampled_results,
-                             eval_per_class=args.per_class_results,
-                             newly_trained=True,
-                             batch_size=args.db_batch,
-                             mode='val',
-                             epoch=epoch,
-                             k_at_n=args.katn)
+
             if args.negative_path != '':
                 self.save_best_negatives(args, net.ft_net, train_db_loader)
                 train_loader.dataset.load_best_negatives(args.negative_path)
