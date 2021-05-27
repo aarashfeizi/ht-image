@@ -1659,11 +1659,11 @@ class ModelMethods:
 
                     if return_bg and mode == 'val':
                         if 'unseen' in c:
-                            self.writer.add_scalar(f'unseen_{cmode}/{tb_tag}', kavg[c][0])
+                            self.writer.add_scalar(f'unseen_{cmode}/{tb_tag}', kavg[c][0], epoch)
                         elif 'seen' in c:
-                            self.writer.add_scalar(f'seen_{cmode}/{tb_tag}', kavg[c][0])
+                            self.writer.add_scalar(f'seen_{cmode}/{tb_tag}', kavg[c][0], epoch)
                     if 'seen' not in c:
-                        self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0])
+                        self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0], epoch)
 
             self.writer.flush()
         self.logger.info('results at: ' + self.save_path)
