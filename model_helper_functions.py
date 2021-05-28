@@ -1557,10 +1557,10 @@ class ModelMethods:
 
             chunks = len(args.feature_map_layers)
 
-            # if has_attention:
-            #     if test_feats.dtype != np.float32:
-            #         test_feats = test_feats.astype(np.float32)
-            #     test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
+            if has_attention:
+                if test_feats.dtype != np.float32:
+                    test_feats = test_feats.astype(np.float32)
+                test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
 
             utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
@@ -1652,20 +1652,21 @@ class ModelMethods:
                                           mode=mode,
                                           metric=self.metric)
 
-            for c in list(kavg.columns):
-                if 'kAT' in c:
-                    tb_tag = c.replace('AT', '@')
-                    cmode = mode[0].upper() + mode[1:]  # capitalize
+            if epoch != -1:
+                for c in list(kavg.columns): # plot tb
+                    if 'kAT' in c:
+                        tb_tag = c.replace('AT', '@')
+                        cmode = mode[0].upper() + mode[1:]  # capitalize
 
-                    if return_bg and mode == 'val':
-                        if 'unseen' in c:
-                            self.writer.add_scalar(f'unseen_{cmode}/{tb_tag}', kavg[c][0], epoch)
-                        elif 'seen' in c:
-                            self.writer.add_scalar(f'seen_{cmode}/{tb_tag}', kavg[c][0], epoch)
-                    if 'seen' not in c:
-                        self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0], epoch)
+                        if return_bg and mode == 'val':
+                            if 'unseen' in c:
+                                self.writer.add_scalar(f'unseen_{cmode}/{tb_tag}', kavg[c][0], epoch)
+                            elif 'seen' in c:
+                                self.writer.add_scalar(f'seen_{cmode}/{tb_tag}', kavg[c][0], epoch)
+                        if 'seen' not in c:
+                            self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0], epoch)
 
-            self.writer.flush()
+                self.writer.flush()
         self.logger.info('results at: ' + self.save_path)
 
     def load_model(self, args, net, best_model):
