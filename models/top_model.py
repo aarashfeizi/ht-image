@@ -136,6 +136,12 @@ class LocalFeatureModule(nn.Module):
         else:
             self.att_all = None
 
+        if args.att_on_all:
+            self.importance = nn.Parameter(torch.ones(len(in_channels), global_dim))
+            self.att_att = None
+        else:
+            self.importance = None
+
         # spatial_att
         if args.att_mode_sc == 'both':
             att_module = LinearAttentionBlock_BOTH
@@ -333,9 +339,16 @@ class LocalFeatureModule(nn.Module):
 
         att_gs = []
 
+        if self.importance is not None:
+            att_gs_1 = [F.softmax(self.importance[i], dim=0) * v for i, v in enumerate(att_gs_1)]
+            att_gs_2 = [F.softmax(self.importance[i], dim=0) * v for i, v in enumerate(att_gs_2)]
+
+        att_gs_1 = [F.normalize(v, p=2, dim=1) for v in att_gs_1]
+        att_gs_2 = [F.normalize(v, p=2, dim=1) for v in att_gs_2]
+
         if not single:
             for (att_g_1, att_g_2) in zip(att_gs_1, att_gs_2):
-                att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method=self.att_merge))
+                att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method=self.att_merge, normalize=False))
         else:
             att_gs = att_gs_1
 
