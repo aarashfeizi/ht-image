@@ -522,15 +522,15 @@ class TopModel(nn.Module):
                 for i in self.fmaps_no:
                     x1_input.append(x1_local[i - 1])
 
-                # _, output, _, _ = self.local_features(x1_local=x1_input,
-                #                                       x2_local=None,
-                #                                       x1_global=x1_global,
-                #                                       x2_global=None,
-                #                                       single=single)
+                _, output, _, _ = self.local_features(x1_local=x1_input,
+                                                      x2_local=None,
+                                                      x1_global=x1_global,
+                                                      x2_global=None,
+                                                      single=single)
                 # import pdb
                 # pdb.set_trace()
 
-                output = x1_global.squeeze()
+                # output = x1_global.squeeze()
 
             else:
                 output = self.sm_net(x1_global, None, single)  # single is true
