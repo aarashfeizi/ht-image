@@ -92,9 +92,12 @@ class LinearAttentionBlock_BOTH(nn.Module):
         return l1_map, l1_vector
 
 class AttentionModule_C(nn.Module):
-    def __init__(self, in_features):
+    def __init__(self, in_features, reduce_space=True):
         super(AttentionModule_C, self).__init__()
-        self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=5, padding=0, bias=False)
+        if reduce_space:
+            self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=5, padding=0, bias=False)
+        else:
+            self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
 
     def forward(self, X):
         N, C, W, H = X.size()
@@ -143,11 +146,13 @@ class ChannelWiseAttention(nn.Module):
             self.projector1 = Projector(256, global_dim) if self.global_dim != 256 else None
             self.k_op1 = AttentionModule_C(global_dim)
             self.q_op1 = AttentionModule_C(global_dim)
+            self.v_op1 = AttentionModule_C(global_dim, reduce_space=False)
             # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
         else:
             self.projector1 = None
             self.k_op1 = None
             self.q_op1 = None
+            self.v_op1 = None
             # self.fc_block_1 = None
             self.att_1 = None
 
@@ -155,22 +160,26 @@ class ChannelWiseAttention(nn.Module):
             self.projector2 = Projector(512, global_dim) if self.global_dim != 512 else None
             self.k_op2 = AttentionModule_C(global_dim)
             self.q_op2 = AttentionModule_C(global_dim)
+            self.v_op2 = AttentionModule_C(global_dim, reduce_space=False)
             # self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
         else:
             self.projector2 = None
             self.k_op2 = None
             self.q_op2 = None
+            self.v_op2 = None
             # self.fc_block_2 = None
 
         if FEATURE_MAP_SIZES[3] in self.in_channels:
             self.projector3 = Projector(1024, global_dim) if self.global_dim != 1024 else None
             self.k_op3 = AttentionModule_C(global_dim)
             self.q_op3 = AttentionModule_C(global_dim)
+            self.v_op3 = AttentionModule_C(global_dim, reduce_space=False)
             # self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
         else:
             self.projector3 = None
             self.k_op3 = None
             self.q_op3 = None
+            self.v_op3 = None
             # self.fc_block_3 = None
 
         if FEATURE_MAP_SIZES[4] in self.in_channels:
@@ -178,10 +187,12 @@ class ChannelWiseAttention(nn.Module):
             self.projector4 = Projector(2048, global_dim) if self.global_dim != 2048 else None
             self.k_op4 = AttentionModule_C(global_dim)
             self.q_op4 = AttentionModule_C(global_dim)
+            self.v_op4 = AttentionModule_C(global_dim, reduce_space=False)
         else:
             self.projector4 = None
             self.k_op4 = None
             self.q_op4 = None
+            self.v_op4 = None
 
 
         self.layers = {256: self.projector1,
@@ -203,6 +214,11 @@ class ChannelWiseAttention(nn.Module):
                      512: self.q_op2,
                      1024: self.q_op3,
                      2048: self.q_op4}
+
+        self.atts_v = {256: self.v_op1,
+                       512: self.v_op2,
+                       1024: self.v_op3,
+                       2048: self.v_op4}
 
         self.merge_method = args.merge_method
 
@@ -236,27 +252,29 @@ class ChannelWiseAttention(nn.Module):
 
         return lis
 
-    def __get_keys_queries(self, X):
+    def __get_keys_querie_values(self, X):
         keys = []
         queries = []
+        values = []
 
         for (C, _, _), f in zip(self.in_channels, X):
             keys.append(self.atts_k[C](f))
             queries.append(self.atts_q[C](f))
+            values.append(self.atts_v[C](f))
 
-        return keys, queries
+        return keys, queries, values
 
     def __get_attention_and_values(self, X):
-        K, Q = self.__get_keys_queries(X)
+        K, Q, V = self.__get_keys_querie_values(X)
         attentions = []
         output = []
-        for k, q, v in zip(K, Q, X):
-            N, C, W, H = v.size()
+        for k, q, v, x in zip(K, Q, V, X):
+            N, C, W, H = x.size()
             attention_logits = torch.matmul(q, k.transpose(1, 2)) # (N, C, C)
             att = F.softmax(attention_logits, dim=1)
-            attended_local = torch.matmul(att, v.reshape(N, C, -1)).reshape(N, C, W, H)
+            attended_local = torch.matmul(att, v).reshape(N, C, W, H)
             attentions.append(attended_local)
-            attended_local += v
+            attended_local += x
             attended_global = F.adaptive_avg_pool2d(attended_local, (1, 1)).view(N, C)
             output.append(attended_global)
 
