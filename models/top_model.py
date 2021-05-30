@@ -134,9 +134,7 @@ class ChannelWiseAttention(nn.Module):
     def __init__(self, args, in_channels, global_dim):
         super(ChannelWiseAttention, self).__init__()
         self.in_channels = in_channels
-        self.merge_global = args.merge_global
         self.global_dim = global_dim
-        self.no_global = args.no_global
         self.cross_attention = args.cross_attention
         self.att_mode_sc = args.att_mode_sc
 
@@ -258,6 +256,7 @@ class ChannelWiseAttention(nn.Module):
             att = F.softmax(attention_logits, dim=1)
             attended_local = torch.matmul(att, v.reshape(N, C, -1)).reshape(N, C, W, H)
             attentions.append(attended_local)
+            attended_local += v
             attended_global = F.adaptive_avg_pool2d(attended_local, (1, 1)).view(N, C)
             output.append(attended_global)
 
