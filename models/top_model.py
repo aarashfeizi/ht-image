@@ -809,6 +809,8 @@ class TopModel(nn.Module):
             return self.classifier.weight
         elif self.local_features and self.local_features.classifier:
             return self.local_features.classifier[0].weight
+        elif self.channel_attention and self.channel_attention.classifier:
+            return self.channel_attention.classifier[0].weight
         else:
             return self.sm_net.get_classifier_weights()
         # print('features:', x2_f[-1].size())
