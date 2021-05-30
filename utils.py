@@ -1865,7 +1865,7 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
         if not equal: # activations have negatives and positives
 
             for (a, v) in [(pos_att, 'POS'), (neg_att, 'NEG')]:
-                print(a[0].shape)
+                # print(a[0].shape)
                 # import pdb
                 # pdb.set_trace()
                 heatmaps = get_heatmaps(a, shape=shape, classifier_weights=None,

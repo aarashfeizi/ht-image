@@ -723,6 +723,12 @@ class ModelMethods:
                                       'lr': args.lr_new,
                                       'weight_decay': args.weight_decay}]
 
+            if net.channel_attention:
+                learnable_params += [{'params': net.channel_attention.parameters(),
+                                      'lr': args.lr_new,
+                                      'weight_decay': args.weight_decay}]
+
+
             if net.diffsim_fc_net:
                 learnable_params += [{'params': net.diffsim_fc_net.parameters(),
                                       'lr': args.lr_new,
