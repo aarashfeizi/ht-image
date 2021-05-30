@@ -34,7 +34,8 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'concat', 'diff-sim-con-att', 'concat-mid',
                  'diff-sim-con-complete', 'diff-sim-con-att-add',
                  'local-attention', 'local-ds-attention', 'local-diff-sim-concat-unequaldim',
-                 'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim']
+                 'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim',
+                 'channel-attention']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -288,6 +289,8 @@ def get_args():
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
     parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial', 'channel', 'both'])
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
+
+    parser.add_argument('-cross_attention', '--cross_attention', default=False, action='store_true')
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
@@ -1858,9 +1861,13 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
             if not torch.equal(a, ap):
                 equal = False
                 break
-        if not equal:
+
+        if not equal: # activations have negatives and positives
 
             for (a, v) in [(pos_att, 'POS'), (neg_att, 'NEG')]:
+                print(a[0].shape)
+                # import pdb
+                # pdb.set_trace()
                 heatmaps = get_heatmaps(a, shape=shape, classifier_weights=None,
                                         attention=True)  # seperated for normalization, heatmaps withOUT classifier weights
                 pics = []

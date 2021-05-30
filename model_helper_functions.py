@@ -266,7 +266,7 @@ class ModelMethods:
 
         utils.make_dirs(heatmap_path_perepoch)
         self.cam_all += 1
-        if self.merge_method.startswith('local'):
+        if 'attention' in self.merge_method:
             if self.merge_method == 'local-ds-attention':
                 sub_methods = []
                 for i in args.feature_map_layers:
@@ -594,7 +594,7 @@ class ModelMethods:
                                                                        :].squeeze(dim=0),
                                                     tb_path=f'triplet_{id}_anch_neg_forward', epoch=epoch,
                                                     writer=self.writer)
-            elif 'local' in self.merge_method:
+            elif 'attention' in self.merge_method:
                 att_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_att.png')
                 anch_name = utils.get_file_name(anch_path)
                 pos_name = utils.get_file_name(pos_path)

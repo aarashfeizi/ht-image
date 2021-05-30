@@ -91,6 +91,16 @@ class LinearAttentionBlock_BOTH(nn.Module):
 
         return l1_map, l1_vector
 
+class AttentionModule_C(nn.Module):
+    def __init__(self, in_features):
+        super(AttentionModule_C, self).__init__()
+        self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=5, padding=0, bias=False)
+
+    def forward(self, X):
+        N, C, W, H = X.size()
+        X = self.op(X)
+        return X.reshape(N, C, -1)
+
 
 class LocalFeat(nn.Module):
 
@@ -118,6 +128,201 @@ class Projector(nn.Module):
     def forward(self, x):
         x = self.op(x)
         return x
+
+class ChannelWiseAttention(nn.Module):
+
+    def __init__(self, args, in_channels, global_dim):
+        super(ChannelWiseAttention, self).__init__()
+        self.in_channels = in_channels
+        self.merge_global = args.merge_global
+        self.global_dim = global_dim
+        self.no_global = args.no_global
+        self.cross_attention = args.cross_attention
+        self.att_mode_sc = args.att_mode_sc
+
+
+        if FEATURE_MAP_SIZES[1] in self.in_channels:
+            self.projector1 = Projector(256, global_dim) if self.global_dim != 256 else None
+            self.k_op1 = AttentionModule_C(global_dim)
+            self.q_op1 = AttentionModule_C(global_dim)
+            # self.fc_block_1 = nn.Sequential(nn.Linear(in_features=2 * (56 * 56), out_features=(56 * 56)), nn.ReLU())
+        else:
+            self.projector1 = None
+            self.k_op1 = None
+            self.q_op1 = None
+            # self.fc_block_1 = None
+            self.att_1 = None
+
+        if FEATURE_MAP_SIZES[2] in self.in_channels:
+            self.projector2 = Projector(512, global_dim) if self.global_dim != 512 else None
+            self.k_op2 = AttentionModule_C(global_dim)
+            self.q_op2 = AttentionModule_C(global_dim)
+            # self.fc_block_2 = nn.Sequential(nn.Linear(in_features=2 * (28 * 28), out_features=(28 * 28)), nn.ReLU())
+        else:
+            self.projector2 = None
+            self.k_op2 = None
+            self.q_op2 = None
+            # self.fc_block_2 = None
+
+        if FEATURE_MAP_SIZES[3] in self.in_channels:
+            self.projector3 = Projector(1024, global_dim) if self.global_dim != 1024 else None
+            self.k_op3 = AttentionModule_C(global_dim)
+            self.q_op3 = AttentionModule_C(global_dim)
+            # self.fc_block_3 = nn.Sequential(nn.Linear(in_features=2 * (14 * 14), out_features=(14 * 14)), nn.ReLU())
+        else:
+            self.projector3 = None
+            self.k_op3 = None
+            self.q_op3 = None
+            # self.fc_block_3 = None
+
+        if FEATURE_MAP_SIZES[4] in self.in_channels:
+
+            self.projector4 = Projector(2048, global_dim) if self.global_dim != 2048 else None
+            self.k_op4 = AttentionModule_C(global_dim)
+            self.q_op4 = AttentionModule_C(global_dim)
+        else:
+            self.projector4 = None
+            self.k_op4 = None
+            self.q_op4 = None
+
+
+        self.layers = {256: self.projector1,
+                       512: self.projector2,
+                       1024: self.projector3,
+                       2048: self.projector4}
+
+        # self.fc_blocks = {256: self.fc_block_1,
+        #                   512: self.fc_block_2,
+        #                   1024: self.fc_block_3,
+        #                   2048: self.fc_block_4}
+
+        self.atts_k = {256: self.k_op1,
+                     512: self.k_op2,
+                     1024: self.k_op3,
+                     2048: self.k_op4}
+
+        self.atts_q = {256: self.q_op1,
+                     512: self.q_op2,
+                     1024: self.q_op3,
+                     2048: self.q_op4}
+
+        self.merge_method = args.merge_method
+
+        total_channels = 0
+        for (C, H, W) in self.in_channels:
+            total_channels += (H * W)  # todo residual connection?
+
+        # self.local_concat = nn.Sequential(nn.Linear(in_features=total_channels, out_features=2048), nn.ReLU())
+
+        if not self.merge_method.startswith('local-diff-sim'):
+            self.classifier = nn.Sequential(
+                nn.Linear(in_features=global_dim * len(in_channels), out_features=1))
+        else:
+            self.classifier = None
+
+
+    def __project(self, x_local):
+        lis = []
+
+        for (C, _, _), x in zip(self.in_channels, x_local):
+            # if C != 2048:
+            #     li_1s.append(self.layers[C](x1).flatten(start_dim=1))
+            #     li_2s.append(self.layers[C](x2).flatten(start_dim=1))
+            # else:
+            #     li_1s.append(x1.flatten(start_dim=1))
+            #     li_2s.append(x2.flatten(start_dim=1))
+            if C != self.global_dim:
+                lis.append(self.layers[C](x))
+            else:
+                lis.append(x)
+
+        return lis
+
+    def __get_keys_queries(self, X):
+        keys = []
+        queries = []
+
+        for (C, _, _), f in zip(self.in_channels, X):
+            keys.append(self.atts_k[C](f))
+            queries.append(self.atts_q[C](f))
+
+        return keys, queries
+
+    def __get_attention_and_values(self, X):
+        K, Q = self.__get_keys_queries(X)
+        attentions = []
+        output = []
+        for k, q, v in zip(K, Q, X):
+            N, C, W, H = v.size()
+            attention_logits = torch.matmul(q, k.transpose(1, 2)) # (N, C, C)
+            att = F.softmax(attention_logits, dim=1)
+            attended_local = torch.matmul(att, v.reshape(N, C, -1)).reshape(N, C, W, H)
+            attentions.append(attended_local)
+            attended_global = F.adaptive_avg_pool2d(attended_local, (1, 1)).view(N, C)
+            output.append(attended_global)
+
+        return attentions, output
+
+
+    def __attend_to_locals(self, loc_feat, loc_feat2):
+
+        atts, lcl_feat_att = None, None
+        if self.cross_attention:
+            pass
+        else:
+            atts, lcl_feat_att = self.__get_attention_and_values(loc_feat)
+
+        return atts, lcl_feat_att
+
+
+    def forward(self, x1_local, x2_local=None, single=False):
+        rets = []
+        # print('forward attention module')
+        li_1s = self.__project(x1_local)
+
+        if not single:
+            li_2s = self.__project(x2_local)
+        else:
+            li_2s = None
+
+        if self.cross_attention and not single:
+            atts_1, att_gs_1 = self.__attend_to_locals(li_1s, li_2s)
+        else:
+            atts_1, att_gs_1 = self.__attend_to_locals(li_1s, None)
+
+
+        if not single:
+            if self.cross_attention:
+                atts_2, att_gs_2 = self.__attend_to_locals(li_2s, li_1s)
+            else:
+                atts_2, att_gs_2 = self.__attend_to_locals(li_2s, None)
+        else:
+            att_gs_2 = []
+            atts_2 = []
+
+        att_gs = []
+
+        att_gs_1 = [F.normalize(v, p=2, dim=1) for v in att_gs_1]
+        att_gs_2 = [F.normalize(v, p=2, dim=1) for v in att_gs_2]
+
+        if not single:
+            for (att_g_1, att_g_2) in zip(att_gs_1, att_gs_2):
+                att_gs.append(utils.vector_merge_function(att_g_1, att_g_2, method='sim', normalize=False))
+        else:
+            att_gs = att_gs_1
+
+        local_features = torch.cat(att_gs, dim=1)
+
+        if self.classifier and not single:
+            ret = self.classifier(local_features)
+        else:
+            ret = local_features
+
+        if not single:
+            return ret, local_features, atts_1, atts_2, torch.cat(att_gs_1, dim=1), torch.cat(att_gs_2, dim=1)
+        else:
+            return ret, local_features, atts_1, torch.cat(att_gs_1,
+                                                          dim=1)  # only local_features is important, ret does not make any sense
 
 
 class LocalFeatureModule(nn.Module):
@@ -395,8 +600,16 @@ class TopModel(nn.Module):
             self.local_features = LocalFeatureModule(args, feature_map_inputs,
                                                      global_dim=ft_net_output)  # only for resnet50
 
+        elif self.merge_method.startswith('channel-attention'):
+            feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
+            print(f'Using {feature_map_inputs} for local maps')
+            self.channel_attention = ChannelWiseAttention(args, feature_map_inputs,
+                                                     global_dim=ft_net_output)
+            self.local_features = None
+
         else:
             self.local_features = None
+            self.channel_attention = None
 
         if self.merge_method.startswith('local-diff-sim'):
             self.diffsim_fc_net = VectorConcat(input_size=4096,
@@ -498,6 +711,30 @@ class TopModel(nn.Module):
 
                 else:
                     pred = ret
+
+                if feats:
+                    if hook:
+                        if return_att:
+                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act,
+                                                                                      other_pass_act], atts_1, atts_2
+                        else:
+                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act, other_pass_act]
+                    else:
+                        return pred, local_features, att_x1_local, att_x2_local
+                else:
+                    return pred, local_features
+            elif self.merge_method.startswith('channel-attention'):
+                x1_input = []
+                x2_input = []
+
+                for i in self.fmaps_no:
+                    x1_input.append(x1_local[i - 1])
+                    x2_input.append(x2_local[i - 1])
+
+                ret, local_features, atts_1, atts_2, att_x1_local, att_x2_local = self.channel_attention(x1_local=x1_input,
+                                                                                                      x2_local=x2_input)
+
+                pred = ret
 
                 if feats:
                     if hook:
