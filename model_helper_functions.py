@@ -1250,8 +1250,8 @@ class ModelMethods:
                     anch_rep, pos_rep, anch_pred, pos_pred = net.forward(anch, pos)
                     predictions = [self.D_stopgrad_probpred(anch_rep, pos_pred), self.D_stopgrad_probpred(pos_rep, anch_pred)]
 
-                    class_loss = bce_loss(predictions[0].squeeze(axis=1), one_labels.squeeze(axis=1))
-                    class_loss += bce_loss(predictions[1].squeeze(axis=1), one_labels.squeeze(axis=1))
+                    class_loss = bce_loss(predictions[0].squeeze(), one_labels.squeeze(axis=1))
+                    class_loss += bce_loss(predictions[1].squeeze(), one_labels.squeeze(axis=1))
 
                     pred_label_auc.extend(predictions[0].data.cpu().numpy())
                     pred_label_auc.extend(predictions[1].data.cpu().numpy())
