@@ -200,14 +200,20 @@ class StopGrad_MLP(nn.Module):
         else:
             self.input_shape = 512
 
-
+        self.extra_layer = args.extra_layer
         if args.dim_reduction != 0:
             self.input_shape = args.dim_reduction
 
-        self.projection = nn.Sequential(nn.Linear(self.input_shape, self.input_shape),
-                                        nn.ReLU(), nn.BatchNorm1d(self.input_shape),
-                                        nn.Linear(self.input_shape, self.input_shape),
-                                        nn.BatchNorm1d(self.input_shape))
+        layers = []
+        for i in range(0, self.extra_layer - 1):
+            layers += [nn.Linear(self.input_shape, self.input_shape),
+                       nn.ReLU(),
+                       nn.BatchNorm1d(self.input_shape)]
+
+        layers += [nn.Linear(self.input_shape, self.input_shape),
+                       nn.BatchNorm1d(self.input_shape)]
+
+        self.projection = nn.Sequential(*layers)
 
         self.bottleneck = nn.Sequential(nn.Linear(self.input_shape, self.input_shape // 2),
                                         nn.ReLU(), nn.BatchNorm1d(self.input_shape // 2),
