@@ -611,6 +611,9 @@ class TopModel(nn.Module):
         if args.dim_reduction != 0:
             ft_net_output = args.dim_reduction
 
+        self.channel_attention = None
+        self.local_features = None
+
         if self.merge_method.startswith('local'):
             feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
             print(f'Using {feature_map_inputs} for local maps')
@@ -622,11 +625,7 @@ class TopModel(nn.Module):
             print(f'Using {feature_map_inputs} for local maps')
             self.channel_attention = ChannelWiseAttention(args, feature_map_inputs,
                                                      global_dim=ft_net_output)
-            self.local_features = None
 
-        else:
-            self.local_features = None
-            self.channel_attention = None
 
         if self.merge_method.startswith('local-diff-sim'):
             self.diffsim_fc_net = VectorConcat(input_size=4096,
