@@ -1263,8 +1263,8 @@ class ModelMethods:
                     all_pos_predictions.extend(predictions[0].data.cpu().numpy())
                     all_pos_predictions.extend(predictions[1].data.cpu().numpy())
 
-                    metric_ACC.update_acc(predictions[0].squeeze(axis=1), one_labels.squeeze(axis=1))
-                    metric_ACC.update_acc(predictions[1].squeeze(axis=1), one_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(predictions[0].squeeze(), one_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(predictions[1].squeeze(), one_labels.squeeze(axis=1))
 
                     loss = loss_fn(anch_pred, pos_pred, anch_rep, pos_pred)
 
@@ -1284,11 +1284,11 @@ class ModelMethods:
                         true_label_auc.extend(zero_labels.data.cpu().numpy())
                         true_label_auc.extend(zero_labels.data.cpu().numpy())
 
-                        class_loss += bce_loss(predictions[0].squeeze(axis=1), zero_labels.squeeze(axis=1))
-                        class_loss += bce_loss(predictions[1].squeeze(axis=1), zero_labels.squeeze(axis=1))
+                        class_loss += bce_loss(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
+                        class_loss += bce_loss(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
 
-                        metric_ACC.update_acc(predictions[0].squeeze(axis=1), zero_labels.squeeze(axis=1))
-                        metric_ACC.update_acc(predictions[1].squeeze(axis=1), zero_labels.squeeze(axis=1))
+                        metric_ACC.update_acc(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
+                        metric_ACC.update_acc(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
 
 
 
