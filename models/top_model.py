@@ -599,6 +599,7 @@ class TopModel(nn.Module):
         self.attention = attention
         self.merge_method = args.merge_method
         self.softmax = args.softmax_diff_sim
+        self.loss = args.loss
         self.fmaps_no = [int(i) for i in args.feature_map_layers]
 
         if args.feat_extractor == 'resnet50':
@@ -613,39 +614,39 @@ class TopModel(nn.Module):
 
         self.channel_attention = None
         self.local_features = None
+        self.diffsim_fc_net = None
+        self.classifier = None
+        if args.loss != 'stopgrad':
+            if self.merge_method.startswith('local'):
+                feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
+                print(f'Using {feature_map_inputs} for local maps')
+                self.local_features = LocalFeatureModule(args, feature_map_inputs,
+                                                         global_dim=ft_net_output)  # only for resnet50
 
-        if self.merge_method.startswith('local'):
-            feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
-            print(f'Using {feature_map_inputs} for local maps')
-            self.local_features = LocalFeatureModule(args, feature_map_inputs,
-                                                     global_dim=ft_net_output)  # only for resnet50
-
-        elif self.merge_method.startswith('channel-attention'):
-            feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
-            print(f'Using {feature_map_inputs} for local maps')
-            self.channel_attention = ChannelWiseAttention(args, feature_map_inputs,
-                                                     global_dim=ft_net_output)
+            elif self.merge_method.startswith('channel-attention'):
+                feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
+                print(f'Using {feature_map_inputs} for local maps')
+                self.channel_attention = ChannelWiseAttention(args, feature_map_inputs,
+                                                         global_dim=ft_net_output)
 
 
-        if self.merge_method.startswith('local-diff-sim'):
-            self.diffsim_fc_net = VectorConcat(input_size=4096,
-                                               output_size=2048,
-                                               layers=1)
-            if self.merge_method.startswith('local-diff-sim-concat'):
-                # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
-                in_feat = 2048 + 2048
+            if self.merge_method.startswith('local-diff-sim'):
+                self.diffsim_fc_net = VectorConcat(input_size=4096,
+                                                   output_size=2048,
+                                                   layers=1)
+                if self.merge_method.startswith('local-diff-sim-concat'):
+                    # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
+                    in_feat = 2048 + 2048
 
-            elif self.merge_method.startswith('local-diff-sim-mult') or self.merge_method.startswith(
-                    'local-diff-sim-add'):
-                # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
-                in_feat = 2048
-            else:
-                raise Exception(f"Local merge method not supported! {self.merge_method}")
+                elif self.merge_method.startswith('local-diff-sim-mult') or self.merge_method.startswith(
+                        'local-diff-sim-add'):
+                    # in_feat = (56 * 56) + (28 * 28) + (14 * 14) + (7 * 7) + 4096
+                    in_feat = 2048
+                else:
+                    raise Exception(f"Local merge method not supported! {self.merge_method}")
 
-            self.classifier = nn.Linear(in_features=in_feat, out_features=1)
-        else:
-            self.diffsim_fc_net = None
-            self.classifier = None
+                self.classifier = nn.Linear(in_features=in_feat, out_features=1)
+
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
             #     self.ft_net = nn.Sequential(*list(self.ft_net.children())[1:])
@@ -765,20 +766,26 @@ class TopModel(nn.Module):
                     return pred, local_features
 
             else:
-                ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
+                if self.loss == 'stopgrad':
+                    x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global)
 
-                if feats:
-                    pred, pdist, out1, out2 = ret
-                    if hook:
-                        if return_att:
-                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
-                        else:
-                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
-                    else:
-                        return pred, pdist, out1, out2
+                    return x1, x2, x1_pred, x2_pred
+
                 else:
-                    pred, pdist = ret
-                    return pred, pdist
+                    ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
+
+                    if feats:
+                        pred, pdist, out1, out2 = ret
+                        if hook:
+                            if return_att:
+                                return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
+                            else:
+                                return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
+                        else:
+                            return pred, pdist, out1, out2
+                    else:
+                        pred, pdist = ret
+                        return pred, pdist
         else:  # single
 
             if self.merge_method.startswith('local'):
@@ -823,7 +830,10 @@ class TopModel(nn.Module):
 
 def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False, fourth_dim=False):
     if trained_sm_net is None:
-        sm_net = MLP(args)
+        if args.loss == 'stopgrad':
+            sm_net = StopGrad_MLP(args)
+        else:
+            sm_net = MLP(args)
     else:
         sm_net = trained_sm_net
 

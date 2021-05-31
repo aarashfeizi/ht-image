@@ -225,7 +225,7 @@ def get_args():
     parser.add_argument('-ptb', '--project_tb', default=False, action='store_true')
 
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
-    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard'])
+    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard', 'stopgrad'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")

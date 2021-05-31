@@ -188,3 +188,42 @@ class MLP(nn.Module):
 
     def get_classifier_weights(self):
         return self.classifier[0].weight
+
+class StopGrad_MLP(nn.Module):
+    def __init__(self, args):
+        super(StopGrad_MLP, self).__init__()
+
+        if args.feat_extractor == 'resnet50':
+            self.input_shape = 2048
+        elif args.feat_extractor == 'vgg16':
+            self.input_shape = 4096
+        else:
+            self.input_shape = 512
+
+
+        if args.dim_reduction != 0:
+            self.input_shape = args.dim_reduction
+
+        self.projection = nn.Sequential(nn.Linear(self.input_shape, self.input_shape),
+                                        nn.ReLU(), nn.BatchNorm1d(self.input_shape),
+                                        nn.Linear(self.input_shape, self.input_shape),
+                                        nn.BatchNorm1d(self.input_shape))
+
+        self.bottleneck = nn.Sequential(nn.Linear(self.input_shape, self.input_shape // 2),
+                                        nn.ReLU(), nn.BatchNorm1d(self.input_shape // 2),
+                                        nn.Linear(self.input_shape // 2, self.input_shape))
+
+    def forward(self, x, y, single=False):
+        x = x.view(x.size()[0], -1)
+        x = self.projection(x)
+
+        if single:
+            return x
+
+        y = y.view(x.size()[0], -1)
+        y = self.projection(y)
+
+        x_pred = self.bottleneck(x)
+        y_pred = self.bottleneck(y)
+
+        return x, y, x_pred, y_pred

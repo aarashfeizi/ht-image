@@ -1,10 +1,11 @@
 import json
 from argparse import Namespace
 
+import torch.nn
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from losses import TripletLoss, MaxMarginLoss, BatchHard
+from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss
 from models.top_model import *
 from my_datasets import *
 
@@ -276,6 +277,9 @@ def main():
     elif args.loss == 'batchhard':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = BatchHard(margin=args.margin, args=args, soft=args.softmargin)
+    elif args.loss == 'stopgrad':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean') # already normalized before bce loss
+        loss_fn = StopGradientLoss(args)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
 

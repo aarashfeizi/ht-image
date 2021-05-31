@@ -15,6 +15,7 @@ from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
 from torch.autograd import Variable
 from tqdm import tqdm
+import torch.nn.functional as F
 
 import metrics
 import models.top_model
@@ -278,14 +279,15 @@ class ModelMethods:
         else:
             sub_methods = self.merge_method.split('-')
 
-        classifier_weights = net.get_classifier_weights().data[0]
-        classifier_dim = len(classifier_weights)
-        classifier_histogram_path = os.path.join(heatmap_path_perepoch,
-                                                 f'classifier_histogram_epoch{epoch}.png')
+        if args.loss != 'stopgrad':
+            classifier_weights = net.get_classifier_weights().data[0]
+            classifier_dim = len(classifier_weights)
+            classifier_histogram_path = os.path.join(heatmap_path_perepoch,
+                                                     f'classifier_histogram_epoch{epoch}.png')
 
-        self.plot_classifier_hist(classifier_weights.chunk(len(sub_methods), dim=-1), sub_methods,
-                                  'Classifier weight distribution', classifier_histogram_path,
-                                  f'classifier_weight', epoch)
+            self.plot_classifier_hist(classifier_weights.chunk(len(sub_methods), dim=-1), sub_methods,
+                                      'Classifier weight distribution', classifier_histogram_path,
+                                      f'classifier_weight', epoch)
 
         for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
 
@@ -812,6 +814,15 @@ class ModelMethods:
                                                                               loss_fn, train_loader, epoch,
                                                                               grad_save_path, drew_graph)
 
+                elif args.loss == 'stopgrad':
+                    train_triplet_loss = None
+                    pos_parts, neg_parts = None, None
+
+                    t, (train_loss, train_bce_loss) = self.train_metriclearning_stopgrad_one_epoch(args, t, net, opt, bce_loss,
+                                                                                    metric_ACC,
+                                                                                    loss_fn, train_loader, epoch,
+                                                                                    grad_save_path, drew_graph)
+
                 else:
                     t, (train_loss, train_bce_loss, train_triplet_loss), (
                         pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss,
@@ -854,7 +865,8 @@ class ModelMethods:
                             f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
 
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
-                    if loss_fn is not None:
+
+                    if (loss_fn is not None) and args.loss != 'stopgrad':
                         self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
 
                     self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
@@ -874,6 +886,7 @@ class ModelMethods:
                         val_acc_unknwn, val_acc_knwn = -1, -1
                         results = {}
                         results_to_save = {}
+                        # if args.loss != 'stopgrad':
                         if args.eval_mode == 'fewshot':
 
                             for fewshot_loader, loader, comm in zip(val_loaders_fewshot, val_loaders,
@@ -1033,22 +1046,26 @@ class ModelMethods:
                                 np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
                                          np.array(train_fewshot_predictions))
 
-                            for key, value in results_to_save.items():
-                                np.savez(os.path.join(self.save_path, f'val_preds_{key}_neg_epoch{epoch}'),
-                                         np.array(value['neg']))
-                                np.savez(os.path.join(self.save_path, f'val_preds_{key}_pos_epoch{epoch}'),
-                                         np.array(value['pos']))
+                            if args.loss != 'stopgrad':
+                                for key, value in results_to_save.items():
+                                    np.savez(os.path.join(self.save_path, f'val_preds_{key}_neg_epoch{epoch}'),
+                                             np.array(value['neg']))
+                                    np.savez(os.path.join(self.save_path, f'val_preds_{key}_pos_epoch{epoch}'),
+                                             np.array(value['pos']))
 
-                            # np.savez(os.path.join(self.save_path, f'val_preds_unknwn_neg_epoch{epoch}'),
-                            #          np.array(val_preds_unknwn_neg))
-                            # np.savez(os.path.join(self.save_path, f'val_preds_unknwn_pos_epoch{epoch}'),
-                            #          np.array(val_preds_unknwn_pos))
+                                # np.savez(os.path.join(self.save_path, f'val_preds_unknwn_neg_epoch{epoch}'),
+                                #          np.array(val_preds_unknwn_neg))
+                                # np.savez(os.path.join(self.save_path, f'val_preds_unknwn_pos_epoch{epoch}'),
+                                #          np.array(val_preds_unknwn_pos))
 
-                            self.logger.info(
-                                f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
+                                self.logger.info(
+                                    f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
+                                max_val_acc = val_acc
+                            else:
+                                max_val_acc = -1
+                                self.logger.info(
+                                    f'[epoch {epoch}] saving model... current val acc: [{val_acc}], previous val acc [{max_val_acc}]')
                             best_model = self.save_model(args, net, epoch, val_acc)
-                            max_val_acc = val_acc
-                            utils.print_gpu_stuff(args.cuda, 'Before saving model')
 
                             queue.append(val_rgt * 1.0 / (val_rgt + val_err))
 
@@ -1061,14 +1078,6 @@ class ModelMethods:
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
 
-            if models.top_model.A_SUM[1] != 0:
-                self.logger.info(
-                    f'Epoch {epoch} A_SUM = {models.top_model.A_SUM} and:\n{models.top_model.A_SUM[0] / models.top_model.A_SUM[1]}')
-                models.top_model.A_SUM = [0, 0]
-
-            epoch_end = time.time()
-            if utils.MY_DEC.enabled:
-                self.logger.info(f'########### one epoch (after batch loop) time: {epoch_end - epoch_start}')
 
             if args.train_diff_plot:
                 self.logger.info('plotting train class diff plot...')
@@ -1237,50 +1246,103 @@ class ModelMethods:
                     one_labels), Variable(zero_labels)
 
                 ###
-                pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                class_loss = bce_loss(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
+                if args.loss == 'stopgrad':
+                    anch_rep, pos_rep, anch_pred, pos_pred = net.forward(anch, pos)
+                    predictions = [self.D_stopgrad_probpred(anch_rep, pos_pred), self.D_stopgrad_probpred(pos_rep, anch_pred)]
 
-                pred_label_auc.extend(pos_pred.data.cpu().numpy())
-                true_label_auc.extend(one_labels.data.cpu().numpy())
-                all_pos_predictions.extend(pos_pred.data.cpu().numpy())
-                metric_ACC.update_acc(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
+                    class_loss = bce_loss(predictions[0].squeeze(axis=1), one_labels.squeeze(axis=1))
+                    class_loss += bce_loss(predictions[1].squeeze(axis=1), one_labels.squeeze(axis=1))
 
-                for neg_iter in range(self.no_negative):
-                    # self.logger.info(anch.shape)
-                    # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                    neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                                  feats=True)
+                    pred_label_auc.extend(predictions[0].data.cpu().numpy())
+                    pred_label_auc.extend(predictions[1].data.cpu().numpy())
 
-                    all_neg_predictions.extend(neg_pred.data.cpu().numpy())
-                    pred_label_auc.extend(neg_pred.data.cpu().numpy())
-                    true_label_auc.extend(zero_labels.data.cpu().numpy())
+                    true_label_auc.extend(one_labels.data.cpu().numpy())
+                    true_label_auc.extend(one_labels.data.cpu().numpy())
 
-                    class_loss += bce_loss(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
-                    metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
 
-                    if loss_fn is not None:
-                        ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+                    all_pos_predictions.extend(predictions[0].data.cpu().numpy())
+                    all_pos_predictions.extend(predictions[1].data.cpu().numpy())
 
-                        if neg_iter == 0:
-                            ext_loss = ext_batch_loss
-                        else:
-                            ext_loss += ext_batch_loss
+                    metric_ACC.update_acc(predictions[0].squeeze(axis=1), one_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(predictions[1].squeeze(axis=1), one_labels.squeeze(axis=1))
 
-                class_loss /= (self.no_negative + 1)
-                if loss_fn is not None:
-                    ext_loss /= self.no_negative
-                    test_triplet_loss += ext_loss.item()
-                    loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                    loss = loss_fn(anch_pred, pos_pred, anch_rep, pos_pred)
+
+                    for neg_iter in range(self.no_negative):
+                        # self.logger.info(anch.shape)
+                        # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                        anch_rep, neg_rep, anch_pred, neg_pred = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1))
+                        predictions = [self.D_stopgrad_probpred(anch_rep, neg_pred),
+                                       self.D_stopgrad_probpred(neg_rep, anch_pred)]
+
+                        all_neg_predictions.extend(predictions[0].data.cpu().numpy())
+                        all_neg_predictions.extend(predictions[1].data.cpu().numpy())
+
+                        pred_label_auc.extend(predictions[0].data.cpu().numpy())
+                        pred_label_auc.extend(predictions[1].data.cpu().numpy())
+
+                        true_label_auc.extend(zero_labels.data.cpu().numpy())
+                        true_label_auc.extend(zero_labels.data.cpu().numpy())
+
+                        class_loss += bce_loss(predictions[0].squeeze(axis=1), zero_labels.squeeze(axis=1))
+                        class_loss += bce_loss(predictions[1].squeeze(axis=1), zero_labels.squeeze(axis=1))
+
+                        metric_ACC.update_acc(predictions[0].squeeze(axis=1), zero_labels.squeeze(axis=1))
+                        metric_ACC.update_acc(predictions[1].squeeze(axis=1), zero_labels.squeeze(axis=1))
+
+
+
+
+                    test_loss += loss.item()
+
+                    test_bce_loss += class_loss.item()
+
+
                 else:
-                    loss = self.bce_weight * class_loss
+                    pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                    class_loss = bce_loss(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
 
-                test_loss += loss.item()
+                    pred_label_auc.extend(pos_pred.data.cpu().numpy())
+                    true_label_auc.extend(one_labels.data.cpu().numpy())
+                    all_pos_predictions.extend(pos_pred.data.cpu().numpy())
+                    metric_ACC.update_acc(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
 
-                test_bce_loss += class_loss.item()
+                    for neg_iter in range(self.no_negative):
+                        # self.logger.info(anch.shape)
+                        # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                                                                      feats=True)
+
+                        all_neg_predictions.extend(neg_pred.data.cpu().numpy())
+                        pred_label_auc.extend(neg_pred.data.cpu().numpy())
+                        true_label_auc.extend(zero_labels.data.cpu().numpy())
+
+                        class_loss += bce_loss(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
+                        metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
+
+                        if loss_fn is not None:
+                            ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+
+                            if neg_iter == 0:
+                                ext_loss = ext_batch_loss
+                            else:
+                                ext_loss += ext_batch_loss
+
+                    class_loss /= (self.no_negative + 1)
+                    if loss_fn is not None:
+                        ext_loss /= self.no_negative
+                        test_triplet_loss += ext_loss.item()
+                        loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                    else:
+                        loss = self.bce_weight * class_loss
+
+                    test_loss += loss.item()
+
+                    test_bce_loss += class_loss.item()
 
                 t.update()
 
-        self.logger.info(f'Lnegth of true_label_auc for calculating is: {len(true_label_auc)}')
+        self.logger.info(f'Length of true_label_auc for calculating is: {len(true_label_auc)}')
         roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
 
         self.logger.info('$' * 70)
@@ -1903,9 +1965,16 @@ class ModelMethods:
             if args.cuda:
                 img1, img2 = img1.cuda(), img2.cuda()
             img1, img2 = Variable(img1), Variable(img2)
-            pred_vector, dist = net.forward(img1, img2)
+
+            if args.loss == 'stopgrad':
+                img1_rep, img2_rep, img1_pred, img2_pred = net.forward(img1, img2)
+                pred_vector = self.D_stopgrad_probpred(img1_rep, img2_rep, stopgrad=False)
+            else:
+                pred_vector, dist = net.forward(img1, img2)
+
             loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
             pred_vector = pred_vector.reshape((-1,)).data.cpu().numpy()
+
             all_predictions.extend(pred_vector)
             # high_confidence_false_positives_idxs = utils.sigmoid(pred_vector) > 0.8
             pred = np.argmax(pred_vector)
@@ -2070,6 +2139,65 @@ class ModelMethods:
 
         plt.savefig(path[1])
         plt.close('all')
+
+    def train_metriclearning_stopgrad_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
+                                       grad_save_path, drew_graph):
+        train_loss = 0
+        train_bce_loss = 0
+        metric_ACC.reset_acc()
+
+        for batch_id, (anch, pos, _) in enumerate(train_loader, 1):
+            # self.logger.info('input: ', img1.size())
+
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            if args.cuda:
+                anch, pos, one_labels = Variable(anch.cuda()), Variable(pos.cuda()), Variable(one_labels.cuda())
+            else:
+                anch, pos, one_labels = Variable(anch), Variable(pos), Variable(one_labels)
+
+            if not drew_graph:
+                self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
+                self.writer.flush()
+                drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+            opt.zero_grad()
+            forward_start = time.time()
+            anch_rep, pos_rep, anch_pred, pos_pred = net.forward(anch, pos)
+            forward_end = time.time()
+
+            loss = loss_fn(anch_pred, pos_pred, anch_rep, pos_rep)
+
+            predictions = [self.D_stopgrad_probpred(anch_rep, pos_pred), self.D_stopgrad_probpred(pos_rep, anch_pred)]
+
+            metric_ACC.update_acc(predictions[0].squeeze(), one_labels.squeeze())
+            metric_ACC.update_acc(predictions[1].squeeze(), one_labels.squeeze())
+
+            bce_loss_tensor = bce_loss(predictions[0].squeeze(), one_labels.squeeze())
+            bce_loss_tensor += bce_loss(predictions[1].squeeze(), one_labels.squeeze())
+
+
+
+            train_loss += loss.item()
+            train_bce_loss += bce_loss_tensor.item()
+
+
+
+            loss.backward()  # training with stop gradient
+
+            opt.step()
+
+
+            t.set_postfix(neg_sim=f'{train_loss / (batch_id) :.4f}',
+                          bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                          train_acc=f'{metric_ACC.get_acc():.4f}'
+                          )
+            t.update()
+
+
+
+        return t, (train_loss, train_bce_loss)
 
     def train_metriclearning_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
                                        grad_save_path, drew_graph):
@@ -2546,6 +2674,14 @@ class ModelMethods:
                                gpu=args.cuda,
                                path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'))
         self.logger.info(str(res))
+
+    def D_stopgrad_probpred(self, p, z, stopgrad=True):  # cosine similarity
+        if stopgrad:
+            z = z.detach()  # stop gradient
+        p = F.normalize(p, p=2, dim=1)
+        z = F.normalize(z, p=2, dim=1)
+
+        return (p * z).sum(dim=1)
 
 
 class BaslineModel:

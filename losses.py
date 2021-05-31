@@ -92,6 +92,26 @@ class MaxMarginLoss(nn.Module):
 
         return loss, [pos_part, neg_part]
 
+
+class StopGradientLoss(nn.Module):
+    def __init__(self, args):
+        super(StopGradientLoss, self).__init__()
+
+    def __calc_negative_cosine_sim(self, p, z):
+        z = z.detach()  # stop gradient
+        p = F.normalize(p, p=2, dim=1)
+        z = F.normalize(z, p=2, dim=1)
+
+        return -(p * z).sum(dim=1).mean()
+
+
+    def forward(self, p1, p2, z1, z2):  # negative cosine similarity
+        loss1 = self.__calc_negative_cosine_sim(p1, z2)
+        loss2 = self.__calc_negative_cosine_sim(p2, z1)
+
+        return (loss1 + loss2) / 2
+
+
 ###
 # TODO
 # 1. Unit hemesphere
