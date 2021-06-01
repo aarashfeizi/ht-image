@@ -2085,7 +2085,7 @@ def get_logname(args):
                       'dim_reduction',
                       'spatial_projection']
 
-    if args.loss != 'bce':
+    if args.loss != 'bce' and args.loss != 'stopgrad':
         important_args.extend(['trplcoefficient',
                                'bcecoefficient',
                                'margin'])
