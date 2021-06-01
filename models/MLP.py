@@ -215,9 +215,9 @@ class StopGrad_MLP(nn.Module):
 
         self.projection = nn.Sequential(*layers)
 
-        self.bottleneck = nn.Sequential(nn.Linear(self.input_shape, self.input_shape // 2),
-                                        nn.ReLU(), nn.BatchNorm1d(self.input_shape // 2),
-                                        nn.Linear(self.input_shape // 2, self.input_shape))
+        self.bottleneck = nn.Sequential(nn.Linear(self.input_shape, self.input_shape // 4),
+                                        nn.ReLU(), nn.BatchNorm1d(self.input_shape // 4),
+                                        nn.Linear(self.input_shape // 4, self.input_shape))
 
     def forward(self, x, y, single=False):
         x = x.view(x.size()[0], -1)
