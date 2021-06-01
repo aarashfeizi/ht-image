@@ -296,9 +296,12 @@ def get_args():
 
     parser.add_argument('-smds', '--softmax_diff_sim', default=False, action='store_true')
 
+    parser.add_argument('-spatial_projection', '--spatial_projection', default=False, action='store_true')
+
     args = parser.parse_args()
 
     return args
+
 
 # https://www.overleaf.com/5846741514dywtdjdpmxwn
 def loading_time(args, train_set, use_cuda, num_workers, pin_memory, logger):
@@ -1862,7 +1865,7 @@ def apply_attention_heatmap(atts, img_list, id, heatmap_path, overall_title,
                 equal = False
                 break
 
-        if not equal: # activations have negatives and positives
+        if not equal:  # activations have negatives and positives
 
             for (a, v) in [(pos_att, 'POS'), (neg_att, 'NEG')]:
                 # print(a[0].shape)
@@ -2047,7 +2050,8 @@ def get_logname(args):
                          'feature_map_layers': 'fml',
                          'gamma': 'gamma',
                          'merge_global': 'merge_global',
-                         'no_global': 'no_global'}
+                         'no_global': 'no_global',
+                         'spatial_projection': 'spatial_projection'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2078,7 +2082,8 @@ def get_logname(args):
                       'gamma',
                       'merge_global',
                       'no_global',
-                      'dim_reduction']
+                      'dim_reduction',
+                      'spatial_projection']
 
     if args.loss != 'bce':
         important_args.extend(['trplcoefficient',
@@ -2429,7 +2434,8 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False, metric='cosine'):
+def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False,
+               metric='cosine'):
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = min(np.max(Kset), num)
@@ -2614,10 +2620,10 @@ def calc_custom_cosine_sim(feat1, feat2, agg='mean', weights=[]):
 
     return sims.mean(dim=1)
 
+
 def calc_custom_euc(feat, chunks=4):
     feats = np.split(feat, chunks, axis=1)
     eucs = []
     for f in feats:
         eucs.append(euclidean_distances(f))
     return sum(eucs)
-

@@ -1579,7 +1579,7 @@ class ModelMethods:
             test_seen = np.zeros(((len(data_loader.dataset))))
             test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
 
-            if self.merge_method == 'local-attention' or self.merge_method == 'local-ds-attention':
+            if 'attention' in self.merge_method and not args.spatial_projection:
                 coeff = len(args.feature_map_layers)
             else:
                 coeff = 1
