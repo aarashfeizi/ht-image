@@ -207,11 +207,14 @@ class StopGrad_MLP(nn.Module):
         layers = []
         for i in range(0, self.extra_layer - 1):
             layers += [nn.Linear(self.input_shape, self.input_shape),
-                       nn.ReLU(),
-                       nn.BatchNorm1d(self.input_shape)]
+                       nn.ReLU()]
+            if args.normalize:
+                layers += [nn.BatchNorm1d(self.input_shape)]
 
-        layers += [nn.Linear(self.input_shape, self.input_shape),
-                       nn.BatchNorm1d(self.input_shape)]
+        layers += [nn.Linear(self.input_shape, self.input_shape)]
+
+        if args.normalize:
+            layers += [nn.BatchNorm1d(self.input_shape)]
 
         self.projection = nn.Sequential(*layers)
 
