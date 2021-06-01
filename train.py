@@ -297,8 +297,7 @@ def main():
                                                                 model_name=model_name, id_str=id_str)
         net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
-    print(net)
-    input()
+
     logger.info(model_methods_top.save_path)
 
     ##todo create first best negatives
