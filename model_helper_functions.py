@@ -2140,20 +2140,33 @@ class ModelMethods:
         plt.savefig(path[1])
         plt.close('all')
 
+    def __get_loss_stopgrad(self, net, img1, img2, loss_fn, label):
+
+        img1_rep, img2_rep, img1_pred, img2_pred = net.forward(img1, img2)
+        predictions = [self.D_stopgrad_probpred(img1_rep, img2_pred), self.D_stopgrad_probpred(img2_rep, img1_pred)]
+
+        # loss = loss_fn(img1_pred, img2_pred, img1_rep, img2_rep)
+        loss = loss_fn(predictions[0].squeeze(), label.squeeze())
+        loss += loss_fn(predictions[1].squeeze(), label.squeeze())
+
+        return loss, predictions
+
+
     def train_metriclearning_stopgrad_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
                                        grad_save_path, drew_graph):
         train_loss = 0
         train_bce_loss = 0
         metric_ACC.reset_acc()
 
-        for batch_id, (anch, pos, _) in enumerate(train_loader, 1):
+        for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
             # self.logger.info('input: ', img1.size())
 
             one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
             if args.cuda:
-                anch, pos, one_labels = Variable(anch.cuda()), Variable(pos.cuda()), Variable(one_labels.cuda())
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), Variable(pos.cuda()), Variable(neg.cuda()), Variable(one_labels.cuda()), Variable(zero_labels.cuda())
             else:
-                anch, pos, one_labels = Variable(anch), Variable(pos), Variable(one_labels)
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(one_labels), Variable(zero_labels)
 
             if not drew_graph:
                 self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
@@ -2163,31 +2176,27 @@ class ModelMethods:
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
-            forward_start = time.time()
-            anch_rep, pos_rep, anch_pred, pos_pred = net.forward(anch, pos)
-            forward_end = time.time()
 
-            loss = loss_fn(anch_pred, pos_pred, anch_rep, pos_rep)
+            loss_pos, pos_predictions = self.__get_loss_stopgrad(net, anch, pos, bce_loss, one_labels)
 
-            predictions = [self.D_stopgrad_probpred(anch_rep, pos_pred), self.D_stopgrad_probpred(pos_rep, anch_pred)]
+            metric_ACC.update_acc(pos_predictions[0].squeeze(), one_labels.squeeze())
+            metric_ACC.update_acc(pos_predictions[1].squeeze(), one_labels.squeeze())
 
-            metric_ACC.update_acc(predictions[0].squeeze(), one_labels.squeeze())
-            metric_ACC.update_acc(predictions[1].squeeze(), one_labels.squeeze())
+            all_neg_loss = 0
+            for neg_iter in range(self.no_negative):
+                loss_neg, neg_predictions = self.__get_loss_stopgrad(net, anch, neg[:, neg_iter, :, :, :], bce_loss, zero_labels)
+                metric_ACC.update_acc(neg_predictions[0].squeeze(), zero_labels.squeeze())
+                metric_ACC.update_acc(neg_predictions[1].squeeze(), zero_labels.squeeze())
+                all_neg_loss += loss_neg
 
-            bce_loss_tensor = bce_loss(predictions[0].squeeze(), one_labels.squeeze())
-            bce_loss_tensor += bce_loss(predictions[1].squeeze(), one_labels.squeeze())
-
-
+            loss = loss_pos + all_neg_loss
 
             train_loss += loss.item()
-            train_bce_loss += bce_loss_tensor.item()
-
-
+            train_bce_loss += loss.item()
 
             loss.backward()  # training with stop gradient
 
             opt.step()
-
 
             t.set_postfix(neg_sim=f'{train_loss / (batch_id) :.4f}',
                           bce_loss=f'{train_bce_loss / batch_id:.4f}',
