@@ -752,7 +752,7 @@ class ModelMethods:
         time_start = time.time()
         queue = deque(maxlen=20)
 
-        max_epochs = args.epochs
+        self.max_epochs = args.epochs
 
         metric_ACC = metrics.Metric_Accuracy()
 
@@ -785,7 +785,7 @@ class ModelMethods:
                                                     val=not args.lr_adaptive_loss,
                                                     loss=args.lr_adaptive_loss)
 
-        for epoch in range(1, max_epochs + 1):
+        for epoch in range(1, self.max_epochs + 1):
 
             epoch_start = time.time()
 
@@ -882,7 +882,7 @@ class ModelMethods:
 
                     self.writer.flush()
 
-                    if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == max_epochs):
+                    if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == self.max_epochs):
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
@@ -1041,7 +1041,7 @@ class ModelMethods:
                         self.writer.add_scalar('Total_Val/Loss', val_loss, epoch)
                         self.writer.flush()
 
-                        if val_acc >= max_val_acc or epoch == max_epochs:
+                        if val_acc >= max_val_acc or epoch == self.max_epochs:
                             utils.print_gpu_stuff(args.cuda, 'Before saving model')
                             val_counter = 0
                             if args.train_fewshot:
@@ -1075,7 +1075,7 @@ class ModelMethods:
                                 self.writer.add_hparams(self.important_hparams, self.hparams_metric, epoch)
                                 self.writer.flush()
 
-                    elif (epoch) % args.test_freq == 0 or epoch == max_epochs:
+                    elif (epoch) % args.test_freq == 0 or epoch == self.max_epochs:
                         self.logger.info(
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
@@ -1120,7 +1120,7 @@ class ModelMethods:
                                      epoch=epoch,
                                      k_at_n=args.katn)
 
-            if max_val_between_epochs <= max_val_acc or epoch == max_epochs:
+            if max_val_between_epochs <= max_val_acc or epoch == self.max_epochs:
                 max_val_between_epochs = max_val_acc
                 if args.cam:
                     print(f'Drawing heatmaps on epoch {epoch}...')
@@ -1622,28 +1622,30 @@ class ModelMethods:
 
                     t.update()
 
-            chunks = len(args.feature_map_layers)
+            # chunks = len(args.feature_map_layers)
 
             # if has_attention:
             #     if test_feats.dtype != np.float32:
             #         test_feats = test_feats.astype(np.float32)
             #     test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
 
-            utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-            if return_bg and mode != 'train':
-                utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
-                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+            if epoch == self.max_epochs or epoch == -1:
+                utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
+                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
+                utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
+                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+                utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
+                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+                if return_bg and mode != 'train':
+                    utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
+                                  os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
-        test_seen = np.zeros(((len(data_loader.dataset))))
-        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
-                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
-                                     os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+        if epoch == self.max_epochs or epoch == -1:
+            test_seen = np.zeros(((len(data_loader.dataset))))
+            test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
+                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+            test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
+                                         os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if return_bg and mode != 'train':
             test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
