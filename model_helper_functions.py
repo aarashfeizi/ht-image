@@ -730,7 +730,6 @@ class ModelMethods:
                                       'lr': args.lr_new,
                                       'weight_decay': args.weight_decay}]
 
-
             if net.diffsim_fc_net:
                 learnable_params += [{'params': net.diffsim_fc_net.parameters(),
                                       'lr': args.lr_new,
@@ -818,10 +817,13 @@ class ModelMethods:
                     train_triplet_loss = None
                     pos_parts, neg_parts = None, None
 
-                    t, (train_loss, train_bce_loss) = self.train_metriclearning_stopgrad_one_epoch(args, t, net, opt, bce_loss,
-                                                                                    metric_ACC,
-                                                                                    loss_fn, train_loader, epoch,
-                                                                                    grad_save_path, drew_graph)
+                    t, (train_loss, train_bce_loss) = self.train_metriclearning_stopgrad_one_epoch(args, t, net, opt,
+                                                                                                   bce_loss,
+                                                                                                   metric_ACC,
+                                                                                                   loss_fn,
+                                                                                                   train_loader, epoch,
+                                                                                                   grad_save_path,
+                                                                                                   drew_graph)
 
                 else:
                     t, (train_loss, train_bce_loss, train_triplet_loss), (
@@ -1078,7 +1080,6 @@ class ModelMethods:
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
 
-
             if args.train_diff_plot:
                 self.logger.info('plotting train class diff plot...')
                 if args.my_dist:
@@ -1248,7 +1249,8 @@ class ModelMethods:
                 ###
                 if args.loss == 'stopgrad':
                     anch_rep, pos_rep, anch_pred, pos_pred = net.forward(anch, pos)
-                    predictions = [self.D_stopgrad_probpred(anch_rep, pos_pred), self.D_stopgrad_probpred(pos_rep, anch_pred)]
+                    predictions = [self.D_stopgrad_probpred(anch_rep, pos_pred),
+                                   self.D_stopgrad_probpred(pos_rep, anch_pred)]
 
                     class_loss = bce_loss(predictions[0].squeeze(), one_labels.squeeze(axis=1))
                     class_loss += bce_loss(predictions[1].squeeze(), one_labels.squeeze(axis=1))
@@ -1258,7 +1260,6 @@ class ModelMethods:
 
                     true_label_auc.extend(one_labels.data.cpu().numpy())
                     true_label_auc.extend(one_labels.data.cpu().numpy())
-
 
                     all_pos_predictions.extend(predictions[0].data.cpu().numpy())
                     all_pos_predictions.extend(predictions[1].data.cpu().numpy())
@@ -1271,7 +1272,8 @@ class ModelMethods:
                     for neg_iter in range(self.no_negative):
                         # self.logger.info(anch.shape)
                         # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                        anch_rep, neg_rep, anch_pred, neg_pred = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1))
+                        anch_rep, neg_rep, anch_pred, neg_pred = net.forward(anch,
+                                                                             neg[:, neg_iter, :, :, :].squeeze(dim=1))
                         predictions = [self.D_stopgrad_probpred(anch_rep, neg_pred),
                                        self.D_stopgrad_probpred(neg_rep, anch_pred)]
 
@@ -1289,9 +1291,6 @@ class ModelMethods:
 
                         metric_ACC.update_acc(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
                         metric_ACC.update_acc(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
-
-
-
 
                     test_loss += loss.item()
 
@@ -1686,8 +1685,10 @@ class ModelMethods:
             else:
                 tb_tag = 'Other'
 
+            dists = self.get_dists(test_feats)
+
             self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path,
-                                       f'Total_{tb_tag}', attention=has_attention)
+                                       f'Total_{tb_tag}', attention=has_attention, dists=dists)
 
             if return_bg and mode == 'val':
                 silhouette_path[0] = os.path.join(self.gen_plot_path,
@@ -1696,7 +1697,8 @@ class ModelMethods:
                                                   f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}_seen.png')
                 self.plot_silhouette_score(test_feats[test_seen == 1], test_classes[test_seen == 1], epoch,
                                            mode + '_seen', silhouette_path,
-                                           f'seen_{tb_tag}', attention=has_attention)
+                                           f'seen_{tb_tag}', attention=has_attention,
+                                           dists=dists[test_seen == 1, :][:, test_seen == 1])
 
                 silhouette_path[0] = os.path.join(self.gen_plot_path,
                                                   f'{args.dataset_name}_{mode}/silhouette_scores_plot_unseen.png')
@@ -1705,7 +1707,8 @@ class ModelMethods:
 
                 self.plot_silhouette_score(test_feats[test_seen == 0], test_classes[test_seen == 0], epoch,
                                            mode + '_unseen', silhouette_path,
-                                           f'unseen_{tb_tag}', attention=has_attention)
+                                           f'unseen_{tb_tag}', attention=has_attention,
+                                           dists=dists[test_seen == 0, :][:, test_seen == 0])
 
         # import pdb
         # pdb.set_trace()
@@ -1720,8 +1723,11 @@ class ModelMethods:
                                           mode=mode,
                                           metric=self.metric)
 
+            # ,
+            # dists = dists[test_seen == 1, :][:, test_seen == 1]
+
             if epoch != -1:
-                for c in list(kavg.columns): # plot tb
+                for c in list(kavg.columns):  # plot tb
                     if 'kAT' in c:
                         tb_tag = c.replace('AT', '@')
                         cmode = mode[0].upper() + mode[1:]  # capitalize
@@ -2009,21 +2015,23 @@ class ModelMethods:
 
     # todo make customized dataloader for cam
     # todo easy cases?
-    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False):
+    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path, img_seen=None, attention=False,
+                              dists=None):
 
-        if self.metric == 'cosine':
-            sims = img_feats.dot(img_feats.T)
-            max_sim = np.max(sims)
-            dists = -sims
-            dists += max_sim
-            np.fill_diagonal(dists, 0)
+        if dists is None:
+            if self.metric == 'cosine':
+                sims = img_feats.dot(img_feats.T)
+                max_sim = np.max(sims)
+                dists = -sims
+                dists += max_sim
+                np.fill_diagonal(dists, 0)
 
-            # dists = utils.calc_custom_euc(img_feats, chunks=4)  # todo hardcoded
+                # dists = utils.calc_custom_euc(img_feats, chunks=4)  # todo hardcoded
 
-        elif self.metric == 'euclidean':
-            dists = euclidean_distances(img_feats)
-        else:
-            raise Exception(f'NoT SuPpoRTeD metric: {self.metric}')
+            elif self.metric == 'euclidean':
+                dists = euclidean_distances(img_feats)
+            else:
+                raise Exception(f'NoT SuPpoRTeD metric: {self.metric}')
 
         res = utils.get_distances(dists, img_classes)
 
@@ -2077,21 +2085,22 @@ class ModelMethods:
             plt.savefig(p)
             plt.close('all')
 
-    def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False):
+    def plot_silhouette_score(self, X, labels, epoch, mode, path, tb_tag, attention=False, dists=None):
 
-        if self.metric == 'cosine':
-            sims = X.dot(X.T)
-            max_sim = np.max(sims)
-            dists = -sims
-            dists += max_sim
-            np.fill_diagonal(dists, 0)
+        if dists is None:
+            if self.metric == 'cosine':
+                sims = X.dot(X.T)
+                max_sim = np.max(sims)
+                dists = -sims
+                dists += max_sim
+                np.fill_diagonal(dists, 0)
 
-            # dists = utils.calc_custom_euc(X, chunks=4)  # todo chunks hardcoded
+                # dists = utils.calc_custom_euc(X, chunks=4)  # todo chunks hardcoded
 
-        elif self.metric == 'euclidean':
-            dists = euclidean_distances(X)
-        else:
-            raise Exception(f'Metric {self.metric} not supported')
+            elif self.metric == 'euclidean':
+                dists = euclidean_distances(X)
+            else:
+                raise Exception(f'Metric {self.metric} not supported')
 
         last_silh_score = silhouette_score(dists, labels, metric='precomputed')
         self.silhouette_scores[mode].append(last_silh_score)
@@ -2151,9 +2160,9 @@ class ModelMethods:
 
         return loss, predictions
 
-
-    def train_metriclearning_stopgrad_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
-                                       grad_save_path, drew_graph):
+    def train_metriclearning_stopgrad_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
+                                                epoch,
+                                                grad_save_path, drew_graph):
         train_loss = 0
         train_bce_loss = 0
         metric_ACC.reset_acc()
@@ -2164,9 +2173,11 @@ class ModelMethods:
             one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
             zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
             if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), Variable(pos.cuda()), Variable(neg.cuda()), Variable(one_labels.cuda()), Variable(zero_labels.cuda())
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), Variable(pos.cuda()), Variable(
+                    neg.cuda()), Variable(one_labels.cuda()), Variable(zero_labels.cuda())
             else:
-                anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(one_labels), Variable(zero_labels)
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
+                    one_labels), Variable(zero_labels)
 
             if not drew_graph:
                 self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
@@ -2184,7 +2195,8 @@ class ModelMethods:
 
             all_neg_loss = 0
             for neg_iter in range(self.no_negative):
-                loss_neg, neg_predictions = self.__get_loss_stopgrad(net, anch, neg[:, neg_iter, :, :, :], bce_loss, zero_labels)
+                loss_neg, neg_predictions = self.__get_loss_stopgrad(net, anch, neg[:, neg_iter, :, :, :], bce_loss,
+                                                                     zero_labels)
                 metric_ACC.update_acc(neg_predictions[0].squeeze(), zero_labels.squeeze())
                 metric_ACC.update_acc(neg_predictions[1].squeeze(), zero_labels.squeeze())
                 all_neg_loss += loss_neg
@@ -2203,8 +2215,6 @@ class ModelMethods:
                           train_acc=f'{metric_ACC.get_acc():.4f}'
                           )
             t.update()
-
-
 
         return t, (train_loss, train_bce_loss)
 
@@ -2691,6 +2701,24 @@ class ModelMethods:
         z = F.normalize(z, p=2, dim=1)
 
         return (p * z).sum(dim=1)
+
+    def get_dists(self, X):
+        dists = None
+        if self.metric == 'cosine':
+            sims = X.dot(X.T)
+            max_sim = np.max(sims)
+            dists = -sims
+            dists += max_sim
+            np.fill_diagonal(dists, 0)
+
+            # dists = utils.calc_custom_euc(X, chunks=4)  # todo chunks hardcoded
+
+        elif self.metric == 'euclidean':
+            dists = euclidean_distances(X)
+        else:
+            raise Exception(f'Metric {self.metric} not supported')
+
+        return dists
 
 
 class BaslineModel:
