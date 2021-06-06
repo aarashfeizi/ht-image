@@ -788,7 +788,14 @@ class ModelMethods:
         for epoch in range(1, self.max_epochs + 1):
 
             epoch_start = time.time()
-
+            self.make_emb_db(args, net, val_db_loader,
+                             eval_sampled=args.sampled_results,
+                             eval_per_class=args.per_class_results,
+                             newly_trained=True,
+                             batch_size=args.db_batch,
+                             mode='val',
+                             epoch=epoch,
+                             k_at_n=args.katn)
             if args.negative_path != '':
                 self.save_best_negatives(args, net.ft_net, train_db_loader)
                 train_loader.dataset.load_best_negatives(args.negative_path)
@@ -1593,7 +1600,7 @@ class ModelMethods:
                 raise Exception('Not handled feature extractor')
 
             if args.dim_reduction != 0:
-                test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff))
+                test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff), dtype=np.float32)
 
             with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode}') as t:
                 for idx, tpl in enumerate(data_loader):
@@ -1639,6 +1646,10 @@ class ModelMethods:
                 if return_bg and mode != 'train':
                     utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+
+        if test_feats.dtype != np.float32:
+            print(f'Converting type!! Was not initially np.float32, it was {test_feats.dtype}')
+            test_feats = test_feats.astype(np.float32)
 
         if epoch == self.max_epochs or epoch == -1:
             test_seen = np.zeros(((len(data_loader.dataset))))
