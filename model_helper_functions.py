@@ -1646,9 +1646,9 @@ class ModelMethods:
                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
             test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-        if return_bg and mode != 'train':
-            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
-                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
+            if return_bg and mode != 'train':
+                test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
+                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
 
