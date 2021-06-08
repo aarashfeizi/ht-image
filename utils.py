@@ -193,8 +193,11 @@ def get_args():
     parser.add_argument('-pool', '--pooling', default='spoc',
                         choices=['spoc', 'gem', 'mac', 'rmac'])
     parser.add_argument('-fr', '--freeze_ext', default=False, action='store_true')
-    parser.add_argument('-el', '--extra_layer', default=0, type=int,
-                        help="Number of 512 extra layers in the Li-Siamese")
+    parser.add_argument('-cl', '--classifier_layer', default=0, type=int,
+                        help="Number of layers for classifier")
+    parser.add_argument('-pl', '--projection_layer', default=0, type=int,
+                        help="Number of layers for projection after feature extractor")
+
     parser.add_argument('-nn', '--no_negative', default=1, type=int)
     parser.add_argument('-en', '--extra_name', default='')
 
@@ -2025,7 +2028,8 @@ def get_logname(args):
                          'lr_resnet': 'lrr',
                          # 'early_stopping',
                          'feat_extractor': 'fe',
-                         'extra_layer': 'el',
+                         'classifier_layer': 'cl',
+                         'projection_layer': 'pl',
                          'normalize': 'normalClas',
                          'number_of_runs': 'nor',
                          'no_negative': 'nn',
@@ -2062,7 +2066,8 @@ def get_logname(args):
                       'lr_resnet',
                       # 'early_stopping',
                       'feat_extractor',
-                      'extra_layer',
+                      'classifier_layer',
+                      'projection_layer',
                       'normalize',
                       'number_of_runs',
                       'no_negative',

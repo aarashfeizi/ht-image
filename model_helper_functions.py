@@ -2839,7 +2839,7 @@ class ModelMethods:
                         'merge method': args.merge_method,
                         'Loss': args.loss,
                         'Batch size': args.batch_size,
-                        'Cls extra layers': args.extra_layer}
+                        'Cls extra layers': args.classifier_layer}
 
         if args.loss == 'trpl':
             important_hp['bce coeff'] = args.bcecoefficient

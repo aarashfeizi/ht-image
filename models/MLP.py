@@ -60,7 +60,8 @@ class MLP(nn.Module):
 
         self.merge_input_shape = method_coefficient * self.input_shape
 
-        self.extra_layer = args.extra_layer
+        self.classifier_layer = args.classifier_layer
+        self.projection_layer = args.projection_layer
         # self.layer = nn.Sequential(nn.Linear(25088, 512))
         layers = []
         input_size = self.merge_input_shape
@@ -79,9 +80,26 @@ class MLP(nn.Module):
         # self.attention = args.attention
         # if self.attention:
         #     input_size += 2048
+        projection_layers = []
+        if self.projection_layer > 0:
+            feature_size = self.input_shape if args.dim_reduction == 0 else args.dim_reduction
+            for i in range(self.projection_layer - 1):
+                print(f'*#* feature_size = {feature_size}')
+                projection_layers.append(nn.Linear(feature_size, feature_size))
+                projection_layers.append(nn.ReLU())
+                if args.normalize:
+                    projection_layers.append(nn.BatchNorm1d(feature_size))
 
-        if self.extra_layer > 0:
-            for i in range(self.extra_layer):
+            projection_layers.append(nn.Linear(feature_size, feature_size))
+            if args.normalize:
+                projection_layers.append(nn.BatchNorm1d(feature_size))
+
+            self.projector = nn.Sequential(*projection_layers)
+        else:
+            self.projector = None
+
+        if self.classifier_layer > 0:
+            for i in range(self.classifier_layer):
 
                 if args.leaky_relu:
                     relu = nn.LeakyReLU(0.1)
@@ -139,11 +157,14 @@ class MLP(nn.Module):
 
     def forward_one(self, x):
         x = x.view(x.size()[0], -1)
+
+        if self.projector:
+            x = self.projector(x)
+
         x = F.normalize(x, p=2, dim=1)
+
         # if self.dim_reduction_layer:
         #     x = self.dim_reduction_layer(x)
-        # if self.extra_layer > 0:
-        #     x = self.layer1(x)
 
         # x = nn.functional.normalize(x, p=2, dim=1)
         # x = x / torch.norm(x)  # normalize to unit hypersphere
@@ -203,12 +224,12 @@ class StopGrad_MLP(nn.Module):
         else:
             self.input_shape = 512
 
-        self.extra_layer = args.extra_layer
+        self.projection_layer = args.projection_layer
         if args.dim_reduction != 0:
             self.input_shape = args.dim_reduction
 
         layers = []
-        for i in range(0, self.extra_layer - 1):
+        for i in range(0, self.projection_layer - 1):
             layers += [nn.Linear(self.input_shape, self.input_shape),
                        nn.ReLU()]
             if args.normalize:
