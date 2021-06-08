@@ -2669,7 +2669,7 @@ class ModelMethods:
 
             imgs_f = imgs_f.view(imgs_f.size()[0], -1)
 
-            ext_loss, cont_loss, reg = loss_fn(imgs_f, labels)
+            ext_loss, cont_loss, reg = loss_fn(imgs_f, labels[:imgs_f.shape[0]])
 
             # pos_pred, pos_dist = net.sm_net(imgs_f, pos_f)
             #
