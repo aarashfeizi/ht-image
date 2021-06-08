@@ -104,13 +104,58 @@ class StopGradientLoss(nn.Module):
 
         return -(p * z).sum(dim=1).mean()
 
-
     def forward(self, p1, p2, z1, z2):  # negative cosine similarity
         loss1 = self.__calc_negative_cosine_sim(p1, z2)
         loss2 = self.__calc_negative_cosine_sim(p2, z1)
 
         return (loss1 + loss2) / 2
 
+
+class ContrastiveLoss(nn.Module):
+
+    def __init__(self, args, margin, soft=False, l=0.0):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+        self.l = l
+
+    def forward(self, batch, labels):
+
+        cosine_sim = torch.matmul(batch, batch.T)
+
+        gpu = labels.device.type == 'cuda'
+
+        mask_positive = utils.get_valid_positive_mask(labels, gpu)
+        pos_loss = ((1 - cosine_sim) * mask_positive.float()).sum(dim=1)
+        # positive_dist_idx = (cosine_sim * mask_positive.float())
+
+        mask_negative = utils.get_valid_negative_mask(labels, gpu)
+        neg_loss = (F.relu(cosine_sim - self.margin) * mask_negative.float()).sum(dim=1)
+
+        if self.l != 0:
+            distances = utils.squared_pairwise_distances(batch)
+            # import pdb
+            # pdb.set_trace()
+            idxs = distances.argsort()[:, 1]
+            reg_loss = -1 * distances.gather(1, idxs.view(-1, 1)).mean()
+        else:
+            reg_loss = None
+
+        # if self.soft:
+        #     loss = F.softplus(hardest_positive_dist - hardest_negative_dist)
+        # else:
+        #     loss = (hardest_positive_dist - hardest_negative_dist + self.margin).clamp(min=0)
+
+        cont_loss = (pos_loss + neg_loss)
+
+        cont_loss = cont_loss.mean()
+
+        if reg_loss:
+            loss = cont_loss + self.l * reg_loss
+        else:
+            loss = cont_loss
+            reg_loss = torch.Tensor([0])
+
+        return loss, cont_loss, reg_loss
 
 ###
 # TODO

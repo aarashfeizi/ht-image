@@ -5,7 +5,7 @@ import torch.nn
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss
+from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss
 from models.top_model import *
 from my_datasets import *
 
@@ -28,7 +28,7 @@ def main():
 
     args_dict = vars(args)
 
-    if args_dict['loss'] == 'batchhard':
+    if args_dict['loss'] == 'batchhard' or args_dict['loss'] == 'contrastive':
         args_dict['batch_size'] = args_dict['bh_P'] * args_dict['bh_K']
 
     max_bt = np.maximum(args_dict['bcecoefficient'], args_dict['trplcoefficient'])
@@ -107,7 +107,7 @@ def main():
     # logger.info('*' * 10)
     # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
     #                                                   save_pictures=False, overfit=False, return_paths=True)
-    is_batchhard = (args.loss == 'batchhard')
+    is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrastive')
     logger.info('*' * 10)
 
     train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode=args.train_folder_name,
@@ -214,7 +214,7 @@ def main():
         workers = args.workers
         pin_memory = args.pin_memory
 
-    if args.loss == 'batchhard':
+    if args.loss == 'batchhard' or args.loss == 'contrastive':
         bs = args.bh_P
     else:
         bs = args.batch_size
@@ -267,6 +267,9 @@ def main():
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = None
+    elif args.loss == 'contrastive':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = ContrastiveLoss(args, args.margin, l=args.reg_lambda)
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)

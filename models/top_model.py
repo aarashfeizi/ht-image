@@ -884,6 +884,9 @@ class TopModel(nn.Module):
                 else:
                     pred = ret
 
+                att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
+                att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
+
                 if feats:
                     if hook:
                         if return_att:
@@ -909,6 +912,9 @@ class TopModel(nn.Module):
 
                 pred = ret
 
+                att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
+                att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
+
                 if feats:
                     if hook:
                         if return_att:
@@ -924,6 +930,10 @@ class TopModel(nn.Module):
             else: # diff, sim, or diff-sim
                 if self.loss == 'stopgrad':
                     x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global)
+
+                    # NOT NORMALIZED
+                    # att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
+                    # att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
 
                     return x1, x2, x1_pred, x2_pred
 
@@ -967,6 +977,8 @@ class TopModel(nn.Module):
                                                       x1_global=x1_global,
                                                       x2_global=None,
                                                       single=single)
+
+                output = F.normalize(output, p=2, dim=1)
                 # import pdb
                 # pdb.set_trace()
 

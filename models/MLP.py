@@ -1,4 +1,6 @@
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import utils
 
@@ -137,6 +139,7 @@ class MLP(nn.Module):
 
     def forward_one(self, x):
         x = x.view(x.size()[0], -1)
+        x = F.normalize(x, p=2, dim=1)
         # if self.dim_reduction_layer:
         #     x = self.dim_reduction_layer(x)
         # if self.extra_layer > 0:

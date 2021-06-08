@@ -761,7 +761,7 @@ class ModelMethods:
 
         metric_ACC = metrics.Metric_Accuracy()
 
-        max_val_acc = 0
+        max_val_acc = -2
 
         max_val_acc_knwn = 0
         max_val_acc_unknwn = 0
@@ -818,6 +818,15 @@ class ModelMethods:
                                                                               loss_fn, train_loader, epoch,
                                                                               grad_save_path, drew_graph)
 
+                elif args.loss == 'contrastive':
+                    t, (train_loss, train_reg, train_triplet_loss), (
+                        _, _) = self.train_metriclearning_one_epoch_contrastive(args, t, net, opt, bce_loss,
+                                                                              metric_ACC,
+                                                                              loss_fn, train_loader, epoch,
+                                                                              grad_save_path, drew_graph)
+
+
+
                 elif args.loss == 'stopgrad':
                     train_triplet_loss = None
                     pos_parts, neg_parts = None, None
@@ -873,21 +882,27 @@ class ModelMethods:
 
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
 
-                    if (loss_fn is not None) and args.loss != 'stopgrad':
+
+                    if (loss_fn is not None) and args.loss == 'contrastive':
+                        self.writer.add_scalar('Train/Contrastive_Loss', train_triplet_loss / len(train_loader), epoch)
+                    elif (loss_fn is not None) and args.loss != 'stopgrad':
                         self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
 
-                    self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
-                    self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
+                    if args.loss != 'contrastive':
+                        self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
+                        self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
 
-                    if args.train_fewshot:
-                        self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot),
-                                               epoch)
-                        self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
+                        if args.train_fewshot:
+                            self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot),
+                                                   epoch)
+                            self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
+                    else:
+                        self.writer.add_scalar('Train/Reg', train_reg / len(train_loader), epoch)
 
                     self.writer.flush()
 
-                    if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == self.max_epochs):
+                    if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrastive':
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
@@ -1634,6 +1649,10 @@ class ModelMethods:
             #         test_feats = test_feats.astype(np.float32)
             #     test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
 
+            if test_feats.dtype != np.float32:
+                print(f'Converting type!! Was not initially np.float32, it was {test_feats.dtype}')
+                test_feats = test_feats.astype(np.float32)
+
             if epoch == self.max_epochs or epoch == -1:
                 utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
@@ -1644,10 +1663,6 @@ class ModelMethods:
                 if return_bg and mode != 'train':
                     utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
-
-        if test_feats.dtype != np.float32:
-            print(f'Converting type!! Was not initially np.float32, it was {test_feats.dtype}')
-            test_feats = test_feats.astype(np.float32)
 
         if epoch == self.max_epochs or epoch == -1:
             test_seen = np.zeros(((len(data_loader.dataset))))
@@ -2598,6 +2613,150 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_bce_loss, train_batchhard_loss), ([], [])
+
+    def train_metriclearning_one_epoch_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
+                                                 epoch,
+                                                 grad_save_path, drew_graph):
+        train_loss = 0
+        train_reg = 0
+        # train_bce_loss = 0
+        train_contrastive_loss = 0
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+        #
+        # pos_all_merged_vectors = None
+        # neg_all_merged_vectors = None
+
+        labels = torch.Tensor([[i for _ in range(args.bh_K)] for i in range(args.bh_P)]).flatten()
+        if args.cuda:
+            labels = Variable(labels.cuda())
+        else:
+            labels = Variable(labels)
+
+        for batch_id, (imgs, lbls) in enumerate(train_loader, 1):
+
+            imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(imgs.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
+
+            if args.cuda:
+                imgs, one_labels, zero_labels = Variable(imgs.cuda()), \
+                                                Variable(one_labels.cuda()), \
+                                                Variable(zero_labels.cuda())
+            else:
+                imgs, one_labels, zero_labels = Variable(imgs), \
+                                                Variable(one_labels), \
+                                                Variable(zero_labels)
+
+            if not drew_graph:
+                self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+                self.writer.flush()
+                drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+            opt.zero_grad()
+            forward_start = time.time()
+            imgs_f = net(imgs, None, single=True)
+            forward_end = time.time()
+
+            imgs_f = imgs_f.view(imgs_f.size()[0], -1)
+
+            ext_loss, cont_loss, reg = loss_fn(imgs_f, labels)
+
+            # pos_pred, pos_dist = net.sm_net(imgs_f, pos_f)
+            #
+            # neg_pred, neg_dist = net.sm_net(imgs_f, neg_f)
+
+            # if pos_all_merged_vectors is None:
+            #     pos_all_merged_vectors = pos_dist.data.cpu()
+            # else:
+            #     pos_all_merged_vectors = torch.cat([pos_all_merged_vectors, pos_dist.data.cpu()], dim=0)
+            #
+            # if utils.MY_DEC.enabled:
+            #     self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+            #
+            # # if args.verbose:
+            # #     self.logger.info(f'norm pos: {pos_dist}')
+            # class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+            # metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
+            #
+            # if neg_all_merged_vectors is None:
+            #     neg_all_merged_vectors = neg_dist.data.cpu()
+            # else:
+            #     neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+            #
+            # forward_end = time.time()
+            # if utils.MY_DEC.enabled:
+            #     self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+            #
+            # metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+            #
+            # class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+
+            # if loss_fn is not None:
+            #
+            #     loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+            #     train_contrastive_loss += ext_loss.item()
+            #
+            # else:
+            #     loss = self.bce_weight * class_loss
+            #
+            loss = ext_loss
+
+            train_loss += loss.item()
+            train_reg += reg.item()
+            train_contrastive_loss += cont_loss.item()
+            # train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                raise Exception('Debug grad not implemented for batchhard')
+
+            loss.backward()  # training with triplet loss
+
+            opt.step()
+
+            # if loss_fn is not None:
+            t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                          reg=f'{train_reg / (batch_id) :.4f}',
+                          contrastive=f'{train_contrastive_loss / batch_id:.4f}',
+                          # bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                          # train_acc=f'{metric_ACC.get_acc():.4f}'
+                          )
+            # else:
+            #     t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+            #                   bce_loss=f'{train_bce_loss / batch_id:.4f}',
+            #                   train_acc=f'{metric_ACC.get_acc():.4f}'
+            #                   )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        # if self.merge_method == 'diff-sim':
+        #
+        #     merged_vectors['pos-diff'] = pos_all_merged_vectors[:, :(pos_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['pos-sim'] = pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
+        #
+        #     merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
+        # else:
+        #     merged_vectors[f'pos-{self.merge_method}'] = pos_all_merged_vectors
+        #     merged_vectors[f'neg-{self.merge_method}'] = neg_all_merged_vectors
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, (train_loss, train_reg, train_contrastive_loss), ([], [])
 
     def plot_classifier_hist(self, classifier_weights_methods, titles, plot_title, save_path, tb_title, epoch):
 

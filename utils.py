@@ -225,12 +225,15 @@ def get_args():
     parser.add_argument('-ptb', '--project_tb', default=False, action='store_true')
 
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
-    parser.add_argument('-lss', '--loss', default='bce', choices=['bce', 'trpl', 'maxmargin', 'batchhard', 'stopgrad'])
+    parser.add_argument('-lss', '--loss', default='bce',
+                        choices=['bce', 'trpl', 'maxmargin', 'batchhard', 'contrastive', 'stopgrad'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")
+    parser.add_argument('-reg_lambda', '--reg_lambda', default=0.0, type=float,
+                        help="KoLeo Regularizer Lambda for Contrastive loss")
 
     parser.add_argument('-gamma', '--gamma', default=1.0, type=float, help="Learning Rate Scheduler")
     parser.add_argument('-gamma_step', '--gamma_step', default=1, type=int, help="Learning Rate Scheduler Step")
@@ -2086,9 +2089,15 @@ def get_logname(args):
                       'spatial_projection']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
-        important_args.extend(['trplcoefficient',
-                               'bcecoefficient',
-                               'margin'])
+        if args.loss == 'contrastive':
+            important_args.extend(['margin'])
+        else:
+            important_args.extend(['trplcoefficient',
+                                   'bcecoefficient',
+                                   'margin'])
+
+    if args.loss != 'bce' and args.loss != 'stopgrad':
+        important_args.extend(['margin'])
 
     for arg in vars(args):
         if str(arg) in important_args:
@@ -2134,6 +2143,11 @@ def get_logname(args):
                 name += f'#{args.bcotco_freq}-{args.bco_base}#'
             if str(arg) == 'trplcoefficient':
                 name += f'#{args.bcotco_freq}-{args.tco_base}#'
+
+            if str(arg) == 'loss' and getattr(args, arg).startswith('contrastive') and args.reg_lambda != 0.0:
+                name += f'-lbd{args.reg_lambda}'
+
+
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('local'):
                 lays = '-l'.join(args.feature_map_layers)

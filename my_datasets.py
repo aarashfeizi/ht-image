@@ -302,11 +302,11 @@ class Metric_Dataset_Train(Dataset):
             end = time.time()
             if utils.MY_DEC.enabled:
                 print(f'HotelTrain_Metric Dataloader, transform images time: {end - start}')
-
+        labels_to_return = torch.Tensor(labels_to_return)
         if self.return_paths:
-            return imgs, paths
+            return imgs, labels_to_return, paths
         else:
-            return imgs
+            return imgs, labels_to_return
 
     @utils.MY_DEC
     def __getitem__(self, index):
