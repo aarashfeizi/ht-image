@@ -2060,7 +2060,8 @@ def get_logname(args):
                          'gamma': 'gamma',
                          'merge_global': 'merge_global',
                          'no_global': 'no_global',
-                         'spatial_projection': 'spatial_projection'}
+                         'spatial_projection': 'spatial_projection',
+                         'attention': 'att'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2093,7 +2094,8 @@ def get_logname(args):
                       'merge_global',
                       'no_global',
                       'dim_reduction',
-                      'spatial_projection']
+                      'spatial_projection',
+                      'attention']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':
@@ -2162,6 +2164,10 @@ def get_logname(args):
                 if args.att_on_all:
                     att_type += '-all'
                 name += f'-l{lays}-{att_type}'
+
+            if str(arg) == 'merge_method' and (getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
+                lays = '-l'.join(args.feature_map_layers)
+                name += f'-att-l{lays}'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
                 lays = '-l'.join(args.feature_map_layers)
