@@ -2871,7 +2871,7 @@ class ModelMethods:
         if stopgrad:
             z = z.detach()  # stop gradient
 
-        return F.sigmoid((p * z).sum(dim=1))
+        return (p * z).sum(dim=1)
 
     def get_dists(self, X):
         dists = None
