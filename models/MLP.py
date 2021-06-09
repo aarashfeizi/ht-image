@@ -249,14 +249,14 @@ class StopGrad_MLP(nn.Module):
     def forward(self, x, y, single=False):
         x = x.view(x.size()[0], -1)
         x = self.projection(x)
+        x_pred = self.bottleneck(x)
 
         if single:
-            return x
+            return x_pred
 
         y = y.view(x.size()[0], -1)
         y = self.projection(y)
 
-        x_pred = self.bottleneck(x)
         y_pred = self.bottleneck(y)
 
         return x, y, x_pred, y_pred
