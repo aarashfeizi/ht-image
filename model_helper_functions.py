@@ -1231,7 +1231,7 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc
 
-    def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment=''):
+    def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment='', roc_specific=False):
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
         if val:
@@ -1241,6 +1241,8 @@ class ModelMethods:
             prompt_text = comment + ' TEST METRIC LEARNING:\tcorrect:\t%d\terror:\t%d\ttest_acc:%f\ttest_loss:%f\t'
             prompt_text_tb = comment + '_Test'
 
+        if roc_specific:
+            prompt_text_tb += '_ROC_SPECIFIC'
         tests_right, tests_error = 0, 0
 
         metric_ACC = metrics.Metric_Accuracy()
@@ -1363,6 +1365,8 @@ class ModelMethods:
 
         self.logger.info(f'Length of true_label_auc for calculating is: {len(true_label_auc)}')
         roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
+        import pdb
+        pdb.set_trace()
 
         self.logger.info('$' * 70)
 

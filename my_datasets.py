@@ -29,6 +29,7 @@ class Metric_Dataset_Train(Dataset):
         self.batchhard = batchhard[0]
         self.bh_P = batchhard[1]
         self.bh_K = batchhard[2]
+        self.roc_num = args.roc_num
 
         self.allow_same_chain_negative = allow_same_chain_negative
 
@@ -100,10 +101,12 @@ class Metric_Dataset_Train(Dataset):
         print('HotelTrain_Metric hotel train length: ', self.length)
 
     def __len__(self):
+        # if self.roc_num != 0:
+        #     return self.roc_num * self.length
         if self.overfit:
-            return len(self.overfit_samples) * 10
+            return len(self.overfit_samples) * 10 * self.roc_num
         else:
-            return self.length
+            return self.length * self.roc_num
 
     def legal_class_condition(self, lbl1, lbl2):
         if (self.allow_same_chain_negative) or (self.lbl2chain is None):

@@ -173,6 +173,8 @@ def get_args():
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
     parser.add_argument('-nor', '--number_of_runs', default=1, type=int, help="Number of times to sample for k@n")
+    parser.add_argument('-roc_num', '--roc_num', default=1, type=int, help="Multiply number of pairs chosen by a coefficient")
+
     parser.add_argument('-sp', '--save_path', default='savedmodels/', help="path to store model")
     parser.add_argument('-np', '--negative_path', default='', help="path to store best negative "
                                                                    "images, should be a "
@@ -2160,6 +2162,13 @@ def get_logname(args):
                 if args.att_on_all:
                     att_type += '-all'
                 name += f'-l{lays}-{att_type}'
+
+            if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
+                lays = '-l'.join(args.feature_map_layers)
+                att_type = ''
+                if args.cross_attention:
+                    att_type += '-CA'
+                name += f'-l{lays}{att_type}'
 
             if str(arg) == 'gamma':
                 name += f'-step{args.gamma_step}'

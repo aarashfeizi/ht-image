@@ -270,11 +270,17 @@ class ChannelWiseAttention(nn.Module):
 
         return keys, queries, values
 
-    def __get_attention_and_values(self, X):
+    def __get_attention_and_values(self, X, X2=None):
         K, Q, V = self.__get_keys_querie_values(X)
+        if X2 is not None:
+            _, Q2, _ = self.__get_keys_querie_values(X2)
+            Qs = Q2
+        else:
+            Qs = Q
+
         attentions = []
         output = []
-        for k, q, v, x in zip(K, Q, V, X):
+        for k, q, v, x in zip(K, Qs, V, X):
             N, C, W, H = x.size()
             attention_logits = torch.matmul(q, k.transpose(1, 2))  # (N, C, C)
             att = F.softmax(attention_logits, dim=1)
@@ -290,7 +296,7 @@ class ChannelWiseAttention(nn.Module):
 
         atts, lcl_feat_att = None, None
         if self.cross_attention:
-            pass
+            atts, lcl_feat_att = self.__get_attention_and_values(loc_feat, loc_feat2)
         else:
             atts, lcl_feat_att = self.__get_attention_and_values(loc_feat)
 
@@ -676,7 +682,6 @@ class GlobalFeatureAttention(nn.Module):
             nn.Linear(in_features=global_dim * vectors_to_merge, out_features=global_dim),
             nn.Softmax())
 
-
     def __project(self, x_local):
         lis = []
 
@@ -723,7 +728,6 @@ class GlobalFeatureAttention(nn.Module):
         attention_1 = self.attention(local_att_1)
         glb1 = (attention_1 * x1_global.squeeze(dim=-1).squeeze(dim=-1)).unsqueeze(dim=-1).unsqueeze(dim=-1)
 
-
         if not single:
             atts_2, att_gs_2 = self.__attend_to_locals(li_2s)
             att_gs_2 = [F.normalize(v, p=2, dim=1) for v in att_gs_2]
@@ -733,9 +737,7 @@ class GlobalFeatureAttention(nn.Module):
         else:
             return glb1, None
 
-
         return glb1, glb2
-
 
 
 class TopModel(nn.Module):
@@ -801,7 +803,6 @@ class TopModel(nn.Module):
             elif self.merge_method.startswith('diff-sim') and self.global_attention:
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
                 self.attention_module = GlobalFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
-
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -927,7 +928,7 @@ class TopModel(nn.Module):
                 else:
                     return pred, local_features
 
-            else: # diff, sim, or diff-sim
+            else:  # diff, sim, or diff-sim
                 if self.loss == 'stopgrad':
                     x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global)
 
@@ -983,7 +984,19 @@ class TopModel(nn.Module):
                 # pdb.set_trace()
 
                 # output = x1_global.squeeze()
+            elif self.merge_method.startswith('channel-attention'):
+                x1_input = []
+                x2_input = []
 
+                for i in self.fmaps_no:
+                    x1_input.append(x1_local[i - 1])
+
+                _, output, _, _ = self.channel_attention(
+                    x1_local=x1_input,
+                    x2_local=None,
+                    single=single)
+
+                output = F.normalize(output, p=2, dim=1)
             else:
 
                 if self.global_attention:
