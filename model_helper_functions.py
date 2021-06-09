@@ -1364,9 +1364,8 @@ class ModelMethods:
                 t.update()
 
         self.logger.info(f'Length of true_label_auc for calculating is: {len(true_label_auc)}')
+        print(f'Length of true_label_auc for calculating is: {len(true_label_auc)}')
         roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
-        import pdb
-        pdb.set_trace()
 
         self.logger.info('$' * 70)
 
