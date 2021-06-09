@@ -2870,10 +2870,8 @@ class ModelMethods:
     def D_stopgrad_probpred(self, p, z, stopgrad=True):  # cosine similarity
         if stopgrad:
             z = z.detach()  # stop gradient
-        p = F.normalize(p, p=2, dim=1)
-        z = F.normalize(z, p=2, dim=1)
 
-        return (p * z).sum(dim=1)
+        return F.sigmoid((p * z).sum(dim=1))
 
     def get_dists(self, X):
         dists = None
