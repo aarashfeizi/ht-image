@@ -294,6 +294,8 @@ def get_args():
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
+    parser.add_argument('-add_local_features', '--add_local_features', default=False, action='store_true')
+
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
     parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial', 'channel', 'both'])
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
@@ -2168,6 +2170,10 @@ def get_logname(args):
             if str(arg) == 'merge_method' and (getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
                 lays = '-l'.join(args.feature_map_layers)
                 name += f'-att-l{lays}'
+                if args.add_local_features:
+                    name += 'ADD'
+                else:
+                    name += 'CONC'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
                 lays = '-l'.join(args.feature_map_layers)

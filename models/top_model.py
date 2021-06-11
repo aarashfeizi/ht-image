@@ -616,12 +616,13 @@ class LocalFeatureModule(nn.Module):
                                                           dim=1)  # only local_features is important, ret does not make any sense
 
 
-class GlobalFeatureAttention(nn.Module):
+class DiffSimFeatureAttention(nn.Module):
 
     def __init__(self, args, in_channels, global_dim):
-        super(GlobalFeatureAttention, self).__init__()
+        super(DiffSimFeatureAttention, self).__init__()
         self.in_channels = in_channels
         self.global_dim = global_dim
+        self.add_features = args.add_local_features
 
         # spatial_att
 
@@ -678,6 +679,9 @@ class GlobalFeatureAttention(nn.Module):
 
         vectors_to_merge = len(in_channels)
 
+        if self.add_features:
+            vectors_to_merge = 1
+
         self.attention = nn.Sequential(
             nn.Linear(in_features=global_dim * vectors_to_merge, out_features=global_dim),
             nn.Softmax())
@@ -724,14 +728,21 @@ class GlobalFeatureAttention(nn.Module):
 
         atts_1, att_gs_1 = self.__attend_to_locals(li_1s)
         att_gs_1 = [F.normalize(v, p=2, dim=1) for v in att_gs_1]
-        local_att_1 = torch.cat(att_gs_1, dim=1)
+        if self.add_features:
+            local_att_1 = sum(att_gs_1)
+        else:
+            local_att_1 = torch.cat(att_gs_1, dim=1)
         attention_1 = self.attention(local_att_1)
         glb1 = (attention_1 * x1_global.squeeze(dim=-1).squeeze(dim=-1)).unsqueeze(dim=-1).unsqueeze(dim=-1)
 
         if not single:
             atts_2, att_gs_2 = self.__attend_to_locals(li_2s)
             att_gs_2 = [F.normalize(v, p=2, dim=1) for v in att_gs_2]
-            local_att_2 = torch.cat(att_gs_2, dim=1)
+            if self.add_features:
+                local_att_2 = sum(att_gs_2)
+            else:
+                local_att_2 = torch.cat(att_gs_2, dim=1)
+
             attention_2 = self.attention(local_att_2)
             glb2 = (attention_2 * x2_global.squeeze(dim=-1).squeeze(dim=-1)).unsqueeze(dim=-1).unsqueeze(dim=-1)
         else:
@@ -802,7 +813,7 @@ class TopModel(nn.Module):
 
             elif self.merge_method.startswith('diff-sim') and self.global_attention:
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
-                self.attention_module = GlobalFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
+                self.attention_module = DiffSimFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
