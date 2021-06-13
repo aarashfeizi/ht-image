@@ -301,6 +301,11 @@ def get_args():
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
 
     parser.add_argument('-cross_attention', '--cross_attention', default=False, action='store_true')
+    parser.add_argument('-sap', '--self_attend_prob', default=0.0, type=float, help="In ChannelWiseAttention with"
+                                                                                 " cross_attention, probability of"
+                                                                                 " attending to itself rather than"
+                                                                                 " other image. e.g. if 1, meaning no "
+                                                                                 "cross_attention")
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
@@ -2180,6 +2185,8 @@ def get_logname(args):
                 att_type = ''
                 if args.cross_attention:
                     att_type += '-CA'
+                if args.self_attend_prob > 0:
+                    att_type += f'-sap{args.self_attend_prob}'
                 name += f'-l{lays}{att_type}'
 
             if str(arg) == 'gamma':

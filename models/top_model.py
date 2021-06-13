@@ -1,3 +1,5 @@
+from random import random
+
 import torch
 import torch.nn.functional as F
 
@@ -147,6 +149,7 @@ class ChannelWiseAttention(nn.Module):
         super(ChannelWiseAttention, self).__init__()
         self.in_channels = in_channels
         self.global_dim = global_dim
+        self.self_attend_prob = args.self_attend_prob
         self.cross_attention = args.cross_attention
         self.att_mode_sc = args.att_mode_sc
 
@@ -270,7 +273,7 @@ class ChannelWiseAttention(nn.Module):
 
         return keys, queries, values
 
-    def __get_attention_and_values(self, X, X2=None):
+    def __attend_to_locals(self, X, X2=None):
         K, Q, V = self.__get_keys_querie_values(X)
         if X2 is not None:
             _, Q2, _ = self.__get_keys_querie_values(X2)
@@ -292,15 +295,6 @@ class ChannelWiseAttention(nn.Module):
 
         return attentions, output
 
-    def __attend_to_locals(self, loc_feat, loc_feat2):
-
-        atts, lcl_feat_att = None, None
-        if self.cross_attention:
-            atts, lcl_feat_att = self.__get_attention_and_values(loc_feat, loc_feat2)
-        else:
-            atts, lcl_feat_att = self.__get_attention_and_values(loc_feat)
-
-        return atts, lcl_feat_att
 
     def forward(self, x1_local, x2_local=None, single=False):
         rets = []
@@ -312,13 +306,18 @@ class ChannelWiseAttention(nn.Module):
         else:
             li_2s = None
 
-        if self.cross_attention and not single:
+        self_attend = False
+
+        if random() <= self.self_attend_prob:
+            self_attend = True
+
+        if (self.cross_attention and not single) and not self_attend:
             atts_1, att_gs_1 = self.__attend_to_locals(li_1s, li_2s)
         else:
             atts_1, att_gs_1 = self.__attend_to_locals(li_1s, None)
 
         if not single:
-            if self.cross_attention:
+            if self.cross_attention and not self_attend:
                 atts_2, att_gs_2 = self.__attend_to_locals(li_2s, li_1s)
             else:
                 atts_2, att_gs_2 = self.__attend_to_locals(li_2s, None)
