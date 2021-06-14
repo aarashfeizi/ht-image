@@ -189,8 +189,6 @@ class Metric_Dataset_Train(Dataset):
         if utils.MY_DEC.enabled:
             print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
 
-        import pdb
-        pdb.set_trace()
         if self.transform:
             start = time.time()
             if self.save_pictures and random.random() < 0.0001:
