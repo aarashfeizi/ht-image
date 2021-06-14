@@ -15,7 +15,7 @@ from utils import get_shuffled_data, loadDataToMem, loadDataToMem_2, get_overfit
 
 class Metric_Dataset_Train(Dataset):
     def __init__(self, args, transform=None, mode='', save_pictures=False, overfit=False, return_paths=False,
-                 batchhard=[False, 0, 0], allow_same_chain_negative=True):
+                 batchhard=[False, 0, 0], allow_same_chain_negative=True, is_train=False):
         super(Metric_Dataset_Train, self).__init__()
         self.fourth_dim = args.fourth_dim
         np.random.seed(args.seed)
@@ -50,6 +50,8 @@ class Metric_Dataset_Train(Dataset):
         self.get_best_negatives = negative_result
 
         start = time.time()
+
+        self.is_train = is_train
 
         return_bg = (mode.startswith('val') and
                      args.vu_folder_name != 'none') \
@@ -145,7 +147,7 @@ class Metric_Dataset_Train(Dataset):
             anch = Image.open(random_anch_path)
 
             # get pos image from same class
-            if random.random() < self.same_pic_prob:
+            if self.is_train and random.random() < self.same_pic_prob:
                 random_path = random_anch_path
             else:
                 random_path = random.choice(self.datas[anch_class])

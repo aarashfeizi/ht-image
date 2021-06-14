@@ -113,7 +113,8 @@ def main():
     train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode=args.train_folder_name,
                                      save_pictures=False, overfit=True,
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K],
-                                     allow_same_chain_negative=True)
+                                     allow_same_chain_negative=True,
+                                     is_train=True)
 
     logger.info('*' * 10)
     val_set_known_metric = None

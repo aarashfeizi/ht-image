@@ -681,7 +681,7 @@ class ModelMethods:
 
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
                              train_loader_fewshot, cam_args=None, db_loaders=None, val_loaders_edgepred=None):
-        net.train()
+        net.is_train()
         # device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
         train_db_loader = db_loaders[0]
@@ -2213,7 +2213,7 @@ class ModelMethods:
                 self.writer.flush()
                 drew_graph = True
 
-            net.train()
+            net.is_train()
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
 
@@ -2289,7 +2289,7 @@ class ModelMethods:
                 self.writer.flush()
                 drew_graph = True
 
-            net.train()
+            net.is_train()
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
             forward_start = time.time()
@@ -2518,7 +2518,7 @@ class ModelMethods:
                 self.writer.flush()
                 drew_graph = True
 
-            net.train()
+            net.is_train()
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
             forward_start = time.time()
@@ -2663,7 +2663,7 @@ class ModelMethods:
                 self.writer.flush()
                 drew_graph = True
 
-            net.train()
+            net.is_train()
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
             forward_start = time.time()
@@ -2959,7 +2959,7 @@ class BaslineModel:
             #     self.writer.flush()
             #     drew_graph = True
 
-            self.model.train()
+            self.model.is_train()
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
             forward_start = time.time()
