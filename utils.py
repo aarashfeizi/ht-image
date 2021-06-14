@@ -302,11 +302,8 @@ def get_args():
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
 
     parser.add_argument('-cross_attention', '--cross_attention', default=False, action='store_true')
-    parser.add_argument('-sap', '--self_attend_prob', default=0.0, type=float, help="In ChannelWiseAttention with"
-                                                                                    " cross_attention, probability of"
-                                                                                    " attending to itself rather than"
-                                                                                    " other image. e.g. if 1, meaning no "
-                                                                                    "cross_attention")
+    parser.add_argument('-spp', '--same_pic_prob', default=0.0, type=float, help="Probability of choosing the same "
+                                                                                 "image for positive pair")
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
@@ -2069,7 +2066,8 @@ def get_logname(args):
                          'merge_global': 'merge_global',
                          'no_global': 'no_global',
                          'spatial_projection': 'spatial_projection',
-                         'attention': 'att'}
+                         'attention': 'att',
+                         'same_pic_prob': 'spp'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2103,7 +2101,8 @@ def get_logname(args):
                       'no_global',
                       'dim_reduction',
                       'spatial_projection',
-                      'attention']
+                      'attention',
+                      'same_pic_prob']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2141,6 +2140,9 @@ def get_logname(args):
                 continue
             elif str(arg) == 'dim_reduction' and getattr(args, arg) == 0:
                 continue
+            elif str(arg) == 'same_pic_prob' and getattr(args, arg) == 0:
+                continue
+
 
             if type(getattr(args, arg)) is not bool:
                 name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
@@ -2160,12 +2162,12 @@ def get_logname(args):
                 att_type = args.att_mode_sc
                 if args.att_on_all:
                     att_type += '-all'
-                name += f'-l{lays}-{att_type}'
+                name += f'-{lays}-{att_type}'
 
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
                 lays = 'L' + ''.join(args.feature_map_layers)
-                name += f'-att-l{lays}'
+                name += f'-att-{lays}'
                 if args.add_local_features:
                     name += 'ADD'
                 else:
@@ -2176,9 +2178,7 @@ def get_logname(args):
                 att_type = ''
                 if args.cross_attention:
                     att_type += '-CA'
-                if args.self_attend_prob > 0:
-                    att_type += f'-sap{args.self_attend_prob}'
-                name += f'-l{lays}{att_type}'
+                name += f'-{lays}{att_type}'
 
             if str(arg) == 'gamma':
                 name += f'-step{args.gamma_step}'

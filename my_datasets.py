@@ -30,6 +30,7 @@ class Metric_Dataset_Train(Dataset):
         self.bh_P = batchhard[1]
         self.bh_K = batchhard[2]
         self.roc_num = args.roc_num
+        self.same_pic_prob = args.same_pic_prob
 
         self.allow_same_chain_negative = allow_same_chain_negative
 
@@ -144,8 +145,11 @@ class Metric_Dataset_Train(Dataset):
             anch = Image.open(random_anch_path)
 
             # get pos image from same class
+            if random.random() < self.same_pic_prob:
+                random_path = random_anch_path
+            else:
+                random_path = random.choice(self.datas[anch_class])
 
-            random_path = random.choice(self.datas[anch_class])
             paths.append(random_path)
             pos = Image.open(random_path)
 
@@ -184,6 +188,9 @@ class Metric_Dataset_Train(Dataset):
         end = time.time()
         if utils.MY_DEC.enabled:
             print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
+
+        import pdb
+        pdb.set_trace()
         if self.transform:
             start = time.time()
             if self.save_pictures and random.random() < 0.0001:

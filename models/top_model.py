@@ -1,5 +1,3 @@
-from random import random
-
 import torch
 import torch.nn.functional as F
 
@@ -149,7 +147,6 @@ class ChannelWiseAttention(nn.Module):
         super(ChannelWiseAttention, self).__init__()
         self.in_channels = in_channels
         self.global_dim = global_dim
-        self.self_attend_prob = args.self_attend_prob
         self.cross_attention = args.cross_attention
         self.att_mode_sc = args.att_mode_sc
 
@@ -305,18 +302,13 @@ class ChannelWiseAttention(nn.Module):
         else:
             li_2s = None
 
-        self_attend = False
-
-        if torch.rand(1) <= self.self_attend_prob:
-            self_attend = True
-
-        if (self.cross_attention and not single) and not self_attend:
+        if (self.cross_attention and not single):
             atts_1, att_gs_1 = self.__attend_to_locals(li_1s, li_2s)
         else:
             atts_1, att_gs_1 = self.__attend_to_locals(li_1s, None)
 
         if not single:
-            if self.cross_attention and not self_attend:
+            if self.cross_attention:
                 atts_2, att_gs_2 = self.__attend_to_locals(li_2s, li_1s)
             else:
                 atts_2, att_gs_2 = self.__attend_to_locals(li_2s, None)
