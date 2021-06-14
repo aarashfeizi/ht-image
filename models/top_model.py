@@ -295,7 +295,6 @@ class ChannelWiseAttention(nn.Module):
 
         return attentions, output
 
-
     def forward(self, x1_local, x2_local=None, single=False):
         rets = []
         # print('forward attention module')
@@ -308,7 +307,7 @@ class ChannelWiseAttention(nn.Module):
 
         self_attend = False
 
-        if random() <= self.self_attend_prob:
+        if torch.rand(1) <= self.self_attend_prob:
             self_attend = True
 
         if (self.cross_attention and not single) and not self_attend:
