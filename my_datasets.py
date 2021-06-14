@@ -147,7 +147,7 @@ class Metric_Dataset_Train(Dataset):
             anch = Image.open(random_anch_path)
 
             # get pos image from same class
-            if self.is_train and random.random() < self.same_pic_prob:
+            if random.random() < self.same_pic_prob and self.is_train:
                 random_path = random_anch_path
             else:
                 random_path = random.choice(self.datas[anch_class])
