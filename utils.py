@@ -2164,7 +2164,7 @@ def get_logname(args):
 
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
-                lays = '-l'.join(args.feature_map_layers)
+                lays = 'L' + ''.join(args.feature_map_layers)
                 name += f'-att-l{lays}'
                 if args.add_local_features:
                     name += 'ADD'
@@ -2172,7 +2172,7 @@ def get_logname(args):
                     name += 'CONC'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
-                lays = '-l'.join(args.feature_map_layers)
+                lays = 'L' + ''.join(args.feature_map_layers)
                 att_type = ''
                 if args.cross_attention:
                     att_type += '-CA'
