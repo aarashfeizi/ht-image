@@ -173,7 +173,8 @@ def get_args():
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
     parser.add_argument('-nor', '--number_of_runs', default=1, type=int, help="Number of times to sample for k@n")
-    parser.add_argument('-roc_num', '--roc_num', default=1, type=int, help="Multiply number of pairs chosen by a coefficient")
+    parser.add_argument('-roc_num', '--roc_num', default=1, type=int,
+                        help="Multiply number of pairs chosen by a coefficient")
 
     parser.add_argument('-sp', '--save_path', default='savedmodels/', help="path to store model")
     parser.add_argument('-np', '--negative_path', default='', help="path to store best negative "
@@ -302,10 +303,10 @@ def get_args():
 
     parser.add_argument('-cross_attention', '--cross_attention', default=False, action='store_true')
     parser.add_argument('-sap', '--self_attend_prob', default=0.0, type=float, help="In ChannelWiseAttention with"
-                                                                                 " cross_attention, probability of"
-                                                                                 " attending to itself rather than"
-                                                                                 " other image. e.g. if 1, meaning no "
-                                                                                 "cross_attention")
+                                                                                    " cross_attention, probability of"
+                                                                                    " attending to itself rather than"
+                                                                                    " other image. e.g. if 1, meaning no "
+                                                                                    "cross_attention")
 
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
@@ -2104,6 +2105,21 @@ def get_logname(args):
                       'spatial_projection',
                       'attention']
 
+    arg_booleans = ['spatial_projection',
+                    'attention',
+                    'merge_global',
+                    'no_global',
+                    'drop_last',
+                    'normalize',
+                    'bn_before_classifier',
+                    'leaky_relu',
+                    'softmargin',
+                    'colored_mask',
+                    'fourth_dim',
+                    'softmax_diff_sim',
+                    'aug_mask',
+                    'debug_grad']
+
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':
             important_args.extend(['margin'])
@@ -2117,35 +2133,11 @@ def get_logname(args):
 
     for arg in vars(args):
         if str(arg) in important_args:
-            if str(arg) == 'debug_grad' and not getattr(args, arg):
+            if str(arg) in arg_booleans and not getattr(args, arg):
                 continue
             elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
                 continue
-            elif str(arg) == 'aug_mask' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'from_scratch' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'softmax_diff_sim' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'fourth_dim' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'colored_mask' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'softmargin' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'leaky_relu' and not getattr(args, arg):
-                continue
             elif str(arg) == 'gamma' and getattr(args, arg) == 1.0:
-                continue
-            elif str(arg) == 'bn_before_classifier' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'normalize' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'drop_last' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'merge_global' and not getattr(args, arg):
-                continue
-            elif str(arg) == 'no_global' and not getattr(args, arg):
                 continue
             elif str(arg) == 'dim_reduction' and getattr(args, arg) == 0:
                 continue
@@ -2163,16 +2155,15 @@ def get_logname(args):
             if str(arg) == 'loss' and getattr(args, arg).startswith('contrastive') and args.reg_lambda != 0.0:
                 name += f'-lbd{args.reg_lambda}'
 
-
-
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('local'):
-                lays = '-l'.join(args.feature_map_layers)
+                lays = 'L' + ''.join(args.feature_map_layers)
                 att_type = args.att_mode_sc
                 if args.att_on_all:
                     att_type += '-all'
                 name += f'-l{lays}-{att_type}'
 
-            if str(arg) == 'merge_method' and (getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
+            if str(arg) == 'merge_method' and (
+                    getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
                 lays = '-l'.join(args.feature_map_layers)
                 name += f'-att-l{lays}'
                 if args.add_local_features:
