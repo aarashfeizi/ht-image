@@ -2117,7 +2117,8 @@ def get_logname(args):
                     'fourth_dim',
                     'softmax_diff_sim',
                     'aug_mask',
-                    'debug_grad']
+                    'debug_grad',
+                    'from_scratch']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':
