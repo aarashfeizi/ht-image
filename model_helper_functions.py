@@ -1563,7 +1563,7 @@ class ModelMethods:
             self.logger.info('results at: ' + self.save_path)
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
-                    mode='val', epoch=-1, k_at_n=True, draw_top_reults=False):
+                    mode='val', epoch=-1, k_at_n=True):
         """
 
         :param batch_size:
@@ -1715,9 +1715,12 @@ class ModelMethods:
 
             dists = self.get_dists(test_feats)
 
-            if draw_top_reults:
+            if args.draw_top_k_results > 0 and (epoch == self.max_epochs or epoch == -1):
+                draw_top_k_results = args.draw_top_k_results
+                self.logger.info(f'Drawing top {draw_top_k_results} retrievals!!')
+                print(f'Drawing top {draw_top_k_results} retrievals!!')
                 utils.draw_top_results(args, test_feats, test_classes, test_paths, test_seen, data_loader,
-                                       self.writer, self.save_path, metric=self.metric,
+                                       self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
                                        dist_matrix=None, best_negative=False, too_close_negative=False)
 
             self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path,

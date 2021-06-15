@@ -293,7 +293,7 @@ def get_args():
 
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
-    parser.add_argument('-draw_top_results', '--draw_top_results', default=False, action='store_true')
+    parser.add_argument('-draw_top_k_results', '--draw_top_k_results', default=5, type=int)
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-add_local_features', '--add_local_features', default=False, action='store_true')
@@ -2474,7 +2474,7 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False,
+def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=5, path_to_lbl2chain='', tb_draw=False,
                metric='cosine', dist_matrix=None, create_best_negatives=True, create_too_close_negatvies=True):
     num = X.shape[0]
     classN = np.max(Y) + 1
@@ -2548,18 +2548,18 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
                 pos += 1.
             if tb_draw:
                 if Y[j] == YNN[j, 0]:
-                    if r1_counter < 20:
+                    if r1_counter < k:
                         plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader,
                                     f'r@1_{r1_counter}_{split}')
                         r1_counter += 1
                         print('r1_counter = ', r1_counter)
                 elif Y[j] in YNN[j, :10]:
-                    if r10_counter < 20:
+                    if r10_counter < k:
                         plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader,
                                     f'r@10_{r10_counter}_{split}')
                         r10_counter += 1
                         print('r10_counter = ', r10_counter)
-                elif counter < 20:
+                elif counter < k:
                     plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
                     counter += 1
                     print('counter = ', counter)
@@ -2685,26 +2685,26 @@ def calc_custom_euc(feat, chunks=4):
     return sum(eucs)
 
 
-def draw_top_results(args, embeddings, labels, ids, seens, data_loader, tb_writer, save_path, metric='cosine', dist_matrix=None, best_negative=False, too_close_negative=False):
+def draw_top_results(args, embeddings, labels, ids, seens, data_loader, tb_writer, save_path, metric='cosine', k=5, dist_matrix=None, best_negative=False, too_close_negative=False):
     unique_seens = np.unique(seens)
     if len(unique_seens) == 2:
         seen_res = evaluation(args, embeddings[seens == 1], labels[seens == 1],
                               ids[seens == 1], tb_writer, data_loader,
-                              Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', path=save_path,
+                              Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', path=save_path, k=k,
                               gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Seen length: {len(labels[seens == 1])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(seen_res)
         unseen_res = evaluation(args, embeddings[seens == 0], labels[seens == 0],
                                 ids[seens == 0], tb_writer, data_loader,
-                                Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', path=save_path,
+                                Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', path=save_path, k=k,
                                 gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Unseen length: {len(labels[seens == 0])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(unseen_res)
 
         res = evaluation(args, embeddings, labels, ids, tb_writer,
-                         data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path,
+                         data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
                          gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
@@ -2712,7 +2712,7 @@ def draw_top_results(args, embeddings, labels, ids, seens, data_loader, tb_write
 
     elif len(unique_seens) == 1:
         res = evaluation(args, embeddings, labels, ids, tb_writer,
-                         data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path,
+                         data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
                          gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
                          tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Total length: {len(labels)}')

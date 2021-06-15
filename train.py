@@ -402,8 +402,7 @@ def main():
                                               eval_sampled=args.sampled_results,
                                               eval_per_class=args.per_class_results, newly_trained=True,
                                               batch_size=args.db_batch,
-                                              mode='val',
-                                              draw_top_reults=args.draw_top_results)
+                                              mode='val')
 
     # testing
     if args.test:
