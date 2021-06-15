@@ -109,6 +109,7 @@ class ModelMethods:
         self.bco_base = args.bco_base
         self.tco_base = args.tco_base
 
+        self.max_epochs = args.epochs
         self.no_negative = args.no_negative
 
         weight_sum = args.bcecoefficient + args.trplcoefficient
@@ -756,8 +757,6 @@ class ModelMethods:
 
         time_start = time.time()
         queue = deque(maxlen=20)
-
-        self.max_epochs = args.epochs
 
         metric_ACC = metrics.Metric_Accuracy()
 
@@ -1564,7 +1563,7 @@ class ModelMethods:
             self.logger.info('results at: ' + self.save_path)
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
-                    mode='val', epoch=-1, k_at_n=True):
+                    mode='val', epoch=-1, k_at_n=True, draw_top_reults=False):
         """
 
         :param batch_size:
@@ -1715,6 +1714,11 @@ class ModelMethods:
                 tb_tag = 'Other'
 
             dists = self.get_dists(test_feats)
+
+            if draw_top_reults:
+                utils.draw_top_results(args, test_feats, test_classes, test_paths, test_seen, data_loader,
+                                       self.writer, self.save_path, metric=self.metric,
+                                       dist_matrix=None, best_negative=False, too_close_negative=False)
 
             self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path,
                                        f'Total_{tb_tag}', attention=has_attention, dists=dists)

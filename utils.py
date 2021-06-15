@@ -293,6 +293,7 @@ def get_args():
 
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
+    parser.add_argument('-draw_top_results', '--draw_top_results', default=False, action='store_true')
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-add_local_features', '--add_local_features', default=False, action='store_true')
@@ -2474,7 +2475,7 @@ def plot_class_dist(datas, plottitle, path):
 
 # softtriplet loss code
 def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, path_to_lbl2chain='', tb_draw=False,
-               metric='cosine'):
+               metric='cosine', dist_matrix=None, create_best_negatives=True, create_too_close_negatvies=True):
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = min(np.max(Kset), num)
@@ -2488,38 +2489,52 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, pa
     # minval = np.min(sim) - 1.
     # sim -= np.diag(np.diag(sim))
     # sim += np.diag(np.ones(num) * minval)
-    distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu, metric=metric)
+    if dist_matrix is not None:
+        num = Y.shape[0]
 
-    if path_to_lbl2chain != '' and args.negative_path != '':
-        super_labels = pd.read_csv(path_to_lbl2chain)
-        lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
-        best_negatives = {}
-        for i, (i_row) in enumerate(indices):
-            query_label = Y[i]
-            for j in i_row:
-                negative_idx = j
-                negative_label = Y[j]
-                if lbl2chain[query_label] != lbl2chain[negative_label]:
-                    break
-            best_negatives[loader.dataset.all_shuffled_data[i][1]] = (
-                loader.dataset.all_shuffled_data[negative_idx][1], negative_label)
-
-        with open(args.negative_path, 'wb') as f:
-            print('new negative set creeated')
-            pickle.dump(best_negatives, f)
-
+        minval = np.min(dist_matrix) - 1.
+        self_distance = -(np.diag(dist_matrix))
+        dist_matrix -= np.diag(np.diag(dist_matrix))
+        dist_matrix += np.diag(np.ones(num) * minval)
+        indices = (-dist_matrix).argsort()[:, :-1]
+        distances = (-dist_matrix)[indices]
     else:
-        lbl2chain = None
+        distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu, metric=metric)
+
+    lbl2chain = None
+    if create_best_negatives:
+        if path_to_lbl2chain != '' and args.negative_path != '':
+            super_labels = pd.read_csv(path_to_lbl2chain)
+            lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+            best_negatives = {}
+            for i, (i_row) in enumerate(indices):
+                query_label = Y[i]
+                for j in i_row:
+                    negative_idx = j
+                    negative_label = Y[j]
+                    if lbl2chain[query_label] != lbl2chain[negative_label]:
+                        break
+                best_negatives[loader.dataset.all_shuffled_data[i][1]] = (
+                    loader.dataset.all_shuffled_data[negative_idx][1], negative_label)
+
+            with open(args.negative_path, 'wb') as f:
+                print('new negative set creeated')
+                pickle.dump(best_negatives, f)
+
+
+
+
 
     label_to_simlabels = {}
-    for i, (d_row, i_row) in enumerate(zip(distances, indices)):
-        leq_indx = i_row[d_row <= self_distance[i]]
-        leq_dist = d_row[d_row <= self_distance[i]]
-        label_to_simlabels[Y[i]] = {'i': [Y[j] for j in leq_indx if j != i],
-                                    'd': leq_dist}
+    if create_too_close_negatvies:
+        for i, (d_row, i_row) in enumerate(zip(distances, indices)):
+            leq_indx = i_row[d_row <= self_distance[i]]
+            leq_dist = d_row[d_row <= self_distance[i]]
+            label_to_simlabels[Y[i]] = {'i': [Y[j] for j in leq_indx if j != i],
+                                        'd': leq_dist}
 
-    with open(os.path.join(path, split + '_too_close_otherlabels.pkl'), 'wb') as f:
-        pickle.dump(label_to_simlabels, f)
+        with open(os.path.join(path, split + '_too_close_otherlabels.pkl'), 'wb') as f:
+            pickle.dump(label_to_simlabels, f)
 
     YNN = Y[indices]
     idxNN = ids[indices]
@@ -2613,6 +2628,8 @@ def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" 
             index_flat.add(reps)  # add vectors to the index
     else:
         print('No gpus for faiss! :( ')
+        index_flat = index_function(d)
+        index_flat.add(reps)  # add vectors to the index
 
     assert (index_flat.ntotal == reps.shape[0])
 
@@ -2666,3 +2683,40 @@ def calc_custom_euc(feat, chunks=4):
     for f in feats:
         eucs.append(euclidean_distances(f))
     return sum(eucs)
+
+
+def draw_top_results(args, embeddings, labels, ids, seens, data_loader, tb_writer, save_path, metric='cosine', dist_matrix=None, best_negative=False, too_close_negative=False):
+    unique_seens = np.unique(seens)
+    if len(unique_seens) == 2:
+        seen_res = evaluation(args, embeddings[seens == 1], labels[seens == 1],
+                              ids[seens == 1], tb_writer, data_loader,
+                              Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', path=save_path,
+                              gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+        print(f'Seen length: {len(labels[seens == 1])}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(seen_res)
+        unseen_res = evaluation(args, embeddings[seens == 0], labels[seens == 0],
+                                ids[seens == 0], tb_writer, data_loader,
+                                Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', path=save_path,
+                                gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+        print(f'Unseen length: {len(labels[seens == 0])}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(unseen_res)
+
+        res = evaluation(args, embeddings, labels, ids, tb_writer,
+                         data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path,
+                         gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+        print(f'Total length: {len(labels)}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(res)
+
+    elif len(unique_seens) == 1:
+        res = evaluation(args, embeddings, labels, ids, tb_writer,
+                         data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path,
+                         gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
+                         tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+        print(f'Total length: {len(labels)}')
+        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+        print(res)
+    else:
+        raise Exception(f"More than 2 values in 'seens'. len(unique_seens) = {len(unique_seens)}")

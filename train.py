@@ -18,7 +18,6 @@ EVAL_SET_NAMES = {1: ['total'],
                   2: ['seen', 'unseen']}
 
 
-
 def main():
     args = utils.get_args()
     utils.MY_DEC.enabled = args.verbose
@@ -37,7 +36,6 @@ def main():
 
     args_dict['bcecoefficient'] = bco
     args_dict['trplcoefficient'] = tco
-
 
     args_dict.update(dataset_info[args.dataset_name])
     args = Namespace(**args_dict)
@@ -88,7 +86,6 @@ def main():
     train_few_shot_dataset = None
     test_few_shot_dataset = None
     db_dataset = None
-
 
     logger.info('*' * 10)
     cam_train_set = cam_val_set_known_metric = cam_val_set_unknown_metric = None
@@ -178,15 +175,19 @@ def main():
 
     val_db_set = None
 
-    train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name, return_pairs=args.my_dist)
+    train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name,
+                              return_pairs=args.my_dist)
 
     if args.vs_folder_name != 'none':
-        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name, return_pairs=args.my_dist)
+        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name,
+                                return_pairs=args.my_dist)
     else:
-        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name, return_pairs=args.my_dist)
+        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
+                                return_pairs=args.my_dist)
 
     if args.test:
-        test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name, return_pairs=args.my_dist)
+        test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
+                                 return_pairs=args.my_dist)
     # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
@@ -282,7 +283,7 @@ def main():
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = BatchHard(margin=args.margin, args=args, soft=args.softmargin)
     elif args.loss == 'stopgrad':
-        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean') # already normalized before bce loss
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')  # already normalized before bce loss
         loss_fn = StopGradientLoss(args)
     else:
         raise Exception('Loss function not supported: ' + args.loss)
@@ -352,16 +353,16 @@ def main():
         if val_db_loader:
             if args.my_dist:
                 model_methods_top.make_all_emb_dist_db(args, net, val_db_loader,
-                                          eval_sampled=args.sampled_results,
-                                          eval_per_class=args.per_class_results,
-                                          batch_size=args.db_batch,
-                                          mode='val')
+                                                       eval_sampled=args.sampled_results,
+                                                       eval_per_class=args.per_class_results,
+                                                       batch_size=args.db_batch,
+                                                       mode='val')
             else:
                 model_methods_top.make_emb_db(args, net, val_db_loader,
-                                          eval_sampled=args.sampled_results,
-                                          eval_per_class=args.per_class_results, newly_trained=False,
-                                          batch_size=args.db_batch,
-                                          mode='val')
+                                              eval_sampled=args.sampled_results,
+                                              eval_per_class=args.per_class_results, newly_trained=False,
+                                              batch_size=args.db_batch,
+                                              mode='val')
     else:  # test
         logger.info('Testing without training')
         best_model_top = args.pretrained_model_name
@@ -392,16 +393,17 @@ def main():
         if val_db_loader:
             if args.my_dist:
                 model_methods_top.make_all_emb_dist_db(args, net, val_db_loader,
-                                          eval_sampled=args.sampled_results,
-                                          eval_per_class=args.per_class_results,
-                                          batch_size=args.db_batch,
-                                          mode='val')
+                                                       eval_sampled=args.sampled_results,
+                                                       eval_per_class=args.per_class_results,
+                                                       batch_size=args.db_batch,
+                                                       mode='val')
             else:
                 model_methods_top.make_emb_db(args, net, val_db_loader,
-                                          eval_sampled=args.sampled_results,
-                                          eval_per_class=args.per_class_results, newly_trained=True,
-                                          batch_size=args.db_batch,
-                                          mode='val')
+                                              eval_sampled=args.sampled_results,
+                                              eval_per_class=args.per_class_results, newly_trained=True,
+                                              batch_size=args.db_batch,
+                                              mode='val',
+                                              draw_top_reults=args.draw_top_results)
 
     # testing
     if args.test:

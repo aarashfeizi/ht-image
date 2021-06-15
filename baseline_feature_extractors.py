@@ -130,46 +130,15 @@ def main():
         utils.save_h5(f'{embedding_name}_seen', seens, 'i2',
                       os.path.join(model_methods.save_path, f'{embedding_name}_Seen.h5'))
 
-    unique_seens = np.unique(seens)
+
     prmpt = 'Test results' if args.test else 'Val results'
     print(prmpt)
 
     import pdb
     pdb.set_trace()
-    if len(unique_seens) == 2:
-        seen_res = utils.evaluation(args, embeddings[seens == 1], labels[seens == 1],
-                                    ids[seens == 1], model_methods.writer, loader,
-                                    Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', path=model_methods.save_path,
-                                    gpu=args.cuda, tb_draw=True)
-        print(f'Seen length: {len(labels[seens == 1])}')
-        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
-        print(seen_res)
-        unseen_res = utils.evaluation(args, embeddings[seens == 0], labels[seens == 0],
-                                      ids[seens == 0], model_methods.writer, loader,
-                                      Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', path=model_methods.save_path,
-                                      gpu=args.cuda, tb_draw=True)
-        print(f'Unseen length: {len(labels[seens == 0])}')
-        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
-        print(unseen_res)
-
-        res = utils.evaluation(args, embeddings, labels, ids, model_methods.writer,
-                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=model_methods.save_path,
-                               gpu=args.cuda, tb_draw=True)
-        print(f'Total length: {len(labels)}')
-        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
-        print(res)
-
-    elif len(unique_seens) == 1:
-        res = utils.evaluation(args, embeddings, labels, ids, model_methods.writer,
-                               loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=model_methods.save_path,
-                               gpu=args.cuda, path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
-                               tb_draw=True)
-        print(f'Total length: {len(labels)}')
-        print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
-        print(res)
-    else:
-        raise Exception(f"More than 2 values in 'seens'. len(unique_seens) = {len(unique_seens)}")
-
+    utils.draw_top_results(args, embeddings, labels, ids, seens, loader,
+                           model_methods.writer, model_methods.save_path,
+                           best_negative=True, too_close_negative=True)
 
 if __name__ == '__main__':
     main()
