@@ -943,19 +943,10 @@ def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='
     datas = {}
     datas_bg = {}  # in case of mode == val/test_seen/unseen
 
-    if get_lbl2chain:
-        lbl2chain_pd = pd.read_csv(os.path.join(split_file_path, 'label2chain.csv'))
-        all_lbls = list(lbl2chain_pd.label)
-        all_chains = list(lbl2chain_pd.chain)
-
-        lbl2chain = {l: c for l, c in zip(all_lbls, all_chains)}
-    else:
-        lbl2chain = None
-
-    if split_file_path == '':
+    if hotels_splits == '':
         file_name = f'{dataset_name}_' + mode + '.csv'
     else:
-        file_name = split_file_path
+        file_name = hotels_splits
 
     print(f'{mode}', file_name)
     image_path, image_labels = _read_new_split(split_file_path, file_name)
