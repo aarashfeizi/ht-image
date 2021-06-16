@@ -1949,7 +1949,7 @@ class ModelMethods:
                 labels[idx * batch_size:end] = lbl
                 ids[idx * batch_size:end] = id
 
-                if len(tpl) == 4:
+                if len(tpl) == 5:
                     seens[idx * batch_size:end] = seen.to(int)
                 t.update()
 
