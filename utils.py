@@ -2208,7 +2208,7 @@ def get_logname(args):
         id_str = ''
 
 
-    if args.loss == 'batchhard':
+    if args.loss == 'batchhard' or args.loss == 'contrastive':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
     if args.pretrained_model != '':  # for running baselines and feature extractors
