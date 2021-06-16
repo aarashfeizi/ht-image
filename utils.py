@@ -2501,6 +2501,8 @@ def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=F
     # minval = np.min(sim) - 1.
     # sim -= np.diag(np.diag(sim))
     # sim += np.diag(np.ones(num) * minval)
+    start = time.time()
+    print(f'**** Evaluation, calculating rank dist: {metric}')
     if dist_matrix is not None:
         num = Y.shape[0]
 
@@ -2512,6 +2514,8 @@ def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=F
         distances = (-dist_matrix)[indices]
     else:
         distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu, metric=metric)
+
+    print(f'**** Evaluation, calculating dist rank DONE. Took {time.time() - start}s')
 
     lbl2chain = None
     if create_best_negatives:

@@ -134,11 +134,17 @@ def main():
     prmpt = 'Test results' if args.test else 'Val results'
     print(prmpt)
 
-    import pdb
-    pdb.set_trace()
-    utils.draw_top_results(args, embeddings, labels, ids, seens, loader,
-                           model_methods.writer, model_methods.save_path,
-                           best_negative=True, too_close_negative=True)
+    if loader.dataset.lbl2chain:
+        suplabels = np.array([loader.dataset.lbl2chain[i] for i in labels])
+    else:
+        suplabels = None
+    # utils.draw_top_results(args, embeddings, labels, ids, seens, loader,
+    #                        model_methods.writer, model_methods.save_path,
+    #                        best_negative=True, too_close_negative=True)
+
+    utils.draw_top_results(args, embeddings, labels, suplabels, ids, seens, loader,
+                           model_methods.writer, model_methods.save_path, metric=model_methods.metric, k=args.draw_top_k_results,
+                           dist_matrix=None, best_negative=False, too_close_negative=False)
 
 if __name__ == '__main__':
     main()
