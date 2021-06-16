@@ -168,7 +168,7 @@ def get_args():
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
     parser.add_argument('-dsn', '--dataset_name', default='hotels',
-                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
+                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'new_hotels_small', 'new_hotels' 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -268,6 +268,12 @@ def get_args():
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
     parser.add_argument('-fd', '--fourth_dim', default=False, action='store_true')
     parser.add_argument('-camp', '--cam_path', default='cam_info_hotels.txt')
+
+    parser.add_argument('--new_hotel_split_train', default='new_split_train.csv')
+    parser.add_argument('--new_hotel_split_val', default='new_split_val.csv')
+    parser.add_argument('--new_hotel_split_test', default='new_split_test.csv')
+
+
     parser.add_argument('--train_folder_name', default='train')
     parser.add_argument('--vs_folder_name', default='val_seen')
     parser.add_argument('--vu_folder_name', default='val_unseen')
@@ -811,10 +817,7 @@ def _read_org_split(dataset_path, mode):
     return image_path, image_labels
 
 
-def _read_new_split(dataset_path, mode,
-                    dataset_name='cub'):  # mode = [test_seen, val_seen, train, test_unseen, test_unseen]
-
-    file_name = f'{dataset_name}_' + mode + '.csv'
+def _read_new_split(dataset_path, file_name):  # mode = [test_seen, val_seen, train, test_unseen, test_unseen]
 
     file = pd.read_csv(os.path.join(dataset_path, file_name))
     image_labels = np.array(file.label)
@@ -924,7 +927,7 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
 
 
 def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='',
-                         portion=0, return_bg=True, dataset_folder='', get_lbl2chain=False):
+                         portion=0, return_bg=True, dataset_folder='', get_lbl2chain=False, hotels_splits=''):
     print(split_file_path, '!!!!!!!!')
     dataset_path = os.path.join(dataPath, dataset_folder)
 
@@ -949,10 +952,16 @@ def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='
     else:
         lbl2chain = None
 
-    image_path, image_labels = _read_new_split(split_file_path, mode, dataset_name)
+    if split_file_path == '':
+        file_name = f'{dataset_name}_' + mode + '.csv'
+    else:
+        file_name = split_file_path
+
+    print(f'{mode}', file_name)
+    image_path, image_labels = _read_new_split(split_file_path, file_name)
     if return_bg:
-        image_path_bg, image_labels_bg = _read_new_split(split_file_path,
-                                                         background_datasets[mode], dataset_name)
+        file_name = f'{dataset_name}_' + background_datasets[mode] + '.csv'
+        image_path_bg, image_labels_bg = _read_new_split(split_file_path, file_name)
 
     if portion > 0:
         image_path = image_path[image_labels < portion]

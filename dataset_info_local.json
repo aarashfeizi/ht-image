@@ -15,5 +15,20 @@
     "train_path": "./omniglot/python/images_background",
     "test_path": "./omniglot/python/images_evaluation",
     "image_size": 300
+  },
+  "new_hotels": {
+          "splits_file_path": "/home/ml/users/afeizi/datasets/hotels_trainval/splits_50k",
+          "dataset_folder": "hotels_trainval",
+          "image_size": 224,
+          "train_folder_name": "train",
+          "vs_folder_name": "val",
+          "vu_folder_name": "",
+          "ts_folder_name": "test",
+          "tu_folder_name": "",
+          "save_path": "savedmodels_new_hotels",
+          "tb_path": "tensorboard_new_hotels",
+          "mask_path": "mask_paths.csv",
+          "cam_path": "cam_info_hotels.txt",
+          "portion": 0
   }
 }

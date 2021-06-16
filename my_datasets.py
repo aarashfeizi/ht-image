@@ -34,7 +34,7 @@ class Metric_Dataset_Train(Dataset):
 
         self.allow_same_chain_negative = allow_same_chain_negative
 
-        if args.dataset_name.startswith('hotels'):
+        if 'hotels' in args.dataset_name:
             super_labels = pd.read_csv(os.path.join(args.splits_file_path, 'label2chain.csv'))
             self.lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
         else:
@@ -57,7 +57,25 @@ class Metric_Dataset_Train(Dataset):
                     or \
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
-        if args.dataset_name.startswith('hotels'):
+
+        if args.dataset_name.startswith('new_hotels'):
+            if mode == 'train':
+                split_path = args.new_hotel_split_train
+            elif mode == 'val':
+                split_path = args.new_hotel_split_val
+            elif mode == 'test':
+                split_path = args.new_hotel_split_test
+            else:
+                raise Exception('Wrong mode for new-hotels!!!')
+
+            self.datas, self.num_classes, self.length, self.labels, _ = load_hotelData_ToMem(args.dataset_path,
+                                                                                             'new_hotels',
+                                                                                             mode=mode,
+                                                                                             split_file_path=args.splits_file_path,
+                                                                                             dataset_folder=args.dataset_folder,
+                                                                                             return_bg=False,
+                                                                                             hotels_splits=split_path)
+        elif args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, self.length, self.labels, _ = load_hotelData_ToMem(args.dataset_path,
                                                                                              'hotels',
                                                                                              mode=mode,
@@ -359,13 +377,36 @@ class FewShot_Dataset_Test(Dataset):
         self.fourth_dim = args.fourth_dim
         self.colored_mask = args.colored_mask
 
+        if 'hotels' in args.dataset_name:
+            super_labels = pd.read_csv(os.path.join(args.splits_file_path, 'label2chain.csv'))
+            self.lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+        else:
+            self.lbl2chain = None
+
         return_bg = (mode.startswith('val') and
                      args.vu_folder_name != 'none') \
                     or \
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
 
-        if args.dataset_name.startswith('hotels'):
+        if args.dataset_name.startswith('new_hotels'):
+            if mode == 'train':
+                split_path = args.new_hotel_split_train
+            elif mode == 'val':
+                split_path = args.new_hotel_split_val
+            elif mode == 'test':
+                split_path = args.new_hotel_split_test
+            else:
+                raise Exception('Wrong mode for new-hotels!!!')
+
+            self.datas, self.num_classes, _, self.labels, self.datas_bg = load_hotelData_ToMem(args.dataset_path,
+                                                                                               'new_hotels',
+                                                                                               mode=mode,
+                                                                                               split_file_path=args.splits_file_path,
+                                                                                               dataset_folder=args.dataset_folder,
+                                                                                               return_bg=False,
+                                                                                               hotels_splits=split_path)
+        elif args.dataset_name.startswith('hotels'):
             self.datas, self.num_classes, _, self.labels, self.datas_bg = load_hotelData_ToMem(args.dataset_path,
                                                                                                'hotels',
                                                                                                mode=mode,
@@ -456,107 +497,6 @@ class FewShot_Dataset_Test(Dataset):
         return img
 
 
-class HotelTest_EdgePred(Dataset):
-
-    def __init__(self, args, transform=None, mode='test_seen', save_pictures=False):
-        np.random.seed(args.seed)
-        super(HotelTest_EdgePred, self).__init__()
-        self.transform = transform
-        self.save_pictures = save_pictures
-        self.times = args.times
-        self.way = args.way  # number of classes
-        self.k = args.test_k  # number of images per class
-
-        self.img_idx = 0
-        self.class_idx = 0
-        self.imgs = []
-        self.classes = []
-
-        self.mode = mode
-        self.normalize = utils.TransformLoader(-1).transform_normalize
-        self.fourth_dim = args.fourth_dim
-        self.colored_mask = args.colored_mask
-
-        self.datas, self.num_classes, _, self.labels, self.datas_bg = load_hotelData_ToMem(args.dataset_path,
-                                                                                           args.dataset_name,
-                                                                                           mode=mode,
-                                                                                           split_file_path=args.splits_file_path,
-                                                                                           portion=args.portion,
-                                                                                           dataset_folder=args.dataset_folder)
-
-        self.aug_mask = args.aug_mask
-
-        if self.aug_mask:
-            self.masks = get_masks(args.dataset_path, args.dataset_folder,
-                                   os.path.join(args.project_path, args.mask_path))
-
-        else:
-            self.masks = []
-
-        print(f'HotelTest_EdgePred hotel {mode} classes: ', self.num_classes)
-        print(f'HotelTest_EdgePred hotel {mode} length: ', self.__len__())
-
-    def __len__(self):
-        return self.times * self.way * self.k
-
-    def __getitem__(self, index):
-        # generate image pair from same class
-        if index % (self.way * self.k) == 0:
-            self.classes = self.labels[np.random.randint(0, self.num_classes, size=self.way)]
-            self.class_idx = 0
-            self.img_idx = 0
-            # import pdb
-            # pdb.set_trace()
-            label = self.classes[self.class_idx]
-            self.imgs = np.array(self.datas[label])[
-                np.random.randint(0, len(self.datas[label]),
-                                  size=self.k)]
-
-        else:
-            label = self.classes[self.class_idx]
-
-        img_label = self.classes[self.class_idx]
-        img = Image.open(self.imgs[self.img_idx]).convert('RGB')
-
-        self.img_idx += 1
-        if self.img_idx == self.k and self.class_idx < len(self.classes) - 1:
-            self.class_idx += 1
-            self.img_idx = 0
-            label = self.classes[self.class_idx]
-            self.imgs = np.array(self.datas[label])[
-                np.random.randint(0, len(self.datas[label]),
-                                  size=self.k)]
-
-        save = False
-
-        if self.transform:
-            if self.save_pictures and random.random() < 0.001:
-                save = True
-                img_random = random.randint(0, 1000)
-
-                img.save(f'hotel_imagesamples/val/val_{label}_{img_random}_before.png')
-
-            if self.aug_mask:
-                img_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
-
-                img, masked_img, img_mask, _ = utils.add_mask(img, img_mask, colored=self.colored_mask)
-
-                if not self.fourth_dim:
-                    img = masked_img
-
-            img = self.do_transform(img)
-
-            if save:
-                save_image(img, f'hotel_imagesamples/val/val_{label}_{img_random}_after.png')
-
-        return img, torch.Tensor([img_label])
-
-    def do_transform(self, img):
-        img = self.transform(img)
-        img = self.normalize(img)
-        return img
-
-
 class DB_Dataset(Dataset):
     def __init__(self, args, transform=None, mode='test', return_pairs=False):
         np.random.seed(args.seed)
@@ -568,6 +508,12 @@ class DB_Dataset(Dataset):
         self.normalize = utils.TransformLoader(-1).transform_normalize
         self.colored_mask = args.colored_mask
         self.return_pairs = return_pairs
+
+        if 'hotels' in args.dataset_name:
+            super_labels = pd.read_csv(os.path.join(args.splits_file_path, 'label2chain.csv'))
+            self.lbl2chain = {k: v for k, v, in zip(list(super_labels.label), list(super_labels.chain))}
+        else:
+            self.lbl2chain = None
 
         total = True
         if self.mode == 'val' or self.mode == 'test':  # mode == *_seen or *_unseen or train
@@ -582,8 +528,25 @@ class DB_Dataset(Dataset):
                          or \
                          (mode.startswith('test') and
                           args.tu_folder_name != 'none')
-        if args.dataset_name.startswith('hotels'):
-            self.datas, self.num_classes, _, self.labels, self.all_data, self.lbl2chain = load_hotelData_ToMem(
+        if args.dataset_name.startswith('new_hotels'):
+            if mode == 'train':
+                split_path = args.new_hotel_split_train
+            elif mode == 'val':
+                split_path = args.new_hotel_split_val
+            elif mode == 'test':
+                split_path = args.new_hotel_split_test
+            else:
+                raise Exception('Wrong mode for new-hotels!!!')
+
+            self.datas, self.num_classes, _, self.labels, self.all_data = load_hotelData_ToMem(args.dataset_path,
+                                                                                               'new_hotels',
+                                                                                               mode=mode,
+                                                                                               split_file_path=args.splits_file_path,
+                                                                                               dataset_folder=args.dataset_folder,
+                                                                                               return_bg=False,
+                                                                                               hotels_splits=split_path)
+        elif args.dataset_name.startswith('hotels'):
+            self.datas, self.num_classes, _, self.labels, self.all_data = load_hotelData_ToMem(
                 args.dataset_path,
                 'hotels',
                 mode=self.mode_tmp,
@@ -591,8 +554,7 @@ class DB_Dataset(Dataset):
                 portion=args.portion,
                 dataset_folder=args.dataset_folder,
                 return_bg=(
-                        self.mode != 'train'),
-                get_lbl2chain=True)
+                        self.mode != 'train'))
         else:
             self.lbl2chain = None
             self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path,
