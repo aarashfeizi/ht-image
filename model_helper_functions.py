@@ -1930,7 +1930,7 @@ class ModelMethods:
         with tqdm(total=len(data_loader), desc='Storing embeddings...') as t:
             for idx, tpl in enumerate(data_loader):
 
-                if len(tpl) == 4:
+                if len(tpl) == 5:
                     img, lbl, sup_lbl, seen, id = tpl
                 else:
                     img, lbl, sup_lbl, id = tpl

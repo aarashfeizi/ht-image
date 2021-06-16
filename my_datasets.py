@@ -529,7 +529,6 @@ class DB_Dataset(Dataset):
                          (mode.startswith('test') and
                           args.tu_folder_name != 'none')
         if args.dataset_name.startswith('new_hotels'):
-            self.return_bg = False
             if mode == 'train':
                 split_path = args.new_hotel_split_train
             elif mode == 'val':
