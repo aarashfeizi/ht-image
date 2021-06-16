@@ -1623,9 +1623,9 @@ class ModelMethods:
                     end = min((idx + 1) * batch_size, len(test_feats))
 
                     if return_bg and mode != 'train':
-                        (img, lbl, seen, path) = tpl
+                        (img, lbl, sup_lbl, seen, path) = tpl
                     else:
-                        (img, lbl, path) = tpl
+                        (img, lbl, sup_lbl, path) = tpl
 
                     if args.cuda:
                         img = img.cuda()
@@ -1676,6 +1676,11 @@ class ModelMethods:
                 test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
                                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
+        if data_loader.dataset.lbl2chain:
+            test_suplabels = np.array([data_loader.dataset.lbl2chain[i] for i in test_classes])
+        else:
+            test_suplabels = None
+
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
 
         # self.draw_dim_reduced(test_feats, test_classes, method='pca', title="on epoch " + str(epoch), path=pca_path)
@@ -1719,7 +1724,7 @@ class ModelMethods:
                 draw_top_k_results = args.draw_top_k_results
                 self.logger.info(f'Drawing top {draw_top_k_results} retrievals!!')
                 print(f'Drawing top {draw_top_k_results} retrievals!!')
-                utils.draw_top_results(args, test_feats, test_classes, test_paths, test_seen, data_loader,
+                utils.draw_top_results(args, test_feats, test_classes, test_suplabels, test_paths, test_seen, data_loader,
                                        self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
                                        dist_matrix=None, best_negative=False, too_close_negative=False)
 
@@ -1926,9 +1931,9 @@ class ModelMethods:
             for idx, tpl in enumerate(data_loader):
 
                 if len(tpl) == 4:
-                    img, lbl, seen, id = tpl
+                    img, lbl, sup_lbl, seen, id = tpl
                 else:
-                    img, lbl, id = tpl
+                    img, lbl, sup_lbl, id = tpl
                     seen = -1
 
                 if args.cuda:
@@ -2897,322 +2902,3 @@ class ModelMethods:
             raise Exception(f'Metric {self.metric} not supported')
 
         return dists
-
-
-class BaslineModel:
-    def __init__(self, args, model, logger, loss_fn, model_name, id_str=''):
-        self.logger = logger
-        self.model = model
-        self.loss_fn = loss_fn  # batch hard
-        self.bh_k = args.bh_K
-        self.bh_p = args.bh_P
-        self.model_name = model_name
-        self.tensorboard_path = os.path.join(args.local_path, args.tb_path, self.model_name)
-        self.writer = SummaryWriter(self.tensorboard_path)
-
-        self.save_path = os.path.join(args.local_path, args.save_path, self.model_name)
-        utils.create_save_path(self.save_path, id_str, self.logger)
-
-        self.gen_plot_path = f'{self.save_path}/plots/'
-
-        utils.make_dirs(self.tensorboard_path)
-
-        self.gen_plot_path = f'{self.save_path}/plots/'
-        utils.make_dirs(self.gen_plot_path)
-        utils.make_dirs(os.path.join(self.gen_plot_path, 'train'))
-        utils.make_dirs(os.path.join(self.gen_plot_path, 'val'))
-
-        self.class_diffs = {'train':
-                                {'between_class_average': [],
-                                 'between_class_min': [],
-                                 'between_class_max': [],
-                                 'in_class_average': [],
-                                 'in_class_min': [],
-                                 'in_class_max': []},
-                            'val':
-                                {'between_class_average': [],
-                                 'between_class_min': [],
-                                 'between_class_max': [],
-                                 'in_class_average': [],
-                                 'in_class_min': [],
-                                 'in_class_max': []}}
-        self.silhouette_scores = {'train': [],
-                                  'val': []}
-
-        self.aug_mask = args.aug_mask
-
-    def train_epoch(self, t, args, train_loader, opt, epoch):
-        train_loss = 0
-
-        labels = torch.Tensor([[i for _ in range(self.bh_k)] for i in range(self.bh_p)]).flatten()
-        if args.cuda:
-            labels = Variable(labels.cuda())
-        else:
-            labels = Variable(labels)
-
-        for batch_id, imgs in enumerate(train_loader, 1):
-
-            imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
-            start = time.time()
-            # import pdb
-            # pdb.set_trace()
-            if args.cuda:
-                imgs = Variable(imgs.cuda())
-            else:
-                imgs = Variable(imgs)
-
-            # if not drew_graph:
-            #     self.writer.add_graph(self.model, (imgs.detach()), verbose=True)
-            #     self.writer.flush()
-            #     drew_graph = True
-
-            self.model.train()
-            # device = f'cuda:{net.device_ids[0]}'
-            opt.zero_grad()
-            forward_start = time.time()
-            feats = self.model.forward(imgs)
-            forward_end = time.time()
-
-            if utils.MY_DEC.enabled:
-                self.logger.info(f'########### baseline forward time: {forward_end - forward_start}')
-
-            # if args.verbose:
-            #     self.logger.info(f'norm pos: {pos_dist}')
-
-            loss = self.loss_fn(feats, labels)
-
-            train_loss += loss.item()
-
-            loss.backward()  # training with triplet loss
-
-            opt.step()
-
-            t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}')
-            t.update()
-
-            end = time.time()
-            if utils.MY_DEC.enabled:
-                self.logger.info(f'########### baseline one batch time: {end - start}')
-
-        return t, train_loss
-
-    def train(self, args, train_loader, val_loader):
-
-        epochs = args.epochs
-
-        opt = torch.optim.Adam([{'params': self.model.conv1.parameters()},
-                                {'params': self.model.bn1.parameters()},
-                                {'params': self.model.relu.parameters()},
-                                {'params': self.model.maxpool.parameters()},
-                                {'params': self.model.layer1.parameters()},
-                                {'params': self.model.layer2.parameters()},
-                                {'params': self.model.layer3.parameters()},
-                                {'params': self.model.layer4.parameters()},
-                                {'params': self.model.avgpool.parameters()},
-                                {'params': self.model.fc.parameters(), 'lr': args.lr_new}],
-                               lr=args.lr_resnet, weight_decay=args.weight_decay)
-
-        # opt = torch.optim.Adam([{'params': self.model.parameters()}],
-        #                        lr=args.lr_resnet)
-        # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-        opt.zero_grad()
-
-        for epoch in range(1, epochs + 1):
-            with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{epochs}') as t:
-
-                all_batches_start = time.time()
-
-                utils.print_gpu_stuff(args.cuda, 'before train epoch')
-
-                t, train_loss = self.train_epoch(t, args, train_loader, opt, epoch)
-
-            if (epoch) % args.test_freq == 0:
-                self.logger.info(f'Eval: epoch {epoch}')
-                print(f'Eval: epoch {epoch}')
-                self.model.eval()
-
-                self.make_emb_db(args, val_loader,
-                                 eval_sampled=True,
-                                 eval_per_class=True,
-                                 mode='val',
-                                 epoch=epoch,
-                                 k_at_n=True)
-
-            # self.logger.info(
-            #     f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
-            #     f'Train_Fewshot _Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
-
-        self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
-        # self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
-        # self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot), epoch)
-        # self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
-        self.writer.flush()
-
-    def make_emb_db(self, args, data_loader, eval_sampled, eval_per_class,
-                    mode='val', epoch=-1, k_at_n=True):
-
-        self.model.eval()
-        # device = f'cuda:{net.device_ids[0]}'
-
-        batch_size = args.db_batch
-
-        steps = int(np.ceil(len(data_loader) / batch_size))
-
-        test_classes = np.zeros(((len(data_loader.dataset))))
-        test_seen = np.zeros(((len(data_loader.dataset))))
-        test_paths = np.empty(dtype='S20', shape=((len(data_loader.dataset))))
-        if args.baseline_model == 'resnet50':
-            test_feats = np.zeros((len(data_loader.dataset), 256))
-        # elif args.feat_extractor == 'resnet18':
-        #     test_feats = np.zeros((len(data_loader.dataset), 512))
-        # elif args.feat_extractor == 'vgg16':
-        #     test_feats = np.zeros((len(data_loader.dataset), 4096))
-        else:
-            raise Exception('Not handled baseline mdoel')
-
-        with tqdm(total=len(data_loader), desc=f'Get Embeddings {epoch}') as t:
-            for idx, tpl in enumerate(data_loader):
-
-                end = min((idx + 1) * batch_size, len(test_feats))
-
-                if mode != 'train':
-                    (img, lbl, seen, path) = tpl
-                else:
-                    (img, lbl, path) = tpl
-
-                if args.cuda:
-                    img = img.cuda()
-
-                img = Variable(img)
-
-                output = self.model.forward(img)
-                output = output.data.cpu().numpy()
-
-                test_feats[idx * batch_size:end, :] = output
-                test_classes[idx * batch_size:end] = lbl
-                test_paths[idx * batch_size:end] = path
-
-                if mode != 'train':
-                    test_seen[idx * batch_size:end] = seen.to(int)
-                t.update()
-
-        utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
-                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
-        utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
-                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-        utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
-                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-        if mode != 'train':
-            utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
-
-        test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
-                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
-                                     os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-        if mode != 'train':
-            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
-                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
-
-        if epoch != -1:
-            diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot.png')
-            self.plot_class_diff_plots(test_feats, test_classes,
-                                       epoch=epoch,
-                                       mode=mode,
-                                       path=diff_class_path)
-
-        silhouette_path = ['', '']
-        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot.png')
-        silhouette_path[1] = os.path.join(self.gen_plot_path,
-                                          f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{epoch}.png')
-
-        self.plot_silhouette_score(test_feats, test_classes, epoch, mode, silhouette_path)
-
-        # import pdb
-        # pdb.set_trace()
-        if k_at_n:
-            utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
-                                   limit=args.limit_samples,
-                                   run_number=args.number_of_runs,
-                                   save_path=self.save_path,
-                                   sampled=eval_sampled,
-                                   even_sampled=False,
-                                   per_class=eval_per_class,
-                                   mode=mode)
-
-            self.logger.info('results at: ' + self.save_path)
-
-    def plot_class_diff_plots(self, img_feats, img_classes, epoch, mode, path):
-        dists = cosine_distances(img_feats)
-        res = utils.get_distances(dists, img_classes)
-        for k, v in self.class_diffs[mode].items():
-            v.append(res[k])
-
-        colors = ['r', 'b', 'y', 'g', 'c', 'm']
-        epochs = [i for i in range(1, epoch + 1)]
-        legends = []
-        colors_reordered = []
-
-        plt.figure(figsize=(10, 10))
-        for (k, v), c in zip(self.class_diffs[mode].items(), colors):
-            if len(v) > 1:
-                plt.plot(epochs, v, color=c, linewidth=2, markersize=12)
-            else:
-                plt.scatter(epochs, v, color=c)
-            legends.append(k)
-            colors_reordered.append(c)
-
-        plt.grid(True)
-        plt.xlabel('Epoch')
-        plt.ylabel('Euclidean Distance')
-        plt.xlim(left=0, right=epoch + 5)
-        plt.legend([Line2D([0], [0], color=colors_reordered[0], lw=4),
-                    Line2D([0], [0], color=colors_reordered[1], lw=4),
-                    Line2D([0], [0], color=colors_reordered[2], lw=4),
-                    Line2D([0], [0], color=colors_reordered[3], lw=4),
-                    Line2D([0], [0], color=colors_reordered[4], lw=4),
-                    Line2D([0], [0], color=colors_reordered[5], lw=4)], legends)
-
-        plt.title(f'{mode} class diffs')
-
-        plt.savefig(path)
-        plt.close('all')
-
-    def plot_silhouette_score(self, X, labels, epoch, mode, path):
-
-        self.silhouette_scores[mode].append(silhouette_score(X, labels, metric='cosine'))
-        samples_silhouette = silhouette_samples(X, labels)
-
-        if epoch != -1:
-            epochs = [i for i in range(1, epoch + 1)]
-
-            plt.figure(figsize=(10, 10))
-            if len(self.silhouette_scores[mode]) > 1:
-                plt.plot(epochs, self.silhouette_scores[mode], linewidth=2, markersize=12)
-            else:
-                plt.scatter(epochs, self.silhouette_scores[mode])
-
-            plt.grid(True)
-            plt.xlabel('Epoch')
-            plt.ylabel(f'Silhouette Score')
-            plt.xlim(left=0, right=epoch + 5)
-
-            plt.title(f'Silhouette Scores for {mode} set')
-
-            plt.savefig(path[0])
-
-        plt.close('all')
-
-        plt.figure(figsize=(10, 10))
-
-        plt.hist(samples_silhouette, bins=40)
-
-        plt.grid(True)
-        plt.xlabel('Silhouette Score')
-        plt.ylabel(f'Freq')
-        plt.xlim(left=-1.1, right=1.1)
-
-        plt.title(f'Silhouette Scores Distribution on {mode} set')
-
-        plt.savefig(path[1])
-        plt.close('all')

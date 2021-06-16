@@ -293,14 +293,9 @@ def main():
 
     cam_images_len = len(cam_img_paths) if cam_img_paths is not None else 0
 
-    if args.baseline_model != '':
-        net = utils.get_resnet(args, args.baseline_model)
-        model_methods_top = model_helper_functions.BaslineModel(args=args, logger=logger, model=net, loss_fn=loss_fn,
-                                                                model_name=model_name, id_str=id_str)
-    else:
-        model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=cam_images_len,
-                                                                model_name=model_name, id_str=id_str)
-        net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
+    model_methods_top = model_helper_functions.ModelMethods(args, logger, 'top', cam_images_len=cam_images_len,
+                                                            model_name=model_name, id_str=id_str)
+    net = top_module(args=args, num_classes=num_classes, mask=args.aug_mask, fourth_dim=args.fourth_dim)
 
     logger.info(f'model: {str(net)}')
     logger.info(model_methods_top.save_path)
@@ -324,10 +319,6 @@ def main():
         utils.print_gpu_stuff(args.cuda, 'after model to gpu')
 
     logger.info('Training Top')
-    if args.baseline_model != '':
-        logger.info('Training')
-        model_methods_top.train(args, train_loader, val_db_loader)
-
     if args.pretrained_model_name == '':
         logger.info('Training')
         print('Total parameters:', utils.get_number_of_parameters(net))

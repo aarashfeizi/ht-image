@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 from torchvision.utils import save_image
 
 import utils
-from utils import get_shuffled_data, loadDataToMem, loadDataToMem_2, get_overfit, get_masks
+from utils import get_shuffled_data, load_hotelData_ToMem, loadDataToMem_2, get_overfit, get_masks
 
 
 class Metric_Dataset_Train(Dataset):
@@ -40,7 +40,6 @@ class Metric_Dataset_Train(Dataset):
         else:
             self.lbl2chain = None
 
-
         if (not allow_same_chain_negative) and args.negative_path is not None:
             negative_result = self.load_best_negatives(args.negative_path)
         else:
@@ -59,12 +58,13 @@ class Metric_Dataset_Train(Dataset):
                     (mode.startswith('test') and
                      args.tu_folder_name != 'none')
         if args.dataset_name.startswith('hotels'):
-            self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, 'hotels',
-                                                                                      mode=mode,
-                                                                                      split_file_path=args.splits_file_path,
-                                                                                      portion=args.portion,
-                                                                                      dataset_folder=args.dataset_folder,
-                                                                                      return_bg=return_bg)
+            self.datas, self.num_classes, self.length, self.labels, _ = load_hotelData_ToMem(args.dataset_path,
+                                                                                             'hotels',
+                                                                                             mode=mode,
+                                                                                             split_file_path=args.splits_file_path,
+                                                                                             portion=args.portion,
+                                                                                             dataset_folder=args.dataset_folder,
+                                                                                             return_bg=return_bg)
             # utils.plot_class_dist(self.datas, f'hotels-{args.portion} {mode} dist', f'dataset_plots/hotels-{args.portion}_{mode}_dist.png')
 
         else:
@@ -366,13 +366,13 @@ class FewShot_Dataset_Test(Dataset):
                      args.tu_folder_name != 'none')
 
         if args.dataset_name.startswith('hotels'):
-            self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
-                                                                                        'hotels',
-                                                                                        mode=mode,
-                                                                                        split_file_path=args.splits_file_path,
-                                                                                        portion=args.portion,
-                                                                                        dataset_folder=args.dataset_folder,
-                                                                                        return_bg=return_bg)
+            self.datas, self.num_classes, _, self.labels, self.datas_bg = load_hotelData_ToMem(args.dataset_path,
+                                                                                               'hotels',
+                                                                                               mode=mode,
+                                                                                               split_file_path=args.splits_file_path,
+                                                                                               portion=args.portion,
+                                                                                               dataset_folder=args.dataset_folder,
+                                                                                               return_bg=return_bg)
 
             # utils.plot_class_dist(self.datas, f'hotels-{args.portion} {mode} dist', f'dataset_plots/hotels-{args.portion}_{mode}_dist.png')
 
@@ -477,12 +477,12 @@ class HotelTest_EdgePred(Dataset):
         self.fourth_dim = args.fourth_dim
         self.colored_mask = args.colored_mask
 
-        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
-                                                                                    args.dataset_name,
-                                                                                    mode=mode,
-                                                                                    split_file_path=args.splits_file_path,
-                                                                                    portion=args.portion,
-                                                                                    dataset_folder=args.dataset_folder)
+        self.datas, self.num_classes, _, self.labels, self.datas_bg = load_hotelData_ToMem(args.dataset_path,
+                                                                                           args.dataset_name,
+                                                                                           mode=mode,
+                                                                                           split_file_path=args.splits_file_path,
+                                                                                           portion=args.portion,
+                                                                                           dataset_folder=args.dataset_folder)
 
         self.aug_mask = args.aug_mask
 
@@ -583,15 +583,18 @@ class DB_Dataset(Dataset):
                          (mode.startswith('test') and
                           args.tu_folder_name != 'none')
         if args.dataset_name.startswith('hotels'):
-            self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
-                                                                                        'hotels',
-                                                                                        mode=self.mode_tmp,
-                                                                                        split_file_path=args.splits_file_path,
-                                                                                        portion=args.portion,
-                                                                                        dataset_folder=args.dataset_folder,
-                                                                                        return_bg=(
-                                                                                                self.mode != 'train'))
+            self.datas, self.num_classes, _, self.labels, self.all_data, self.lbl2chain = load_hotelData_ToMem(
+                args.dataset_path,
+                'hotels',
+                mode=self.mode_tmp,
+                split_file_path=args.splits_file_path,
+                portion=args.portion,
+                dataset_folder=args.dataset_folder,
+                return_bg=(
+                        self.mode != 'train'),
+                get_lbl2chain=True)
         else:
+            self.lbl2chain = None
             self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem_2(args.dataset_path,
                                                                                           args.dataset_folder,
                                                                                           mode=mode,
@@ -681,6 +684,11 @@ class DB_Dataset(Dataset):
                 return img1, img2, lbl1, lbl2, id1, id2
         else:
             lbl = self.all_shuffled_data[index][0]
+            if self.lbl2chain:
+                sup_lbl = self.lbl2chain[lbl]
+            else:
+                sup_lbl = None
+
             img = Image.open(self.all_shuffled_data[index][1]).convert('RGB')
             if self.mode != 'train' and self.return_bg:
                 bl = self.all_shuffled_data[index][2]
@@ -703,9 +711,9 @@ class DB_Dataset(Dataset):
                 img = self.do_transform(img)
 
             if self.mode != 'train' and self.return_bg:
-                return img, lbl, bl, id
+                return img, lbl, sup_lbl, bl, id
             else:
-                return img, lbl, id
+                return img, lbl, sup_lbl, id
 
     def do_transform(self, img):
         img = self.transform(img)

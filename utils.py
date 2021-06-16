@@ -278,7 +278,6 @@ def get_args():
     parser.add_argument('-lpth', '--local_path',
                         default='/home/aarash/projects/def-rrabba/aarash/ht-image-twoloss/ht-image/')
     parser.add_argument('-jid', '--job_id', default='')
-    parser.add_argument('-bm', '--baseline_model', default='')
     parser.add_argument('-ss', '--static_size', default=0, type=int, help="number of neurons in classifier network")
     parser.add_argument('-dr', '--dim_reduction', default=0, type=int, help="dim reduction after feature extractor")
 
@@ -924,8 +923,8 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
     return datas, num_classes, num_instances, labels, datas_bg
 
 
-def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
-                  portion=0, return_bg=True, dataset_folder=''):
+def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='',
+                         portion=0, return_bg=True, dataset_folder='', get_lbl2chain=False):
     print(split_file_path, '!!!!!!!!')
     dataset_path = os.path.join(dataPath, dataset_folder)
 
@@ -940,6 +939,15 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
     print("begin loading dataset to memory")
     datas = {}
     datas_bg = {}  # in case of mode == val/test_seen/unseen
+
+    if get_lbl2chain:
+        lbl2chain_pd = pd.read_csv(os.path.join(split_file_path, 'label2chain.csv'))
+        all_lbls = list(lbl2chain_pd.label)
+        all_chains = list(lbl2chain_pd.chain)
+
+        lbl2chain = {l: c for l, c in zip(all_lbls, all_chains)}
+    else:
+        lbl2chain = None
 
     image_path, image_labels = _read_new_split(split_file_path, mode, dataset_name)
     if return_bg:
@@ -997,7 +1005,11 @@ def loadDataToMem(dataPath, dataset_name, mode='train', split_file_path='',
         datas_bg = datas
 
     print(f'finish loading {dataset_name}_{mode} dataset to memory')
-    return datas, num_classes, num_instances, labels, datas_bg
+
+    if get_lbl2chain:
+        return datas, num_classes, num_instances, labels, datas_bg, lbl2chain
+    else:
+        return datas, num_classes, num_instances, labels, datas_bg
 
 
 def project_2d(features, labels, title):
@@ -2145,7 +2157,6 @@ def get_logname(args):
             elif str(arg) == 'same_pic_prob' and getattr(args, arg) == 0:
                 continue
 
-
             if type(getattr(args, arg)) is not bool:
                 name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
             else:
@@ -2196,8 +2207,6 @@ def get_logname(args):
         name = args.pretrained_model_dir + '_PTRN'
         id_str = ''
 
-    if args.baseline_model != '':
-        name = 'baseline_' + args.baseline_model + '-' + args.loss + gpu_info
 
     if args.loss == 'batchhard':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
@@ -2474,8 +2483,11 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=5, path_to_lbl2chain='', tb_draw=False,
+def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=False, k=5, path_to_lbl2chain='', tb_draw=False,
                metric='cosine', dist_matrix=None, create_best_negatives=True, create_too_close_negatvies=True):
+    if superY is None:
+        superY = np.array([-1 for _ in Y])
+
     num = X.shape[0]
     classN = np.max(Y) + 1
     kmax = min(np.max(Kset), num)
@@ -2509,9 +2521,11 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=
             best_negatives = {}
             for i, (i_row) in enumerate(indices):
                 query_label = Y[i]
+                query_superlabel = superY[i]
                 for j in i_row:
                     negative_idx = j
                     negative_label = Y[j]
+                    negative_superlabel = superY[i]
                     if lbl2chain[query_label] != lbl2chain[negative_label]:
                         break
                 best_negatives[loader.dataset.all_shuffled_data[i][1]] = (
@@ -2520,10 +2534,6 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=
             with open(args.negative_path, 'wb') as f:
                 print('new negative set creeated')
                 pickle.dump(best_negatives, f)
-
-
-
-
 
     label_to_simlabels = {}
     if create_too_close_negatvies:
@@ -2537,6 +2547,7 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=
             pickle.dump(label_to_simlabels, f)
 
     YNN = Y[indices]
+    superYNN = superY[indices]
     idxNN = ids[indices]
     counter = 0
     r1_counter = 0
@@ -2549,18 +2560,19 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=
             if tb_draw:
                 if Y[j] == YNN[j, 0]:
                     if r1_counter < k:
-                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader,
+                        plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loader,
                                     f'r@1_{r1_counter}_{split}')
                         r1_counter += 1
                         print('r1_counter = ', r1_counter)
                 elif Y[j] in YNN[j, :10]:
                     if r10_counter < k:
-                        plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader,
+                        plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loader,
                                     f'r@10_{r10_counter}_{split}')
                         r10_counter += 1
                         print('r10_counter = ', r10_counter)
                 elif counter < k:
-                    plot_images(ids[j], Y[j], idxNN[j, :10], YNN[j, :10], writer, loader, f'{counter}_{split}')
+                    plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loader,
+                                f'{counter}_{split}')
                     counter += 1
                     print('counter = ', counter)
 
@@ -2568,13 +2580,13 @@ def evaluation(args, X, Y, ids, writer, loader, Kset, split, path, gpu=False, k=
     return recallK
 
 
-def plot_images(org_idx, org_lbl, top_10_indx, top_10_lbl, writer, loader, tb_label):
-    writer.add_image(tb_label + f'/0_q_class{org_lbl}',
+def plot_images(org_idx, org_lbl, sup_lbl, top_10_indx, top_10_lbl, top_10_super_lbl, writer, loader, tb_label):
+    writer.add_image(tb_label + f'/0_q_class_C{org_lbl}_{sup_lbl}',
                      get_image_from_dataloader(loader, org_idx),
                      0, dataformats='CHW')
 
     for i in range(len(top_10_lbl)):
-        writer.add_image(tb_label + f'/{i + 1}_class{top_10_lbl[i]}',
+        writer.add_image(tb_label + f'/{i + 1}_class_C{top_10_lbl[i]}_{top_10_super_lbl[i]}',
                          get_image_from_dataloader(loader, top_10_indx[i]),
                          0, dataformats='CHW')
 
@@ -2685,36 +2697,44 @@ def calc_custom_euc(feat, chunks=4):
     return sum(eucs)
 
 
-def draw_top_results(args, embeddings, labels, ids, seens, data_loader, tb_writer, save_path, metric='cosine', k=5, dist_matrix=None, best_negative=False, too_close_negative=False):
+def draw_top_results(args, embeddings, labels, superlabels, ids, seens, data_loader, tb_writer, save_path, metric='cosine', k=5,
+                     dist_matrix=None, best_negative=False, too_close_negative=False):
     unique_seens = np.unique(seens)
     if len(unique_seens) == 2:
-        seen_res = evaluation(args, embeddings[seens == 1], labels[seens == 1],
+        superlabels_0 = superlabels[seens == 0] if superlabels is not None else None
+        superlabels_1 = superlabels[seens == 1] if superlabels is not None else None
+        seen_res = evaluation(args, embeddings[seens == 1], labels[seens == 1], superlabels_1,
                               ids[seens == 1], tb_writer, data_loader,
                               Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='seen', path=save_path, k=k,
-                              gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+                              gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True,
+                              create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Seen length: {len(labels[seens == 1])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(seen_res)
-        unseen_res = evaluation(args, embeddings[seens == 0], labels[seens == 0],
+        unseen_res = evaluation(args, embeddings[seens == 0], labels[seens == 0], superlabels_0,
                                 ids[seens == 0], tb_writer, data_loader,
                                 Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='unseen', path=save_path, k=k,
-                                gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+                                gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True,
+                                create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Unseen length: {len(labels[seens == 0])}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(unseen_res)
 
-        res = evaluation(args, embeddings, labels, ids, tb_writer,
+        res = evaluation(args, embeddings, labels, superlabels, ids, tb_writer,
                          data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
-                         gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+                         gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, tb_draw=True,
+                         create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(res)
 
     elif len(unique_seens) == 1:
-        res = evaluation(args, embeddings, labels, ids, tb_writer,
+        res = evaluation(args, embeddings, labels, superlabels, ids, tb_writer,
                          data_loader, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
-                         gpu=args.cuda, metric=metric, dist_matrix=dist_matrix, path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
-                         tb_draw=True, create_best_negatives=best_negative, create_too_close_negatvies=too_close_negative)
+                         gpu=args.cuda, metric=metric, dist_matrix=dist_matrix,
+                         path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
+                         tb_draw=True, create_best_negatives=best_negative,
+                         create_too_close_negatvies=too_close_negative)
         print(f'Total length: {len(labels)}')
         print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
         print(res)

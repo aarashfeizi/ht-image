@@ -6,7 +6,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
 
-from utils import get_shuffled_data, loadDataToMem
+from utils import get_shuffled_data, load_hotelData_ToMem
 
 ANCHOR_IDX = 100
 NEGATIVE_IDX = 101
@@ -20,12 +20,12 @@ class HotelTrain_Metric(Dataset):
         self.no_negative = args.no_negative
         self.aug_mask = args.aug_mask
 
-        self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
-                                                                                  mode=mode,
-                                                                                  split_file_name=args.splits_file_name,
-                                                                                  portion=args.portion,
-                                                                                  split_path=args.splits_path,
-                                                                                  dataset_folder=args.dataset_folder)
+        self.datas, self.num_classes, self.length, self.labels, _ = load_hotelData_ToMem(args.dataset_path, args.dataset_name,
+                                                                                         mode=mode,
+                                                                                         split_file_name=args.splits_file_name,
+                                                                                         portion=args.portion,
+                                                                                         split_path=args.splits_path,
+                                                                                         dataset_folder=args.dataset_folder)
 
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
         # self.masks =
@@ -100,12 +100,12 @@ class HotelTrain_FewShot(Dataset):
         self.image1 = None
         self.no_negative = args.no_negative
 
-        self.datas, self.num_classes, self.length, self.labels, _ = loadDataToMem(args.dataset_path, args.dataset_name,
-                                                                                  mode=mode,
-                                                                                  split_file_name=args.splits_file_name,
-                                                                                  portion=args.portion,
-                                                                                  split_path=args.splits_path,
-                                                                                  dataset_folder=args.dataset_folder)
+        self.datas, self.num_classes, self.length, self.labels, _ = load_hotelData_ToMem(args.dataset_path, args.dataset_name,
+                                                                                         mode=mode,
+                                                                                         split_file_name=args.splits_file_name,
+                                                                                         portion=args.portion,
+                                                                                         split_path=args.splits_path,
+                                                                                         dataset_folder=args.dataset_folder)
 
         self.shuffled_data = get_shuffled_data(datas=self.datas, seed=args.seed)
 
@@ -202,13 +202,13 @@ class HotelTest_FewShot(Dataset):
         self.img1 = None
         self.c1 = None
 
-        self.datas, self.num_classes, _, self.labels, self.datas_bg = loadDataToMem(args.dataset_path,
-                                                                                    args.dataset_name,
-                                                                                    mode=mode,
-                                                                                    split_file_name=args.splits_file_name,
-                                                                                    portion=args.portion,
-                                                                                    split_path=args.splits_path,
-                                                                                    dataset_folder=args.dataset_folder)
+        self.datas, self.num_classes, _, self.labels, self.datas_bg = load_hotelData_ToMem(args.dataset_path,
+                                                                                           args.dataset_name,
+                                                                                           mode=mode,
+                                                                                           split_file_name=args.splits_file_name,
+                                                                                           portion=args.portion,
+                                                                                           split_path=args.splits_path,
+                                                                                           dataset_folder=args.dataset_folder)
 
         print(f'hotel {mode} classes: ', self.num_classes)
         print(f'hotel {mode} length: ', self.__len__())
@@ -265,14 +265,14 @@ class Hotel_DB(Dataset):
             mode_tmp = mode
             total = False
 
-        self.datas, self.num_classes, _, self.labels, self.all_data = loadDataToMem(args.dataset_path,
-                                                                                    args.dataset_name,
-                                                                                    mode=mode_tmp,
-                                                                                    split_file_name=args.splits_file_name,
-                                                                                    portion=args.portion,
-                                                                                    split_path=args.splits_path,
-                                                                                    dataset_folder=args.dataset_folder,
-                                                                                    return_bg=(mode != 'train'))
+        self.datas, self.num_classes, _, self.labels, self.all_data = load_hotelData_ToMem(args.dataset_path,
+                                                                                           args.dataset_name,
+                                                                                           mode=mode_tmp,
+                                                                                           split_file_name=args.splits_file_name,
+                                                                                           portion=args.portion,
+                                                                                           split_path=args.splits_path,
+                                                                                           dataset_folder=args.dataset_folder,
+                                                                                           return_bg=(mode != 'train'))
         self.all_shuffled_data = get_shuffled_data(self.all_data,
                                                    seed=args.seed,
                                                    one_hot=False,
