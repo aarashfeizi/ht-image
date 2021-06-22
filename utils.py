@@ -652,7 +652,7 @@ def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbl
                                      'avg_kAT10': [np.round(k10, decimals=3)],
                                      'avg_kAT100': [np.round(k100, decimals=3)]})
 
-    return average_tot, pd.DataFrame(data=d), total
+    return average_tot, None, total
 
 
 def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='',
