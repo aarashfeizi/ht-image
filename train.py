@@ -301,13 +301,19 @@ def main():
     val_db_loaders = []
 
     for set_pair in val_sets:
-        val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                     pin_memory=pin_memory, drop_last=args.drop_last)
+        if len(set_pair) == 2:
+            val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                         pin_memory=pin_memory, drop_last=args.drop_last) # query
 
-        val2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                   pin_memory=pin_memory, drop_last=args.drop_last)
+            val2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                       pin_memory=pin_memory, drop_last=args.drop_last) # index
 
-        val_db_loaders.append([val1_db_loader, val2_db_loader])
+            val_db_loaders.append([val1_db_loader, val2_db_loader])
+        else:
+            val_db_loader = DataLoader(set_pair, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                        pin_memory=pin_memory, drop_last=args.drop_last)
+
+            val_db_loaders.append(val_db_loader)
 
     if args.test:
         test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
