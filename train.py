@@ -119,9 +119,9 @@ def main():
     val_sets = []
     if len(args.valsets) != 0:
         for v_file in args.valsets:
-            val_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
+            val_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=v_file,
                                                         save_pictures=False, overfit=False,
-                                                        batchhard=[False, args.bh_P, args.bh_K], split=v_file)
+                                                        batchhard=[False, args.bh_P, args.bh_K])
             val_sets.append(val_set_metric)
 
 
@@ -152,9 +152,9 @@ def main():
     if args.test:
 
         for t_file in args.testsets:
-            test_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
+            test_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=t_file,
                                                         save_pictures=False, overfit=False,
-                                                        batchhard=[False, args.bh_P, args.bh_K], split=t_file)
+                                                        batchhard=[False, args.bh_P, args.bh_K])
             test_sets.append(test_set_metric)
         # else:
         #
