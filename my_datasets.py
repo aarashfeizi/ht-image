@@ -648,7 +648,7 @@ class DB_Dataset(Dataset):
             if self.lbl2chain:
                 sup_lbl = self.lbl2chain[lbl]
             else:
-                sup_lbl = None
+                sup_lbl = lbl
 
             img = Image.open(self.all_shuffled_data[index][1]).convert('RGB')
             if self.mode != 'train' and self.return_bg:
