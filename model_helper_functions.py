@@ -898,8 +898,7 @@ class ModelMethods:
                         results_to_save = {}
                         # if args.loss != 'stopgrad':
 
-                        names = [loader.dataset.name for loader in val_loaders]
-                        for loader, comm in zip(val_loaders, names):
+                        for loader, comm in zip(val_loaders, db_loader_names):
 
                             utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
                             # _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
@@ -970,7 +969,7 @@ class ModelMethods:
                         val_right = 0
                         val_err = 0
                         val_loss = 0
-                        for comm in names:
+                        for comm in db_loader_names:
                             if results[comm]['val_acc'] > max_val_acc_parts[comm]:
                                 self.logger.info(
                                     f'{comm} val acc: [%f], beats previous max [%f]' % (
