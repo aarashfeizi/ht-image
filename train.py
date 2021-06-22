@@ -301,7 +301,7 @@ def main():
     val_db_loaders = []
 
     for set_pair in val_sets:
-        if len(set_pair) == 2:
+        if len(set_pair) == 2 and type(set_pair) == list:
             val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                          pin_memory=pin_memory, drop_last=args.drop_last) # query
 
