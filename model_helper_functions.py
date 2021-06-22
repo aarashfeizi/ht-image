@@ -972,7 +972,7 @@ class ModelMethods:
                         # self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
                         self.logger.info(val_acc_str)
                         self.logger.info('*' * 30)
-                        val_right = 0
+                        val_rgt = 0
                         val_err = 0
                         val_loss = 0
                         for comm in val_loader_names:
