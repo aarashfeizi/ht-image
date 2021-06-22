@@ -1730,62 +1730,63 @@ class ModelMethods:
 
         return_bg = False
 
-        if newly_trained or \
-                (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))):
-            net.eval()
-            # device = f'cuda:{net.device_ids[0]}'
-            if batch_size is None:
-                batch_size = args.batch_size
+        # if newly_trained or \
+        #         (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))):
 
-            steps = int(np.ceil(len(data_loader) / batch_size))
+        net.eval()
+        # device = f'cuda:{net.device_ids[0]}'
+        if batch_size is None:
+            batch_size = args.batch_size
 
-            test_classes = np.zeros(((len(data_loader.dataset))))
-            test_seen = np.zeros(((len(data_loader.dataset))))
-            test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
+        steps = int(np.ceil(len(data_loader) / batch_size))
 
-            if 'attention' in self.merge_method and not args.spatial_projection:
-                coeff = len(args.feature_map_layers)
-            else:
-                coeff = 1
+        test_classes = np.zeros(((len(data_loader.dataset))))
+        test_seen = np.zeros(((len(data_loader.dataset))))
+        test_paths = np.empty(dtype='S50', shape=((len(data_loader.dataset))))
 
-            if args.feat_extractor == 'resnet50':
-                test_feats = np.zeros((len(data_loader.dataset), 2048 * coeff))
-            elif args.feat_extractor == 'resnet18':
-                test_feats = np.zeros((len(data_loader.dataset), 512 * coeff))
-            elif args.feat_extractor == 'vgg16':
-                test_feats = np.zeros((len(data_loader.dataset), 4096 * coeff))
-            else:
-                raise Exception('Not handled feature extractor')
+        if 'attention' in self.merge_method and not args.spatial_projection:
+            coeff = len(args.feature_map_layers)
+        else:
+            coeff = 1
 
-            if args.dim_reduction != 0:
-                test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff), dtype=np.float32)
+        if args.feat_extractor == 'resnet50':
+            test_feats = np.zeros((len(data_loader.dataset), 2048 * coeff))
+        elif args.feat_extractor == 'resnet18':
+            test_feats = np.zeros((len(data_loader.dataset), 512 * coeff))
+        elif args.feat_extractor == 'vgg16':
+            test_feats = np.zeros((len(data_loader.dataset), 4096 * coeff))
+        else:
+            raise Exception('Not handled feature extractor')
 
-            with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode}') as t:
-                for idx, tpl in enumerate(data_loader):
+        if args.dim_reduction != 0:
+            test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff), dtype=np.float32)
 
-                    end = min((idx + 1) * batch_size, len(test_feats))
+        with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode}') as t:
+            for idx, tpl in enumerate(data_loader):
 
-                    if return_bg and mode != 'train':
-                        (img, lbl, sup_lbl, seen, path) = tpl
-                    else:
-                        (img, lbl, sup_lbl, path) = tpl
+                end = min((idx + 1) * batch_size, len(test_feats))
 
-                    if args.cuda:
-                        img = img.cuda()
+                if return_bg and mode != 'train':
+                    (img, lbl, sup_lbl, seen, path) = tpl
+                else:
+                    (img, lbl, sup_lbl, path) = tpl
 
-                    img = Variable(img)
+                if args.cuda:
+                    img = img.cuda()
 
-                    output = net.forward(img, None, single=True)
-                    output = output.data.cpu().numpy()
+                img = Variable(img)
 
-                    test_feats[idx * batch_size:end, :] = output
-                    test_classes[idx * batch_size:end] = lbl
-                    test_paths[idx * batch_size:end] = path
+                output = net.forward(img, None, single=True)
+                output = output.data.cpu().numpy()
 
-                    if return_bg and mode != 'train':  # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
-                        test_seen[idx * batch_size:end] = seen.to(int)
+                test_feats[idx * batch_size:end, :] = output
+                test_classes[idx * batch_size:end] = lbl
+                test_paths[idx * batch_size:end] = path
 
-                    t.update()
+                if return_bg and mode != 'train':  # todo 1. seen is zeros -> res under unseen? 2. Seen is weird
+                    test_seen[idx * batch_size:end] = seen.to(int)
+
+                t.update()
 
             # chunks = len(args.feature_map_layers)
 
@@ -1815,6 +1816,8 @@ class ModelMethods:
                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
             test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
+            test_paths = utils.load_h5(f'{args.dataset_name}_{mode}_ids',
+                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
             if return_bg and mode != 'train':
                 test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
                                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
