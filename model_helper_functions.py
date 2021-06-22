@@ -766,10 +766,16 @@ class ModelMethods:
         else:
             db_loader_names = [loader.dataset.name for loader in db_loaders]
 
-        max_val_acc_parts = {loader_name: 0 for loader_name in db_loader_names}
+        val_loader_names = [loader.dataset.name for loader in val_loaders]
+
+        max_val_acc_parts = {loader_name: 0 for loader_name in val_loader_names}
 
         for name in db_loader_names:
             utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_{name}'))
+
+        for name in val_loader_names:
+            utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_{name}'))
+
 
         val_acc = -1
         val_loss = -1
@@ -898,7 +904,7 @@ class ModelMethods:
                         results_to_save = {}
                         # if args.loss != 'stopgrad':
 
-                        for loader, comm in zip(val_loaders, db_loader_names):
+                        for loader, comm in zip(val_loaders, val_loader_names):
 
                             utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
                             # _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
@@ -969,7 +975,7 @@ class ModelMethods:
                         val_right = 0
                         val_err = 0
                         val_loss = 0
-                        for comm in db_loader_names:
+                        for comm in val_loader_names:
                             if results[comm]['val_acc'] > max_val_acc_parts[comm]:
                                 self.logger.info(
                                     f'{comm} val acc: [%f], beats previous max [%f]' % (
