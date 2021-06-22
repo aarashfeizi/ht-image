@@ -1674,7 +1674,7 @@ class ModelMethods:
                                        None,
                                        data_loaders,
                                        self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
-                                       dist_matrix=None, best_negative=False, too_close_negative=False)
+                                       dist_matrix=None)
 
             self.plot_silhouette_score(test_feats_i, test_classes_i, epoch, mode, silhouette_path,
                                        f'Total_{tb_tag}', attention=has_attention, dists=dists)

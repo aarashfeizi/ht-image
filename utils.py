@@ -2858,7 +2858,7 @@ def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, wr
     r10_counter = 0
     for i in range(0, len(Kset)):
         pos = 0.
-        for j in range(0, num):
+        for j in range(0, Y_q.shape[0]):
             if Y_q[j] in YNN[j, :Kset[i]]:
                 pos += 1.
             if tb_draw:
@@ -3088,7 +3088,7 @@ def draw_top_results(args, embeddings, labels, superlabels, ids, seens, data_loa
         raise Exception(f"More than 2 values in 'seens'. len(unique_seens) = {len(unique_seens)}")
 
 def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_loaders, tb_writer, save_path, metric='cosine', k=5,
-                     dist_matrix=None, best_negative=False, too_close_negative=False):
+                     dist_matrix=None):
 
     res = evaluation_qi(args, embeddings[0], embeddings[1], labels[0], labels[1], superlabels[0], superlabels[1], ids[0], ids[1], tb_writer,
                      data_loaders, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
