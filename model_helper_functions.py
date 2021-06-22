@@ -1401,11 +1401,7 @@ class ModelMethods:
         :return: None
         """
 
-        return_bg = (mode.startswith('val') and
-                     args.vu_folder_name != 'none') \
-                    or \
-                    (mode.startswith('test') and
-                     args.tu_folder_name != 'none')
+        return_bg = False
 
         if (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))):
             net.eval()
@@ -1527,11 +1523,7 @@ class ModelMethods:
 
         has_attention = 'attention' in args.merge_method
 
-        return_bg = (mode.startswith('val') and
-                     args.vu_folder_name != 'none') \
-                    or \
-                    (mode.startswith('test') and
-                     args.tu_folder_name != 'none')
+        return_bg = False
 
         query_index_names = []
         for data_loader in data_loaders:
@@ -1736,11 +1728,7 @@ class ModelMethods:
 
         has_attention = 'attention' in args.merge_method
 
-        return_bg = (mode.startswith('val') and
-                     args.vu_folder_name != 'none') \
-                    or \
-                    (mode.startswith('test') and
-                     args.tu_folder_name != 'none')
+        return_bg = False
 
         if newly_trained or \
                 (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))):

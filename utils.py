@@ -278,12 +278,15 @@ def get_args():
 
     parser.add_argument('--valsets',  nargs='+', default=[])
     parser.add_argument('--testsets', nargs='+', default=[])
+
+    parser.add_argument('-qi', '--query_index', default=False, action='store_true')
     parser.add_argument('--queries', nargs='+', default=[])
     parser.add_argument('--indices', nargs='+', default=[])
 
-    parser.add_argument('-qi', '--query_index', default=False, action='store_true')
-    parser.add_argument('-tqi', '--test_query_index', default=False, action='store_true')
 
+    parser.add_argument('-tqi', '--test_query_index', default=False, action='store_true')
+    parser.add_argument('--t_queries', nargs='+', default=[])
+    parser.add_argument('--t_indices', nargs='+', default=[])
 
 
 

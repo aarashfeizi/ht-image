@@ -517,11 +517,7 @@ class DB_Dataset(Dataset):
             self.mode_tmp = self.mode
             total = False
 
-        self.return_bg = (mode.startswith('val') and
-                          args.vu_folder_name != 'none') \
-                         or \
-                         (mode.startswith('test') and
-                          args.tu_folder_name != 'none')
+        self.return_bg = False # NEVER RETURN BACKGROUND
 
         self.datas, self.num_classes, self.length, self.labels = utils.load_Data_ToMem(args.dataset_path,
                                                                                         args.dataset_folder,

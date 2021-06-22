@@ -227,9 +227,24 @@ def main():
 
             val_db_sets.append(val_db_set)
 
+    test_db_sets = []
     if args.test:
-        test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
+        if args.test_query_index:
+            for q_split, i_split in zip(args.t_queries, args.t_indices):
+                test_query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
                                  return_pairs=args.my_dist)
+
+                test_index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
+                                               return_pairs=args.my_dist)
+
+                test_db_sets.append([test_query_db_set, test_index_db_set])
+
+
+        else:
+            for t_split in args.testsets:
+                test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=t_split,
+                                         return_pairs=args.my_dist)
+                test_db_sets.append(test_db_set)
     # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
     logger.info(f'few shot evaluation way: {args.way}')
@@ -312,9 +327,23 @@ def main():
 
             val_db_loaders.append(val_db_loader)
 
+    test_db_loaders = []
     if args.test:
-        test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                    pin_memory=pin_memory, drop_last=args.drop_last)
+        for set_pair in test_db_sets:
+            if len(set_pair) == 2 and type(set_pair) == list:
+                test1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                             pin_memory=pin_memory, drop_last=args.drop_last) # query
+
+                test2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                           pin_memory=pin_memory, drop_last=args.drop_last) # index
+
+                test_db_loaders.append([test1_db_loader, test2_db_loader])
+            else:
+                test_db_loader = DataLoader(set_pair, batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                            pin_memory=pin_memory, drop_last=args.drop_last)
+
+                test_db_loaders.append(test_db_loader)
+
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
