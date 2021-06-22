@@ -208,10 +208,8 @@ def main():
 
         # todo test not supported for metric learning
 
-    val_db_set = None
-
+    val_db_sets = []
     if args.query_index:
-        val_sets = []
         for q_split, i_split in zip(args.queries, args.indices):
             query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
                                       return_pairs=args.my_dist)
@@ -220,15 +218,14 @@ def main():
             index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
                                     return_pairs=args.my_dist)
 
-            val_sets.append([query_db_set, index_db_set])
+            val_db_sets.append([query_db_set, index_db_set])
 
     else:
-        val_sets = []
         for v_split in args.valsets:
             val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=v_split,
                                       return_pairs=args.my_dist)
 
-            val_sets.append(val_db_set)
+            val_db_sets.append(val_db_set)
 
     if args.test:
         test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
@@ -300,7 +297,7 @@ def main():
 
     val_db_loaders = []
 
-    for set_pair in val_sets:
+    for set_pair in val_db_sets:
         if len(set_pair) == 2 and type(set_pair) == list:
             val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
                                          pin_memory=pin_memory, drop_last=args.drop_last) # query
