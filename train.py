@@ -212,7 +212,7 @@ def main():
 
     if args.query_index:
         val_sets = []
-        for q_split, i_split in zip(args.new_hotel_split_query, args.new_hotel_split_index):
+        for q_split, i_split in zip(args.queries, args.indices):
             query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
                                       return_pairs=args.my_dist)
 

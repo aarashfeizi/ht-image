@@ -272,8 +272,8 @@ def get_args():
     parser.add_argument('--new_hotel_split_train', default='new_split_train.csv')
     parser.add_argument('--new_hotel_split_val', default='new_split_val.csv')
     parser.add_argument('--new_hotel_split_test', default='new_split_test.csv')
-    parser.add_argument('--new_hotel_split_query',  nargs='+', default=['new_split_query1.csv'])
-    parser.add_argument('--new_hotel_split_index',  nargs='+', default=['new_split_index1.csv'])
+    # parser.add_argument('--new_hotel_split_query',  nargs='+', default=['new_split_query1.csv'])
+    # parser.add_argument('--new_hotel_split_index',  nargs='+', default=['new_split_index1.csv'])
 
 
     parser.add_argument('--valsets',  nargs='+', default=[])
