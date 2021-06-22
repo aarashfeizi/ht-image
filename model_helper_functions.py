@@ -28,8 +28,8 @@ from Tensorboard_Writer import SummaryWriter
 #     return t
 from losses import TripletLoss
 
-EVAL_SET_NAMES = {1: ['total'],
-                  2: ['seen', 'unseen']}
+# EVAL_SET_NAMES = {1: ['total'],
+#                   2: ['seen', 'unseen']}
 
 
 class Adaptive_Scheduler:
@@ -680,13 +680,10 @@ class ModelMethods:
         self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
         self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
 
-    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, val_loaders_fewshot,
-                             train_loader_fewshot, cam_args=None, db_loaders=None, val_loaders_edgepred=None):
+    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, cam_args=None, db_loaders=None):
         net.train()
         # device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
-        train_db_loader = db_loaders[0]
-        val_db_loader = db_loaders[1]
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
 
@@ -762,8 +759,9 @@ class ModelMethods:
 
         max_val_acc = -2
 
-        max_val_acc_knwn = 0
-        max_val_acc_unknwn = 0
+        # max_val_acc_knwn = 0
+        # max_val_acc_unknwn = 0
+        max_val_acc_parts = {loader.dataset.name: 0 for loader in val_loaders}
         val_acc = -1
         val_loss = -1
         val_rgt = 0
@@ -793,9 +791,9 @@ class ModelMethods:
 
             epoch_start = time.time()
 
-            if args.negative_path != '':
-                self.save_best_negatives(args, net.ft_net, train_db_loader)
-                train_loader.dataset.load_best_negatives(args.negative_path)
+            # if args.negative_path != '':
+            #     self.save_best_negatives(args, net.ft_net, train_db_loader)
+            #     train_loader.dataset.load_best_negatives(args.negative_path)
 
             models.top_model.A_SUM = [0, 0]
 
@@ -864,21 +862,6 @@ class ModelMethods:
 
                     utils.print_gpu_stuff(args.cuda, 'before train few_shot')
 
-                    if args.train_fewshot:
-                        start = time.time()
-                        train_fewshot_acc, train_fewshot_loss, train_fewshot_right, train_fewshot_error, train_fewshot_predictions = self.apply_fewshot_eval(
-                            args, net, train_loader_fewshot, bce_loss)
-                        end = time.time()
-
-                        utils.print_gpu_stuff(args.cuda, 'after train few_shot')
-
-                        if utils.MY_DEC.enabled:
-                            self.logger.info(f'########### apply_fewshot_eval TRAIN time: {end - start}')
-
-                        self.logger.info(
-                            f'Train_Fewshot_Acc: {train_fewshot_acc}, Train_Fewshot_loss: {train_fewshot_loss},\n '
-                            f'Train_Fewshot_Right: {train_fewshot_right}, Train_Fewshot_Error: {train_fewshot_error}')
-
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
 
 
@@ -892,10 +875,7 @@ class ModelMethods:
                         self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
 
-                        if args.train_fewshot:
-                            self.writer.add_scalar('Train/Fewshot_Loss', train_fewshot_loss / len(train_loader_fewshot),
-                                                   epoch)
-                            self.writer.add_scalar('Train/Fewshot_Acc', train_fewshot_acc, epoch)
+
                     else:
                         self.writer.add_scalar('Train/Reg', train_reg / len(train_loader), epoch)
 
@@ -908,44 +888,43 @@ class ModelMethods:
                         results = {}
                         results_to_save = {}
                         # if args.loss != 'stopgrad':
-                        if args.eval_mode == 'fewshot':
 
-                            for fewshot_loader, loader, comm in zip(val_loaders_fewshot, val_loaders,
-                                                                    EVAL_SET_NAMES[len(val_loaders)]):
+                        names = [loader.dataset.name for loader in val_loaders]
+                        for loader, comm in zip(val_loaders, names):
 
-                                utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
-                                _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
-                                                                             fewshot_loader,
-                                                                             bce_loss,
-                                                                             val=True,
-                                                                             epoch=epoch,
-                                                                             comment=comm)
+                            utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
+                            # _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
+                            #                                              fewshot_loader,
+                            #                                              bce_loss,
+                            #                                              val=True,
+                            #                                              epoch=epoch,
+                            #                                              comment=comm)
 
-                                utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
+                            utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
 
-                                val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
-                                    args, net, loader,
-                                    loss_fn, bce_loss, val=True,
-                                    epoch=epoch, comment=comm)
+                            val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
+                                args, net, loader,
+                                loss_fn, bce_loss, val=True,
+                                epoch=epoch, comment=comm)
 
-                                if comm not in results.keys():
-                                    results[comm] = {}
-                                    results_to_save[comm] = {}
-                                #
-                                results[comm]['right'] = val_rgt_err['right']
-                                results[comm]['wrong'] = val_rgt_err['wrong']
-                                results[comm]['val_auc'] = val_auc
-                                results[comm]['val_acc'] = val_acc
-                                results[comm]['val_acc_fewshot'] = val_acc_fewshot
-                                results[comm]['val_loss'] = val_loss
-                                # val_err_knwn = val_rgt_err_knwn['wrong']
-                                # val_rgt_knwn = val_rgt_err_knwn['right']
+                            if comm not in results.keys():
+                                results[comm] = {}
+                                results_to_save[comm] = {}
+                            #
+                            results[comm]['right'] = val_rgt_err['right']
+                            results[comm]['wrong'] = val_rgt_err['wrong']
+                            results[comm]['val_auc'] = val_auc
+                            results[comm]['val_acc'] = val_acc
+                            results[comm]['val_loss'] = val_loss
+                            # results[comm]['val_acc_fewshot'] = val_acc_fewshot
+                            # val_err_knwn = val_rgt_err_knwn['wrong']
+                            # val_rgt_knwn = val_rgt_err_knwn['right']
 
-                                results_to_save[comm] = val_preds_pos_neg
-                                # val_preds_knwn_pos = val_preds_knwn_pos_neg['pos']
-                                # val_preds_knwn_neg = val_preds_knwn_pos_neg['neg']
+                            results_to_save[comm] = val_preds_pos_neg
+                            # val_preds_knwn_pos = val_preds_knwn_pos_neg['pos']
+                            # val_preds_knwn_neg = val_preds_knwn_pos_neg['neg']
 
-                                utils.print_gpu_stuff(args.cuda, f'after test_metric {comm}')
+                            utils.print_gpu_stuff(args.cuda, f'after test_metric {comm}')
 
                             # _, _, val_acc_unknwn_fewshot, _ = self.test_fewshot(args,
                             #                                                     net,
@@ -970,45 +949,6 @@ class ModelMethods:
 
                             utils.print_gpu_stuff(args.cuda, 'after all validation')
 
-                        elif args.eval_mode == 'edgepred':
-                            utils.print_gpu_stuff(args.cuda, 'before test few_shot 1')
-                            val_rgt_knwn, val_err_knwn, val_acc_knwn, val_preds_knwn = self.test_edgepred(args, net,
-                                                                                                          val_loaders_edgepred[
-                                                                                                              0],
-                                                                                                          bce_loss,
-                                                                                                          val=True,
-                                                                                                          epoch=epoch,
-                                                                                                          comment='known')
-
-                            utils.print_gpu_stuff(args.cuda, 'after test_edgepred 1 and before test_metric')
-
-                            self.test_metric(args, net, val_loaders[0],
-                                             loss_fn, bce_loss, val=True,
-                                             epoch=epoch, comment='known')
-
-                            utils.print_gpu_stuff(args.cuda, 'after test_metric 1 and before test_fewshot 2')
-
-                            val_rgt_unknwn, val_err_unknwn, val_acc_unknwn, val_preds_unknwn = self.test_edgepred(args,
-                                                                                                                  net,
-                                                                                                                  val_loaders_edgepred[
-                                                                                                                      1],
-                                                                                                                  bce_loss,
-                                                                                                                  val=True,
-                                                                                                                  epoch=epoch,
-                                                                                                                  comment='unknown')
-                            utils.print_gpu_stuff(args.cuda, 'after test_edgepred 2 and before test_metric 2')
-
-                            self.test_metric(args, net, val_loaders[1],
-                                             loss_fn, bce_loss, val=True,
-                                             epoch=epoch, comment='unknown')
-
-                            utils.print_gpu_stuff(args.cuda, 'after all validation')
-
-                        elif args.eval_mode == 'simple':  # todo not compatible with new data-splits
-                            val_rgt, val_err, val_acc = self.test_simple(args, net, val_loaders, loss_fn, val=True,
-                                                                         epoch=epoch)
-                        else:
-                            raise Exception('Unsupporeted eval mode')
 
                         val_acc_str = ''
 
@@ -1018,37 +958,22 @@ class ModelMethods:
                         # self.logger.info('known val acc: [%f], unknown val acc [%f]' % (val_acc_knwn, val_acc_unknwn))
                         self.logger.info(val_acc_str)
                         self.logger.info('*' * 30)
-                        if len(val_loaders) == 2:  # validation has seen and unseen sets
-                            if results['seen']['val_acc'] > max_val_acc_knwn:
+                        val_right = 0
+                        val_err = 0
+                        val_loss = 0
+                        for comm in names:
+                            if results[comm]['val_acc'] > max_val_acc_parts[comm]:
                                 self.logger.info(
-                                    'known val acc: [%f], beats previous max [%f]' % (
-                                        results['seen']['val_acc'], max_val_acc_knwn))
-                                self.logger.info('known rights: [%d], known errs [%d]' % (results['seen']['right'],
-                                                                                          results['seen']['wrong']))
-                                max_val_acc_knwn = results['seen']['val_acc']
+                                    f'{comm} val acc: [%f], beats previous max [%f]' % (
+                                        results[comm]['val_acc'], max_val_acc_parts[comm]))
+                                self.logger.info('known rights: [%d], known errs [%d]' % (results[comm]['right'],
+                                                                                          results[comm]['wrong']))
+                                max_val_acc_parts[comm] = results[comm]['val_acc']
+                            val_rgt += results[comm]['right']
+                            val_err += results[comm]['wrong']
+                            val_loss += results[comm]['val_loss']
 
-                            if results['unseen']['val_acc'] > max_val_acc_unknwn:
-                                self.logger.info(
-                                    'unknown val acc: [%f], beats previous max [%f]' % (
-                                        results['unseen']['val_acc'], max_val_acc_unknwn))
-                                self.logger.info(
-                                    'unknown rights: [%d], unknown errs [%d]' % (results['unseen']['right'],
-                                                                                 results['unseen']['wrong']))
-                                max_val_acc_unknwn = results['unseen']['val_acc']
-
-                            val_rgt = (results['seen']['right'] + results['unseen']['right'])
-                            val_err = (results['seen']['wrong'] + results['unseen']['wrong'])
-
-                            val_acc = (val_rgt * 1.0) / (val_rgt + val_err)
-
-                            val_loss = (results['seen']['val_loss'] + results['unseen']['val_loss']) / 2
-
-
-                        else:  # no seen and unseen dataset for validation
-                            val_loss = results['total']['val_loss']
-                            val_acc = results['total']['val_acc']
-                            val_rgt = results['total']['right']
-                            val_err = results['total']['wrong']
+                        val_acc = (val_rgt * 1.0) / (val_rgt + val_err)
 
                         # self.writer.add_scalar('Total_Val/Acc', val_acc, epoch)
                         # self.writer.add_hparams(self.important_hparams, {'Total_Val/Acc': val_acc}, epoch)
@@ -1063,9 +988,6 @@ class ModelMethods:
                         if val_acc >= max_val_acc or epoch == self.max_epochs:
                             utils.print_gpu_stuff(args.cuda, 'Before saving model')
                             val_counter = 0
-                            if args.train_fewshot:
-                                np.savez(os.path.join(self.save_path, f'train_preds_epoch{epoch}'),
-                                         np.array(train_fewshot_predictions))
 
                             if args.loss != 'stopgrad':
                                 for key, value in results_to_save.items():
@@ -1099,43 +1021,32 @@ class ModelMethods:
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
 
-            if args.train_diff_plot:
-                self.logger.info('plotting train class diff plot...')
-                if args.my_dist:
-                    self.make_all_emb_dist_db(args, net, train_db_loader,
-                                              eval_sampled=args.sampled_results,
-                                              eval_per_class=args.per_class_results,
-                                              batch_size=args.db_batch,
-                                              mode='train',
-                                              epoch=epoch,
-                                              k_at_n=False)
-                else:
-                    self.make_emb_db(args, net, train_db_loader,
-                                     eval_sampled=args.sampled_results,
-                                     eval_per_class=args.per_class_results,
-                                     newly_trained=True,
-                                     batch_size=args.db_batch,
-                                     mode='train',
-                                     epoch=epoch,
-                                     k_at_n=False)
 
-            if val_db_loader:
+            if db_loaders and not args.query_index:
+                db_loader_names = [loader.dataset.name for loader in db_loaders]
                 self.logger.info('plotting val class diff plot...')
-                if args.my_dist:
-                    self.make_all_emb_dist_db(args, net, val_db_loader,
-                                              eval_sampled=args.sampled_results,
-                                              eval_per_class=args.per_class_results,
-                                              batch_size=args.db_batch,
-                                              mode='val',
-                                              epoch=epoch,
-                                              k_at_n=args.katn)
-                else:
-                    self.make_emb_db(args, net, val_db_loader,
+
+                for loader_pair, m in zip(db_loaders, db_loader_names):
+                    self.make_emb_db(args, net, loader_pair,
+                                         eval_sampled=args.sampled_results,
+                                         eval_per_class=args.per_class_results,
+                                         newly_trained=True,
+                                         batch_size=args.db_batch,
+                                         mode=m,
+                                         epoch=epoch,
+                                         k_at_n=args.katn)
+
+            elif db_loaders and args.query_index:
+                db_loader_names = [loader.dataset.name for loader in db_loaders]
+                self.logger.info('plotting val class diff plot...')
+
+                for loader_pair, m in zip(db_loaders, db_loader_names):
+                    self.make_emb_query_index(args, net, loader_pair,
                                      eval_sampled=args.sampled_results,
                                      eval_per_class=args.per_class_results,
                                      newly_trained=True,
                                      batch_size=args.db_batch,
-                                     mode='val',
+                                     mode=m,
                                      epoch=epoch,
                                      k_at_n=args.katn)
 
@@ -1561,6 +1472,216 @@ class ModelMethods:
                                    sim_matrix=test_sim)
 
             self.logger.info('results at: ' + self.save_path)
+
+    def make_emb_query_index(self, args, net, data_loaders, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
+                    mode='val', epoch=-1, k_at_n=True):
+        """
+
+        :param batch_size:
+        :param eval_sampled:
+        :param eval_per_class:
+        :param newly_trained:
+        :param mode:
+        :param args: utils args
+        :param net: trained top_model network
+        :param data_loader: DataLoader object
+        :param epoch: epoch we're in
+        :param k_at_n: Do k at n
+        :return: None
+        """
+
+
+        has_attention = 'attention' in args.merge_method
+
+        return_bg = (mode.startswith('val') and
+                     args.vu_folder_name != 'none') \
+                    or \
+                    (mode.startswith('test') and
+                     args.tu_folder_name != 'none')
+
+        query_index_names = []
+        for data_loader in data_loaders:
+            query_index_names.append(data_loader.dataset.name)
+
+        # if newly_trained or \
+        #         (not os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))):
+        net.eval()
+        # device = f'cuda:{net.device_ids[0]}'
+        if batch_size is None:
+            batch_size = args.batch_size
+
+        if 'attention' in self.merge_method and not args.spatial_projection:
+            coeff = len(args.feature_map_layers)
+        else:
+            coeff = 1
+
+
+        test_classes_q = np.zeros(((len(data_loaders[0].dataset))))
+        test_classes_i = np.zeros(((len(data_loaders[1].dataset))))
+
+        test_paths_q = np.empty(dtype='S50', shape=((len(data_loaders[0].dataset))))
+        test_paths_i = np.empty(dtype='S50', shape=((len(data_loaders[1].dataset))))
+
+        if args.feat_extractor == 'resnet50':
+            test_feats_q = np.zeros((len(data_loaders[0].dataset), 2048 * coeff))
+            test_feats_i = np.zeros((len(data_loaders[1].dataset), 2048 * coeff))
+        elif args.feat_extractor == 'resnet18':
+            test_feats_q = np.zeros((len(data_loaders[0].dataset), 512 * coeff))
+            test_feats_i = np.zeros((len(data_loaders[1].dataset), 512 * coeff))
+        elif args.feat_extractor == 'vgg16':
+            test_feats_q = np.zeros((len(data_loaders[0].dataset), 4096 * coeff))
+            test_feats_i = np.zeros((len(data_loaders[1].dataset), 4096 * coeff))
+        else:
+            raise Exception('Not handled feature extractor')
+
+        if args.dim_reduction != 0:
+            test_feats_q = np.zeros((len(data_loaders[0].dataset), args.dim_reduction * coeff), dtype=np.float32)
+            test_feats_i = np.zeros((len(data_loaders[1].dataset), args.dim_reduction * coeff), dtype=np.float32)
+
+        for (data_loader, test_feats, test_classes, test_paths, qi) in zip(data_loaders,
+                                                                       [test_feats_q, test_feats_i],
+                                                                       [test_classes_q, test_classes_i],
+                                                                       [test_paths_q, test_paths_i],
+                                                                       ['Query', 'Index']):
+
+            with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode} {qi}') as t:
+                for idx, tpl in enumerate(data_loader):
+
+                    end = min((idx + 1) * batch_size, len(test_feats))
+
+                    if return_bg and mode != 'train':
+                        (img, lbl, sup_lbl, seen, path) = tpl
+                    else:
+                        (img, lbl, sup_lbl, path) = tpl
+
+                    if args.cuda:
+                        img = img.cuda()
+
+                    img = Variable(img)
+
+                    output = net.forward(img, None, single=True)
+                    output = output.data.cpu().numpy()
+
+                    test_feats[idx * batch_size:end, :] = output
+                    test_classes[idx * batch_size:end] = lbl
+                    test_paths[idx * batch_size:end] = path
+
+
+                    t.update()
+
+        # chunks = len(args.feature_map_layers)
+
+        # if has_attention:
+        #     if test_feats.dtype != np.float32:
+        #         test_feats = test_feats.astype(np.float32)
+        #     test_feats = utils.get_attention_normalized(test_feats, chunks=chunks)
+
+        if test_feats_q.dtype != np.float32:
+            print(f'Converting type!! Was not initially np.float32, it was {test_feats_q.dtype}')
+            test_feats_q = test_feats_q.astype(np.float32)
+            test_feats_i = test_feats_i.astype(np.float32)
+
+        if epoch == self.max_epochs or epoch == -1:
+            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_ids_q', test_paths_q, 'S20',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Ids_q.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_classes_q', test_classes_q, 'i8',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_feats_q', test_feats_q, 'f',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_ids_i', test_paths_i, 'S20',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Ids_i.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_classes_i', test_classes_i, 'i8',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
+            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_feats_i', test_feats_i, 'f',
+                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
+
+        if epoch == self.max_epochs or epoch == -1:
+            test_feats_i = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_feats_i',
+                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
+            test_classes_i = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_classes_i',
+                                         os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
+            test_feats_q = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_feats_q',
+                                         os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
+            test_classes_q = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_classes_q',
+                                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
+
+        if data_loaders[0].dataset.lbl2chain:
+            test_suplabels_q = np.array([data_loaders[0].dataset.lbl2chain[i] for i in test_classes_q])
+            test_suplabels_i = np.array([data_loaders[1].dataset.lbl2chain[i] for i in test_classes_i])
+        else:
+            test_suplabels_q = None
+            test_suplabels_i = None
+
+
+        if epoch != -1:
+            diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot_{query_index_names[1]}.png')
+            self.plot_class_diff_plots(test_feats_i, test_classes_i,
+                                       epoch=epoch,
+                                       mode=mode,
+                                       path=diff_class_path, attention=has_attention)
+
+        silhouette_path = ['', '']
+        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot_{query_index_names[1]}.png')
+        silhouette_path[1] = os.path.join(self.gen_plot_path,
+                                          f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{query_index_names[1]}_{epoch}.png')
+
+        if mode != 'test':
+
+            if mode == 'val':
+                tb_tag = 'Val'
+            elif mode == 'train':
+                tb_tag = 'Train'
+            else:
+                tb_tag = 'Other'
+
+            dists = self.get_dists(test_feats_i)
+
+            if args.draw_top_k_results > 0 and (epoch == self.max_epochs or epoch == -1):
+                draw_top_k_results = args.draw_top_k_results
+                self.logger.info(f'Drawing top {draw_top_k_results} retrievals!!')
+                print(f'Drawing top {draw_top_k_results} retrievals!!')
+                utils.draw_top_results(args,
+                                       [test_feats_q, test_feats_i],
+                                       [test_classes_q, test_classes_i],
+                                       [test_suplabels_q, test_suplabels_i],
+                                       [test_paths_q, test_paths_i],
+                                       data_loaders,
+                                       self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
+                                       dist_matrix=None, best_negative=False, too_close_negative=False)
+
+            self.plot_silhouette_score(test_feats_i, test_classes_i, epoch, mode, silhouette_path,
+                                       f'Total_{tb_tag}', attention=has_attention, dists=dists)
+
+
+        if k_at_n:
+            kavg = utils.calculate_k_at_n(args,
+                                          [test_feats_q, test_feats_i],
+                                          [test_classes_q, test_classes_i],
+                                          None,
+                                          logger=self.logger,
+                                          limit=args.limit_samples,
+                                          run_number=args.number_of_runs,
+                                          save_path=self.save_path,
+                                          sampled=True,
+                                          even_sampled=False,
+                                          per_class=eval_per_class,
+                                          mode=mode,
+                                          metric=self.metric,
+                                          query_index=True,
+                                          extra_name=f'{query_index_names[0]}_{query_index_names[1]}')
+
+            # ,
+            # dists = dists[test_seen == 1, :][:, test_seen == 1]
+
+            if epoch != -1:
+                for c in list(kavg.columns):  # plot tb
+                    if 'kAT' in c:
+                        tb_tag = c.replace('AT', '@')
+                        cmode = mode[0].upper() + mode[1:]  # capitalize
+                        self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0], epoch)
+
+                self.writer.flush()
+        self.logger.info('results at: ' + self.save_path)
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
@@ -2885,10 +3006,14 @@ class ModelMethods:
 
         return (p * z).sum(dim=1)
 
-    def get_dists(self, X):
+    def get_dists(self, X, qi=False):
         dists = None
+
         if self.metric == 'cosine':
-            sims = X.dot(X.T)
+            if qi:
+                sims = X[0].dot(X[1].T)
+            else:
+                sims = X.dot(X.T)
             max_sim = np.max(sims)
             dists = -sims
             dists += max_sim

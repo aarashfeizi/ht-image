@@ -168,7 +168,7 @@ def get_args():
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
     parser.add_argument('-dsn', '--dataset_name', default='hotels',
-                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'new_hotels_small', 'new_hotels' 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
+                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'new_hotels_small', 'new_hotels', 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -272,6 +272,18 @@ def get_args():
     parser.add_argument('--new_hotel_split_train', default='new_split_train.csv')
     parser.add_argument('--new_hotel_split_val', default='new_split_val.csv')
     parser.add_argument('--new_hotel_split_test', default='new_split_test.csv')
+    parser.add_argument('--new_hotel_split_query',  nargs='+', default=['new_split_query1.csv'])
+    parser.add_argument('--new_hotel_split_index',  nargs='+', default=['new_split_index1.csv'])
+
+
+    parser.add_argument('--valsets',  nargs='+', default=[])
+    parser.add_argument('--testsets', nargs='+', default=[])
+    parser.add_argument('--queries', nargs='+', default=[])
+    parser.add_argument('--indices', nargs='+', default=[])
+
+    parser.add_argument('-qi', '--query_index', default=False, action='store_true')
+
+
 
 
     parser.add_argument('--train_folder_name', default='train')
@@ -388,21 +400,18 @@ def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], star
     return workers, pin_memory
 
 
-def get_val_loaders(args, val_set_known, val_set_unknown, workers, pin_memory, batch_size=None):
+def get_val_loaders(args, val_sets, workers, pin_memory, batch_size=None):
     val_loaders = []
 
-    if not val_set_known:
+    if not val_sets:
         return None
 
     if not batch_size:
         batch_size = args.way
 
-    val_loaders.append(
-        DataLoader(val_set_known, batch_size=batch_size, shuffle=False, num_workers=workers,
-                   pin_memory=pin_memory, drop_last=args.drop_last))
-    if val_set_unknown:
+    for val_set in val_sets:
         val_loaders.append(
-            DataLoader(val_set_unknown, batch_size=batch_size, shuffle=False, num_workers=workers,
+            DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=workers,
                        pin_memory=pin_memory, drop_last=args.drop_last))
 
     return val_loaders
@@ -423,35 +432,81 @@ def load_h5(data_description, path):
 
 def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, sampled=True,
                      even_sampled=True, per_class=False, save_path='', mode='',
-                     sim_matrix=None, metric='cosine'):
-    if per_class:
+                     sim_matrix=None, metric='cosine', query_index=False, extra_name=''):
+    if query_index and len(img_lbls) == 2 and len(img_feats) == 2:
         logger.info('K@N per class')
-        total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
-                                                      sim_matrix=sim_matrix, metric=metric)
-        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
-                     index=False)
-        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
-                    index=False)
-        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'), header=True,
-                      index=False)
-
-    if sampled:
-        logger.info('K@N for sampled')
-        kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
-                                                                 run_number, mode, even_sampled=even_sampled,
-                                                                 sim_matrix=sim_matrix, metric=metric)
-        kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
-                    index=False)
-        kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True,
-                     index=False)
-        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_total_avg_k@n.csv'),
+        total = _get_per_class_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, mode,
+                                                      sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
+        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_per_class_total_avg_k@n.csv'),
                      header=True, index=False)
-        seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_seen_avg_k@n.csv'),
-                    header=True, index=False)
-        unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'),
-                      header=True, index=False)
+
+        kavg, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
+                              run_number, mode,
+                              sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
+        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n.csv'), header=True,
+                     index=False)
+
+
+    else:
+        if per_class:
+            logger.info('K@N per class')
+            total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
+                                                          sim_matrix=sim_matrix, metric=metric)
+            total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
+                         index=False)
+            seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
+                        index=False)
+            unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'), header=True,
+                          index=False)
+
+        if sampled:
+            logger.info('K@N for sampled')
+            kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
+                                                                     run_number, mode, even_sampled=even_sampled,
+                                                                     sim_matrix=sim_matrix, metric=metric)
+            kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
+                        index=False)
+            kruns.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_runs_k@n.csv'), header=True,
+                         index=False)
+            total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_total_avg_k@n.csv'),
+                         header=True, index=False)
+            seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_seen_avg_k@n.csv'),
+                        header=True, index=False)
+            unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'),
+                          header=True, index=False)
 
     return kavg
+
+def _get_per_class_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, mode, sim_matrix=None, metric='cosine', extra_name=''):
+    all_lbls = np.unique(img_lbls_q)
+    num = img_lbls_q.shape[0]
+
+    k_max = min(1000, img_lbls_q.shape[0])
+
+    if sim_matrix is None:
+        _, I = get_faiss_query_index(img_feats_q, img_feats_i, k=k_max, gpu=True, metric=metric)
+    else:
+        I = (-sim_matrix).argsort()[:, :int(k_max)]
+
+    metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
+
+    for idx, lbl in enumerate(img_lbls_q):
+
+        ret_lbls = img_lbls_i[I[idx]]
+
+        metric_total.update(lbl, ret_lbls)
+
+    total = metric_total.get_per_class_metrics()
+
+    logger.info(f'%%%%%%%%%%%%%%%%%%% {extra_name}')
+    logger.info(f'{args.dataset_name}_{mode}')
+    logger.info('Without sampling Total: ' + str(metric_total.n))
+    logger.info(metric_total)
+
+    logger.info(f'{args.dataset_name}_{mode}')
+    _log_per_class(logger, total, split_kind='Total')
+
+    return total
 
 
 def _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode, sim_matrix=None, metric='cosine'):
@@ -533,6 +588,71 @@ def _log_per_class(logger, df, split_kind=''):
     logger.info(f'k@8 per class average: {np.array(df["k@8"]).mean()}')
     logger.info(f'k@10 per class average: {np.array(df["k@10"]).mean()}')
     logger.info(f'k@100 per class average: {np.array(df["k@100"]).mean()}\n')
+
+def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, limit=0, run_number=0, mode='',
+                             sim_matrix=None, metric='cosine', extra_name=''):
+    all_lbls = np.unique(img_lbls_q)
+
+
+
+    # sim_mat = cosine_similarity(chosen_img_feats)
+    k_max = min(1000, img_lbls_q.shape[0])
+
+    if sim_matrix is not None:
+        I = (-sim_matrix).argsort()[:, :-1]
+    else:
+        _, I, self_D = get_faiss_query_index(img_feats_q, img_feats_i, k=k_max, gpu=True, metric=metric)
+
+    metric_total = metrics.Accuracy_At_K(classes=all_lbls)
+
+    for idx, lbl in enumerate(img_lbls_q):
+
+        ret_lbls = img_lbls_i[I[idx]]
+
+        metric_total.update(lbl, ret_lbls)
+
+
+    total = metric_total.get_per_class_metrics()
+
+    logger.info('Total: ' + str(metric_total.n))
+    logger.info(metric_total)
+    k1, k2, k4, k5, k8, k10, k100 = metric_total.get_tot_metrics()
+    logger.info("*" * 50)
+
+
+    _log_per_class(logger, total, split_kind='Total')
+
+    total = metric_total.get_per_class_metrics()
+
+    logger.info(f'%%%%%%%%%%%%%%%%%%% {extra_name}')
+    logger.info('Avg Total: ' + str(metric_total.n))
+    logger.info('k@1: ' + str(np.round(k1, decimals=3)))
+    logger.info('k@2: ' + str(np.round(k2, decimals=3)))
+    logger.info('k@4: ' + str(np.round(k4, decimals=3)))
+    logger.info('k@5: ' + str(np.round(k5, decimals=3)))
+    logger.info('k@8: ' + str(np.round(k8, decimals=3)))
+    logger.info('k@10: ' + str(np.round(k10, decimals=3)))
+    logger.info('k@100: ' + str(np.round(k100, decimals=3)))
+    logger.info("*" * 50)
+
+    d = {'run': [i for i in range(run_number)],
+         'kAT1': [k1],
+         'kAT2': [k2],
+         'kAT4': [k4],
+         'kAT5': [k5],
+         'kAT8': [k8],
+         'kAT10': [k10],
+         'kAT100': [k100]}
+
+    average_tot = pd.DataFrame(data={'avg_kAT1': [np.round(k1, decimals=3)],
+                                     'avg_kAT2': [np.round(k2, decimals=3)],
+                                     'avg_kAT4': [np.round(k4, decimals=3)],
+                                     'avg_kAT5': [np.round(k5, decimals=3)],
+                                     'avg_kAT8': [np.round(k8, decimals=3)],
+                                     'avg_kAT10': [np.round(k10, decimals=3)],
+                                     'avg_kAT100': [np.round(k100, decimals=3)]})
+
+    return average_tot, pd.DataFrame(data=d), total
 
 
 def _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit=0, run_number=0, mode='',
@@ -926,8 +1046,50 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
     return datas, num_classes, num_instances, labels, datas_bg
 
 
+def load_Data_ToMem(dataPath,  dataset_folder, mode='train',
+                    portion=0,
+                    extensions=('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp'),
+                    split_file_path=''):
+    dataset_path = os.path.join(dataPath, dataset_folder)
+
+    print("begin loading dataset to memory")
+    datas = {}
+
+    if mode.endswith('.csv'):
+        image_path, image_labels = _read_new_split(split_file_path, mode)
+    else:
+        image_path, image_labels = _get_imgs_labels(os.path.join(dataset_path, mode), extensions)
+
+
+    if portion > 0:
+        image_path = image_path[image_labels < portion]
+        image_labels = image_labels[image_labels < portion]
+
+
+    print(f'{dataset_folder}_{mode} number of imgs:', len(image_labels))
+    print(f'{dataset_folder}_{mode} number of labels:', len(np.unique(image_labels)))
+
+
+    num_instances = len(image_labels)
+
+    num_classes = len(np.unique(image_labels))
+
+    for idx, path in zip(image_labels, image_path):
+        if idx not in datas.keys():
+            datas[idx] = []
+
+        datas[idx].append(os.path.join(dataset_path, path))
+
+    labels = np.unique(image_labels)
+    print(f'Number of labels in {dataset_folder}_{mode}: ', len(labels))
+
+    print(f'finish loading {dataset_folder}_{mode} dataset to memory')
+
+    return datas, num_classes, num_instances, labels
+
+
 def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='',
-                         portion=0, return_bg=True, dataset_folder='', get_lbl2chain=False, hotels_splits=''):
+                         portion=0, return_bg=True, dataset_folder='', hotels_splits=''):
     print(split_file_path, '!!!!!!!!')
     dataset_path = os.path.join(dataPath, dataset_folder)
 
@@ -1006,26 +1168,96 @@ def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='
 
     print(f'finish loading {dataset_name}_{mode} dataset to memory')
 
-    if get_lbl2chain:
-        return datas, num_classes, num_instances, labels, datas_bg, lbl2chain
+
+    return datas, num_classes, num_instances, labels, datas_bg
+
+def load_splits(dataPath, dataset_name, main_split, mode='train', split_file_path='',
+                         portion=0, dataset_folder='', backgroud_splits=[]):
+    print(split_file_path, '!!!!!!!!')
+    dataset_path = os.path.join(dataPath, dataset_folder)
+
+
+    print("begin loading dataset to memory")
+    datas = {}
+    datas_bg = {}  # in case of mode == val/test_seen/unseen
+
+
+    file_name = f'{dataset_name}_' + main_split
+
+
+    print(f'{mode}', file_name)
+    image_path, image_labels = _read_new_split(split_file_path, file_name)
+
+    if backgroud_splits != []:
+        if len(backgroud_splits) == 1:
+            file_name = f'{dataset_name}_' + backgroud_splits[0]
+            image_path_bg, image_labels_bg = _read_new_split(split_file_path, file_name)
+        else:
+            image_path_bg, image_labels_bg = [], []
+            for bs in backgroud_splits:
+                file_name = f'{dataset_name}_' + bs
+                image_path_bg_temp, image_labels_bg_temp = _read_new_split(split_file_path, file_name)
+                image_path_bg.append(image_path_bg_temp)
+                image_labels_bg.append(image_labels_bg_temp)
+
+            image_path_bg = pd.concat(image_path_bg, ignore_index=True)
+            image_labels_bg = pd.concat(image_labels_bg, ignore_index=True)
+
+
+    if portion > 0:
+        image_path = image_path[image_labels < portion]
+        image_labels = image_labels[image_labels < portion]
+
+        if backgroud_splits != []:
+            image_path_bg = image_path_bg[image_labels_bg < portion]
+            image_labels_bg = image_labels_bg[image_labels_bg < portion]
+
+    print(f'{dataset_name}_{mode} number of imgs:', len(image_labels))
+    print(f'{dataset_name}_{mode} number of labels:', len(np.unique(image_labels)))
+
+    if backgroud_splits != []:
+        print(f'{dataset_name}_{mode} number of bg imgs:', len(image_labels_bg))
+        print(f'{dataset_name}_{mode} number of bg lbls:', len(np.unique(image_labels_bg)))
     else:
-        return datas, num_classes, num_instances, labels, datas_bg
+        print(f'Just {dataset_name}_{mode}, background not required.')
+
+    num_instances = len(image_labels)
+
+    num_classes = len(np.unique(image_labels))
+
+    for idx, path in zip(image_labels, image_path):
+        if idx not in datas.keys():
+            datas[idx] = []
+            if backgroud_splits != []:
+                datas_bg[idx] = []
+
+        datas[idx].append(os.path.join(dataset_path, path))
+        if backgroud_splits != []:
+            datas_bg[idx].append((os.path.join(dataset_path, path), True))
+
+    if backgroud_splits != []:
+        for idx, path in zip(image_labels_bg, image_path_bg):
+            if idx not in datas_bg.keys():
+                datas_bg[idx] = []
+            if (os.path.join(dataset_path, path), False) not in datas_bg[idx] and \
+                    (os.path.join(dataset_path, path), True) not in datas_bg[idx]:
+                datas_bg[idx].append((os.path.join(dataset_path, path), False))
+
+    labels = np.unique(image_labels)
+    print(f'Number of labels in {dataset_name}_{mode}: ', len(labels))
+
+    if backgroud_splits != []:
+        all_labels = np.unique(np.concatenate((image_labels, image_labels_bg)))
+        print(f'Number of all labels (bg + fg) in {dataset_name}_{mode} and {backgroud_splits}: ',
+              len(all_labels))
+
+    if backgroud_splits == []:
+        datas_bg = datas
+
+    print(f'finish loading {dataset_name}_{mode} dataset to memory')
 
 
-def project_2d(features, labels, title):
-    pca = PCA(n_components=2)
-    pca_feats = pca.fit_transform(features)
-    cmap = plt.cm.jet
-    # extract all colors from the .jet map
-    cmaplist = [cmap(i) for i in range(cmap.N)]
-    # create the new map
-    cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
-    plt.scatter(pca_feats[:, 0], pca_feats[:, 1], c=labels, cmap=cmap, alpha=0.2)
-    plt.colorbar()
-    plt.title(title)
-
-    return plt
-
+    return datas, num_classes, num_instances, labels, datas_bg
 
 def choose_n_from_all(df, n=4):
     chosen_labels = []
@@ -2584,14 +2816,76 @@ def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=F
     return recallK
 
 
-def plot_images(org_idx, org_lbl, sup_lbl, top_10_indx, top_10_lbl, top_10_super_lbl, writer, loader, tb_label):
+def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, writer, loaders, Kset, split, path, gpu=False, k=5, tb_draw=False,
+                  metric='cosine', dist_matrix=None):
+    if superY_q is None:
+        superY_q = np.array([-1 for _ in Y_q])
+        superY_i = np.array([-1 for _ in Y_i])
+
+    num = X_i.shape[0]
+
+    kmax = min(np.max(Kset), num)
+    print(f'kmax = {kmax}')
+    recallK = np.zeros(len(Kset))
+
+    start = time.time()
+    print(f'**** Evaluation, calculating rank dist: {metric}')
+    if dist_matrix is not None:
+
+        indices = (-dist_matrix).argsort()[:, :int(kmax)]
+        distances = (-dist_matrix)[indices]
+    else:
+        distances, indices = get_faiss_query_index(X_q, X_i, k=int(kmax), gpu=gpu, metric=metric)
+
+    print(f'**** Evaluation, calculating dist rank DONE. Took {time.time() - start}s')
+
+
+    YNN = Y_i[indices]
+    superYNN = superY_i[indices]
+    idxNN = ids_i[indices]
+    counter = 0
+    r1_counter = 0
+    r10_counter = 0
+    for i in range(0, len(Kset)):
+        pos = 0.
+        for j in range(0, num):
+            if Y_q[j] in YNN[j, :Kset[i]]:
+                pos += 1.
+            if tb_draw:
+                if Y_q[j] == YNN[j, 0]:
+                    if r1_counter < k:
+                        plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loaders[0],
+                                    f'r@1_{r1_counter}_{split}', loader_i=loaders[1])
+                        r1_counter += 1
+                        print('r1_counter = ', r1_counter)
+                elif Y_q[j] in YNN[j, :10]:
+                    if r10_counter < k:
+                        plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loaders[0],
+                                    f'r@10_{r10_counter}_{split}', loader_i=loaders[1])
+                        r10_counter += 1
+                        print('r10_counter = ', r10_counter)
+                elif counter < k:
+                    plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loaders[0],
+                                f'{counter}_{split}', loader_i=loaders[1])
+                    counter += 1
+                    print('counter = ', counter)
+
+        recallK[i] = pos / num
+    return recallK
+
+
+
+def plot_images(org_idx, org_lbl, sup_lbl, top_10_indx, top_10_lbl, top_10_super_lbl, writer, loader_q, tb_label, loader_i=None):
+    if loader_i is None:
+        loader_i = loader_q
+
     writer.add_image(tb_label + f'/0_q_class_C{org_lbl}_{sup_lbl}',
-                     get_image_from_dataloader(loader, org_idx),
+                     get_image_from_dataloader(loader_q, org_idx),
                      0, dataformats='CHW')
 
     for i in range(len(top_10_lbl)):
         writer.add_image(tb_label + f'/{i + 1}_class_C{top_10_lbl[i]}_{top_10_super_lbl[i]}',
-                         get_image_from_dataloader(loader, top_10_indx[i]),
+                         get_image_from_dataloader(loader_i, top_10_indx[i]),
                          0, dataformats='CHW')
 
     writer.flush()
@@ -2615,6 +2909,44 @@ def get_attention_normalized(reps, chunks):
     reps = np.concatenate(final_reps, axis=1)
     return reps
 
+def get_faiss_query_index(reps_q, reps_i, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
+    assert reps_q.dtype == np.float32
+    assert reps_i.dtype == np.float32
+
+    print(f'get_faiss_knn metric is: {metric}')
+
+    d = reps_q.shape[1]
+    if metric == 'euclidean':
+        index_function = faiss.IndexFlatL2
+    elif metric == 'cosine':
+        index_function = faiss.IndexFlatIP
+    else:
+        index_function = None
+        raise Exception(f'get_faiss_knn unsupported method {metric}')
+
+    if gpu:
+        try:
+            index_flat = index_function(d)
+            res = faiss.StandardGpuResources()
+            index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
+            index_flat.add(reps_i)  # add vectors to the index
+            print('Using GPU for KNN!!'
+                  ' Thanks FAISS!')
+        except:
+            print('Didn\'t fit it GPU, No gpus for faiss! :( ')
+            index_flat = index_function(d)
+            index_flat.add(reps_i)  # add vectors to the index
+    else:
+        print('No gpus for faiss! :( ')
+        index_flat = index_function(d)
+        index_flat.add(reps_i)  # add vectors to the index
+
+    assert (index_flat.ntotal == reps_i.shape[0])
+
+    D, I = index_flat.search(reps_q, k)
+
+
+    return D, I
 
 def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
     assert reps.dtype == np.float32
@@ -2744,3 +3076,18 @@ def draw_top_results(args, embeddings, labels, superlabels, ids, seens, data_loa
         print(res)
     else:
         raise Exception(f"More than 2 values in 'seens'. len(unique_seens) = {len(unique_seens)}")
+
+def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_loaders, tb_writer, save_path, metric='cosine', k=5,
+                     dist_matrix=None, best_negative=False, too_close_negative=False):
+
+    res = evaluation_qi(args, embeddings[0], embeddings[1], labels[0], labels[1], superlabels[0], superlabels[1], ids[0], ids[1], tb_writer,
+                     data_loaders, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
+                     gpu=args.cuda, metric=metric, dist_matrix=dist_matrix,
+                     path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
+                     tb_draw=True, create_best_negatives=best_negative,
+                     create_too_close_negatvies=too_close_negative)
+    print(f'Total length: {len(labels)}')
+    print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
+    print(res)
+
+

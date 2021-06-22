@@ -79,8 +79,8 @@ def main():
     train_set = None
     test_set = None
     val_set = None
-    val_set_known_fewshot = None
-    val_set_unknown_fewshot = None
+    # val_set_known_fewshot = None
+    # val_set_unknown_fewshot = None
 
     train_metric_dataset = None
     train_few_shot_dataset = None
@@ -115,75 +115,127 @@ def main():
 
     logger.info('*' * 10)
     val_set_known_metric = None
-    if args.vs_folder_name != 'none':
-        val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
-                                                    save_pictures=False, overfit=False,
-                                                    batchhard=[False, args.bh_P, args.bh_K])
-    else:
-        val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.ts_folder_name,
-                                                    save_pictures=False, overfit=False,
-                                                    batchhard=[False, args.bh_P, args.bh_K])
-    val_set_unknown_metric = None
-    if args.vu_folder_name != 'none':
-        logger.info('*' * 10)
-        val_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vu_folder_name,
-                                                      save_pictures=False, overfit=False,
-                                                      batchhard=[False, args.bh_P, args.bh_K])
+
+    val_sets = []
+    if len(args.valsets) != 0:
+        for v_file in args.valsets:
+            val_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
+                                                        save_pictures=False, overfit=False,
+                                                        batchhard=[False, args.bh_P, args.bh_K], split=v_file)
+            val_sets.append(val_set_metric)
+
+
+    # else:
+    #     if args.vs_folder_name != 'none':
+    #         val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
+    #                                                     save_pictures=False, overfit=False,
+    #                                                     batchhard=[False, args.bh_P, args.bh_K])
+    #
+    #     else:
+    #         val_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.ts_folder_name,
+    #                                                     save_pictures=False, overfit=False,
+    #                                                     batchhard=[False, args.bh_P, args.bh_K])
+    #     val_sets.append(val_set_known_metric)
+    #
+    #     val_set_unknown_metric = None
+    #     if args.vu_folder_name != 'none':
+    #         logger.info('*' * 10)
+    #         val_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vu_folder_name,
+    #                                                       save_pictures=False, overfit=False,
+    #                                                       batchhard=[False, args.bh_P, args.bh_K])
+    #     val_sets.append(val_set_unknown_metric)
+
     test_set_known_metric = None
     test_set_unknown_metric = None
+
+    test_sets = []
     if args.test:
-        logger.info('*' * 10)
-        test_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.ts_folder_name,
-                                                     save_pictures=False, overfit=False,
-                                                     batchhard=[False, args.bh_P, args.bh_K])
 
-        if args.tu_folder_name != 'none':
-            logger.info('*' * 10)
-            test_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val,
-                                                           mode=args.tu_folder_name,
-                                                           save_pictures=False, overfit=False,
-                                                           batchhard=[False, args.bh_P, args.bh_K])
+        for t_file in args.testsets:
+            test_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.vs_folder_name,
+                                                        save_pictures=False, overfit=False,
+                                                        batchhard=[False, args.bh_P, args.bh_K], split=t_file)
+            test_sets.append(test_set_metric)
+        # else:
+        #
+        #     logger.info('*' * 10)
+        #     test_set_known_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=args.ts_folder_name,
+        #                                                  save_pictures=False, overfit=False,
+        #                                                  batchhard=[False, args.bh_P, args.bh_K])
+        #     test_sets.append(test_set_known_metric)
+        #
+        #     if args.tu_folder_name != 'none':
+        #         logger.info('*' * 10)
+        #         test_set_unknown_metric = Metric_Dataset_Train(args, transform=data_transforms_val,
+        #                                                        mode=args.tu_folder_name,
+        #                                                        save_pictures=False, overfit=False,
+        #                                                        batchhard=[False, args.bh_P, args.bh_K])
+        #         test_sets.append(test_set_unknown_metric)
 
-    train_set_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_train, mode=args.train_folder_name,
-                                             save_pictures=False)
+    if len(val_sets) == 0:
+        if len(test_sets) == 0:
+            raise Exception('No validation or test set given')
+        else:
+            val_sets = test_sets
 
-    if args.vs_folder_name != 'none':
-        val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vs_folder_name,
-                                                     save_pictures=False)
-    else:
-        val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.ts_folder_name,
-                                                     save_pictures=False)
-    if args.vu_folder_name != 'none':
-        logger.info('*' * 10)
-        val_set_unknown_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vu_folder_name,
-                                                       save_pictures=False)
-
-    # val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
-    #                                               save_pictures=False)
-    # logger.info('*' * 10)
-    # val_set_unknown_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_unseen',
-    #                                                 save_pictures=False)
-
-    if args.test:
-        test_set_known = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.ts_folder_name)
-        logger.info('*' * 10)
-        if args.tu_folder_name != 'none':
-            test_set_unknown = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.tu_folder_name)
-            logger.info('*' * 10)
+    # fewshot datasets
+    # train_set_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_train, mode=args.train_folder_name,
+    #                                          save_pictures=False)
+    #
+    # if args.vs_folder_name != 'none':
+    #     val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vs_folder_name,
+    #                                                  save_pictures=False)
+    # else:
+    #     val_set_known_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.ts_folder_name,
+    #                                                  save_pictures=False)
+    # if args.vu_folder_name != 'none':
+    #     logger.info('*' * 10)
+    #     val_set_unknown_fewshot = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.vu_folder_name,
+    #                                                    save_pictures=False)
+    #
+    # # val_set_known_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_seen',
+    # #                                               save_pictures=False)
+    # # logger.info('*' * 10)
+    # # val_set_unknown_edgepred = test_edgepred_dataset(args, transform=data_transforms_val, mode='val_unseen',
+    # #                                                 save_pictures=False)
+    #
+    # if args.test:
+    #     test_set_known = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.ts_folder_name)
+    #     logger.info('*' * 10)
+    #     if args.tu_folder_name != 'none':
+    #         test_set_unknown = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.tu_folder_name)
+    #         logger.info('*' * 10)
 
         # todo test not supported for metric learning
 
     val_db_set = None
 
-    train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name,
-                              return_pairs=args.my_dist)
+    if args.query_index:
+        val_sets = []
+        for q_split, i_split in zip(args.new_hotel_split_query, args.new_hotel_split_index):
+            query_db_set = DB_Dataset(args, transform=data_transforms_val, mode='query',
+                                      return_pairs=args.my_dist, split_path=q_split, name=q_split)
 
-    if args.vs_folder_name != 'none':
-        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name,
-                                return_pairs=args.my_dist)
+
+            index_db_set = DB_Dataset(args, transform=data_transforms_val, mode='index',
+                                    return_pairs=args.my_dist, split_path=i_split, name=i_split)
+
+            val_sets.append([query_db_set, index_db_set])
+
     else:
-        val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
-                                return_pairs=args.my_dist)
+
+
+        train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name,
+                                  return_pairs=args.my_dist)
+
+        if args.vs_folder_name != 'none':
+            val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name,
+                                    return_pairs=args.my_dist)
+        else:
+            val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
+                                    return_pairs=args.my_dist)
+
+        val_sets = [[train_db_set, val_db_set]]
 
     if args.test:
         test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
@@ -197,12 +249,9 @@ def main():
     test_loaders = []
 
     if args.test:
-        test_loaders.append(
-            DataLoader(test_set_known, batch_size=args.way, shuffle=False, num_workers=args.workers,
-                       drop_last=args.drop_last))
-        if args.tu_folder_name != 'none':
+        for t_set in test_sets:
             test_loaders.append(
-                DataLoader(test_set_unknown, batch_size=args.way, shuffle=False, num_workers=args.workers,
+                DataLoader(t_set, batch_size=args.way, shuffle=False, num_workers=args.workers,
                            drop_last=args.drop_last))
 
     # workers = 4
@@ -224,11 +273,11 @@ def main():
     train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
                               pin_memory=pin_memory, drop_last=args.drop_last)
 
-    train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
-                                      pin_memory=pin_memory, drop_last=args.drop_last)
+    # train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
+    #                                   pin_memory=pin_memory, drop_last=args.drop_last)
 
-    val_loaders_fewshot = utils.get_val_loaders(args, val_set_known_fewshot, val_set_unknown_fewshot, workers,
-                                                pin_memory)
+    # val_loaders_fewshot = utils.get_val_loaders(args, [val_set_known_fewshot, val_set_unknown_fewshot], workers,
+    #                                             pin_memory)
 
     val_loaders_edgepred = None
     # val_loaders_edgepred = utils.get_val_loaders(args, val_set, val_set_known_edgepred, val_set_unknown_edgepred, workers,
@@ -243,7 +292,7 @@ def main():
     # dl_cam_val_unknown = DataLoader(cam_val_set_unknown_metric, batch_size=1, shuffle=False, num_workers=workers,
     #                                 pin_memory=pin_memory)
 
-    val_loaders_metric = utils.get_val_loaders(args, val_set_known_metric, val_set_unknown_metric, workers,
+    val_loaders_metric = utils.get_val_loaders(args, val_sets, workers,
                                                pin_memory, batch_size=args.batch_size)
     if args.test:
         test_loaders_metric = utils.get_val_loaders(args, test_set_known_metric, test_set_unknown_metric, workers,
@@ -256,11 +305,16 @@ def main():
         #                                  pin_memory=pin_memory)
     val_db_loader = None
 
-    train_db_loader = DataLoader(train_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                 pin_memory=pin_memory, drop_last=args.drop_last)
+    val_db_loaders = []
 
-    val_db_loader = DataLoader(val_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                               pin_memory=pin_memory, drop_last=args.drop_last)
+    for set_pair in val_sets:
+        val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                     pin_memory=pin_memory, drop_last=args.drop_last)
+
+        val2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
+                                   pin_memory=pin_memory, drop_last=args.drop_last)
+
+        val_db_loaders.append([val1_db_loader, val2_db_loader])
 
     if args.test:
         test_db_loader = DataLoader(test_db_set, batch_size=args.db_batch, shuffle=False, num_workers=workers,
@@ -327,13 +381,12 @@ def main():
                                                                      bce_loss=loss_fn_bce, args=args,
                                                                      train_loader=train_loader,
                                                                      val_loaders=val_loaders_metric,
-                                                                     val_loaders_fewshot=val_loaders_fewshot,
-                                                                     train_loader_fewshot=train_loader_fewshot,
+                                                                     # val_loaders_fewshot=val_loaders_fewshot,
+                                                                     # train_loader_fewshot=train_loader_fewshot,
                                                                      cam_args=[cam_img_paths,
                                                                                data_transforms_val,
                                                                                cam_data_transforms],
-                                                                     db_loaders=[train_db_loader, val_db_loader],
-                                                                     val_loaders_edgepred=val_loaders_edgepred)
+                                                                     db_loaders=val_db_loaders)
         logger.info('Calculating K@Ns for Validation')
 
         # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
