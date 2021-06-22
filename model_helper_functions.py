@@ -761,7 +761,16 @@ class ModelMethods:
 
         # max_val_acc_knwn = 0
         # max_val_acc_unknwn = 0
-        max_val_acc_parts = {loader.dataset.name: 0 for loader in val_loaders}
+        if args.query_index:
+            db_loader_names = [loader_pair[0].dataset.name for loader_pair in db_loaders]
+        else:
+            db_loader_names = [loader.dataset.name for loader in db_loaders]
+
+        max_val_acc_parts = {loader_name: 0 for loader_name in db_loader_names}
+
+        for name in db_loader_names:
+            utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_{name}'))
+
         val_acc = -1
         val_loss = -1
         val_rgt = 0
@@ -1023,7 +1032,6 @@ class ModelMethods:
 
 
             if db_loaders and not args.query_index:
-                db_loader_names = [loader.dataset.name for loader in db_loaders]
                 for name in db_loader_names:
                     if name not in self.class_diffs.keys():
                         self.class_diffs[name] = {'between_class_average': [],
@@ -1048,7 +1056,6 @@ class ModelMethods:
                                          k_at_n=args.katn)
 
             elif db_loaders and args.query_index:
-                db_loader_names = [loader[0].dataset.name for loader in db_loaders]
                 for name in db_loader_names:
                     if name not in self.class_diffs.keys():
                         self.class_diffs[name] = {'between_class_average': [],
