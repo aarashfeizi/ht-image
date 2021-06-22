@@ -3093,9 +3093,7 @@ def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_
     res = evaluation_qi(args, embeddings[0], embeddings[1], labels[0], labels[1], superlabels[0], superlabels[1], ids[0], ids[1], tb_writer,
                      data_loaders, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split='total', path=save_path, k=k,
                      gpu=args.cuda, metric=metric, dist_matrix=dist_matrix,
-                     path_to_lbl2chain=os.path.join(args.splits_file_path, 'label2chain.csv'),
-                     tb_draw=True, create_best_negatives=best_negative,
-                     create_too_close_negatvies=too_close_negative)
+                     tb_draw=True)
     print(f'Total length: {len(labels)}')
     print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
     print(res)

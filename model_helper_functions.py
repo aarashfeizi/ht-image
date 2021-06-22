@@ -1666,11 +1666,12 @@ class ModelMethods:
                 draw_top_k_results = args.draw_top_k_results
                 self.logger.info(f'Drawing top {draw_top_k_results} retrievals!!')
                 print(f'Drawing top {draw_top_k_results} retrievals!!')
-                utils.draw_top_results(args,
+                utils.draw_top_results_qi(args,
                                        [test_feats_q, test_feats_i],
                                        [test_classes_q, test_classes_i],
                                        [test_suplabels_q, test_suplabels_i],
                                        [test_paths_q, test_paths_i],
+                                       None,
                                        data_loaders,
                                        self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
                                        dist_matrix=None, best_negative=False, too_close_negative=False)
