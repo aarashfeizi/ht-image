@@ -1024,6 +1024,17 @@ class ModelMethods:
 
             if db_loaders and not args.query_index:
                 db_loader_names = [loader.dataset.name for loader in db_loaders]
+                for name in db_loader_names:
+                    if name not in self.class_diffs.keys():
+                        self.class_diffs[name] = {'between_class_average': [],
+                                 'between_class_min': [],
+                                 'between_class_max': [],
+                                 'in_class_average': [],
+                                 'in_class_min': [],
+                                 'in_class_max': []}
+
+                        self.silhouette_scores[name] = []
+
                 self.logger.info('plotting val class diff plot...')
 
                 for loader_pair, m in zip(db_loaders, db_loader_names):
@@ -1037,7 +1048,18 @@ class ModelMethods:
                                          k_at_n=args.katn)
 
             elif db_loaders and args.query_index:
-                db_loader_names = [loader.dataset.name for loader in db_loaders]
+                db_loader_names = [loader[0].dataset.name for loader in db_loaders]
+                for name in db_loader_names:
+                    if name not in self.class_diffs.keys():
+                        self.class_diffs[name] = {'between_class_average': [],
+                                                  'between_class_min': [],
+                                                  'between_class_max': [],
+                                                  'in_class_average': [],
+                                                  'in_class_min': [],
+                                                  'in_class_max': []}
+
+                        self.silhouette_scores[name] = []
+
                 self.logger.info('plotting val class diff plot...')
 
                 for loader_pair, m in zip(db_loaders, db_loader_names):
