@@ -2312,7 +2312,8 @@ def get_logname(args):
                          'no_global': 'no_global',
                          'spatial_projection': 'spatial_projection',
                          'attention': 'att',
-                         'same_pic_prob': 'spp'}
+                         'same_pic_prob': 'spp',
+                         'query_index': 'qi'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2347,7 +2348,8 @@ def get_logname(args):
                       'dim_reduction',
                       'spatial_projection',
                       'attention',
-                      'same_pic_prob']
+                      'same_pic_prob',
+                      'query_index']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2363,7 +2365,8 @@ def get_logname(args):
                     'softmax_diff_sim',
                     'aug_mask',
                     'debug_grad',
-                    'from_scratch']
+                    'from_scratch',
+                    'query_index']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':
