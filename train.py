@@ -213,29 +213,22 @@ def main():
     if args.query_index:
         val_sets = []
         for q_split, i_split in zip(args.new_hotel_split_query, args.new_hotel_split_index):
-            query_db_set = DB_Dataset(args, transform=data_transforms_val, mode='query',
-                                      return_pairs=args.my_dist, split_path=q_split, name=q_split)
+            query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
+                                      return_pairs=args.my_dist)
 
 
-            index_db_set = DB_Dataset(args, transform=data_transforms_val, mode='index',
-                                    return_pairs=args.my_dist, split_path=i_split, name=i_split)
+            index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
+                                    return_pairs=args.my_dist)
 
             val_sets.append([query_db_set, index_db_set])
 
     else:
+        val_sets = []
+        for v_split in args.valsets:
+            val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=v_split,
+                                      return_pairs=args.my_dist)
 
-
-        train_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.train_folder_name,
-                                  return_pairs=args.my_dist)
-
-        if args.vs_folder_name != 'none':
-            val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.vs_folder_name,
-                                    return_pairs=args.my_dist)
-        else:
-            val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,
-                                    return_pairs=args.my_dist)
-
-        val_sets = [[train_db_set, val_db_set]]
+            val_sets.append(val_db_set)
 
     if args.test:
         test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=args.ts_folder_name,

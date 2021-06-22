@@ -491,12 +491,12 @@ class Metric_Dataset_Train(Dataset):
 
 
 class DB_Dataset(Dataset):
-    def __init__(self, args, transform=None, mode='test', return_pairs=False, split_path='', name='db_loader'):
+    def __init__(self, args, transform=None, mode='test', return_pairs=False):
         np.random.seed(args.seed)
         super(DB_Dataset, self).__init__()
         self.transform = transform
         self.fourth_dim = args.fourth_dim
-        self.name = name if not name.endswith('.csv') else name[:-4]
+        self.name = mode if not mode.endswith('.csv') else mode[:-4]
 
         self.mode = mode
         self.normalize = utils.TransformLoader(-1).transform_normalize
