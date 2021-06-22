@@ -601,7 +601,7 @@ def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbl
     if sim_matrix is not None:
         I = (-sim_matrix).argsort()[:, :-1]
     else:
-        _, I, self_D = get_faiss_query_index(img_feats_q, img_feats_i, k=k_max, gpu=True, metric=metric)
+        _, I = get_faiss_query_index(img_feats_q, img_feats_i, k=k_max, gpu=True, metric=metric)
 
     metric_total = metrics.Accuracy_At_K(classes=all_lbls)
 
