@@ -282,6 +282,7 @@ def get_args():
     parser.add_argument('--indices', nargs='+', default=[])
 
     parser.add_argument('-qi', '--query_index', default=False, action='store_true')
+    parser.add_argument('-tqi', '--test_query_index', default=False, action='store_true')
 
 
 
@@ -2313,7 +2314,8 @@ def get_logname(args):
                          'spatial_projection': 'spatial_projection',
                          'attention': 'att',
                          'same_pic_prob': 'spp',
-                         'query_index': 'qi'}
+                         'query_index': 'qi',
+                         'test_query_index': 'tqi'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2349,7 +2351,8 @@ def get_logname(args):
                       'spatial_projection',
                       'attention',
                       'same_pic_prob',
-                      'query_index']
+                      'query_index',
+                      'test_query_index']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2366,7 +2369,8 @@ def get_logname(args):
                     'aug_mask',
                     'debug_grad',
                     'from_scratch',
-                    'query_index']
+                    'query_index',
+                    'test_query_index']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':

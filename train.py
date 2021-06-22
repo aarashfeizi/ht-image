@@ -391,18 +391,24 @@ def main():
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
         if val_db_loader:
-            if args.my_dist:
-                model_methods_top.make_all_emb_dist_db(args, net, val_db_loader,
-                                                       eval_sampled=args.sampled_results,
-                                                       eval_per_class=args.per_class_results,
-                                                       batch_size=args.db_batch,
-                                                       mode='val')
+            if args.query_index:
+                db_loader_names = [loader_pair[0].dataset.name for loader_pair in val_db_loader]
             else:
-                model_methods_top.make_emb_db(args, net, val_db_loader,
-                                              eval_sampled=args.sampled_results,
-                                              eval_per_class=args.per_class_results, newly_trained=False,
-                                              batch_size=args.db_batch,
-                                              mode='val')
+                db_loader_names = [loader.dataset.name for loader in val_db_loader]
+
+            for loader, name in zip(val_db_loader, db_loader_names):
+                if args.query_index: # loader is pair of loaders
+                    model_methods_top.make_emb_query_index(args, net, loader,
+                                                           eval_sampled=args.sampled_results,
+                                                           eval_per_class=args.per_class_results,
+                                                           batch_size=args.db_batch,
+                                                           mode=name)
+                else:
+                    model_methods_top.make_emb_db(args, net, loader,
+                                                  eval_sampled=args.sampled_results,
+                                                  eval_per_class=args.per_class_results, newly_trained=False,
+                                                  batch_size=args.db_batch,
+                                                  mode=name)
     else:  # test
         logger.info('Testing without training')
         best_model_top = args.pretrained_model_name
@@ -431,18 +437,25 @@ def main():
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
         if val_db_loader:
-            if args.my_dist:
-                model_methods_top.make_all_emb_dist_db(args, net, val_db_loader,
-                                                       eval_sampled=args.sampled_results,
-                                                       eval_per_class=args.per_class_results,
-                                                       batch_size=args.db_batch,
-                                                       mode='val')
+
+            if args.query_index:
+                db_loader_names = [loader_pair[0].dataset.name for loader_pair in val_db_loader]
             else:
-                model_methods_top.make_emb_db(args, net, val_db_loader,
-                                              eval_sampled=args.sampled_results,
-                                              eval_per_class=args.per_class_results, newly_trained=True,
-                                              batch_size=args.db_batch,
-                                              mode='val')
+                db_loader_names = [loader.dataset.name for loader in val_db_loader]
+
+            for loader, name in zip(val_db_loader, db_loader_names):
+                if args.query_index:
+                    model_methods_top.make_emb_query_index(args, net, loader,
+                                                           eval_sampled=args.sampled_results,
+                                                           eval_per_class=args.per_class_results,
+                                                           batch_size=args.db_batch,
+                                                           mode=name)
+                else:
+                    model_methods_top.make_emb_db(args, net, loader,
+                                                  eval_sampled=args.sampled_results,
+                                                  eval_per_class=args.per_class_results, newly_trained=True,
+                                                  batch_size=args.db_batch,
+                                                  mode=name)
 
     # testing
     if args.test:
@@ -460,11 +473,25 @@ def main():
                 #                               eval_per_class=True, newly_trained=True,
                 #                               batch_size=args.db_batch,
                 #                               mode='train_sampled')
-                model_methods_top.make_emb_db(args, net, test_db_loader,
-                                              eval_sampled=args.sampled_results,
-                                              eval_per_class=args.per_class_results, newly_trained=True,
-                                              batch_size=args.db_batch,
-                                              mode='test')
+                if args.test_query_index:
+                    t_db_loader_names = [loader_pair[0].dataset.name for loader_pair in test_db_loader]
+                else:
+                    t_db_loader_names = [loader.dataset.name for loader in test_db_loader]
+
+                for loader, name in zip(test_db_loader, t_db_loader_names):
+                    if args.query_index:
+                        model_methods_top.make_emb_query_index(args, net, loader,
+                                                               eval_sampled=args.sampled_results,
+                                                               eval_per_class=args.per_class_results,
+                                                               batch_size=args.db_batch,
+                                                               mode=name)
+                    else:
+                        model_methods_top.make_emb_db(args, net, loader,
+                                                      eval_sampled=args.sampled_results,
+                                                      eval_per_class=args.per_class_results, newly_trained=True,
+                                                      batch_size=args.db_batch,
+                                                      mode=name)
+
 
     else:
         logger.info("NO TESTING DONE.")
