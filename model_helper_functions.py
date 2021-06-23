@@ -224,6 +224,22 @@ class ModelMethods:
             self.neg_offsets = None
             self.neg_resizefactors = None
 
+    def initialize_lists(self, args, data_loaders, db_loaders):
+        if args.query_index:
+            db_loader_names = [loader_pair[0].dataset.name for loader_pair in db_loaders]
+        else:
+            db_loader_names = [loader.dataset.name for loader in db_loaders]
+        for name in db_loader_names:
+            if name not in self.class_diffs.keys():
+                self.class_diffs[name] = {'between_class_average': [],
+                                          'between_class_min': [],
+                                          'between_class_max': [],
+                                          'in_class_average': [],
+                                          'in_class_min': [],
+                                          'in_class_max': []}
+
+                self.silhouette_scores[name] = []
+
     def _tb_project_embeddings(self, args, net, loader, k):
 
         net.eval()
