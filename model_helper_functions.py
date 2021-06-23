@@ -1717,13 +1717,18 @@ class ModelMethods:
             # dists = dists[test_seen == 1, :][:, test_seen == 1]
 
             if epoch != -1:
-                for c in list(kavg.columns):  # plot tb
-                    if 'kAT' in c:
-                        tb_tag = c.replace('AT', '@')
-                        cmode = mode[0].upper() + mode[1:]  # capitalize
-                        self.writer.add_scalar(f'Total_{cmode}/{tb_tag}', kavg[c][0], epoch)
+                pre_name = 'Total'
+            else:
+                pre_name = 'Final'
 
-                self.writer.flush()
+            for c in list(kavg.columns):  # plot tb
+                if 'kAT' in c:
+                    tb_tag = c.replace('AT', '@')
+                    cmode = mode[0].upper() + mode[1:]  # capitalize
+                    self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', kavg[c][0], epoch)
+
+            self.writer.flush()
+
         self.logger.info('results at: ' + self.save_path)
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,

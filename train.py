@@ -398,6 +398,7 @@ def main():
         utils.print_gpu_stuff(args.cuda, 'after model to gpu')
 
     logger.info('Training Top')
+    model_methods_top.initialize_lists(args, data_loaders=val_loaders_metric, db_loaders=val_db_loaders)
     if args.pretrained_model_name == '':
         logger.info('Training')
         print('Total parameters:', utils.get_number_of_parameters(net))
@@ -459,7 +460,6 @@ def main():
         logger.info(f'DONE drawing heatmaps on epoch {-1}!!!')
 
     if args.katn and args.pretrained_model_name != '':
-        model_methods_top.initialize_lists(args, data_loaders=val_loaders_metric, db_loaders=val_db_loaders)
         logger.info('Calculating K@Ns for Validation')
         # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
         #                               eval_sampled=False,
