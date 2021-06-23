@@ -465,7 +465,7 @@ def main():
         #                               eval_per_class=True, newly_trained=True,
         #                               batch_size=args.db_batch,
         #                               mode='train_sampled')
-        if val_db_loader:
+        if val_db_loaders:
 
             if args.query_index:
                 db_loader_names = [loader_pair[0].dataset.name for loader_pair in val_db_loaders]
