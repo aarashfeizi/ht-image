@@ -3119,8 +3119,8 @@ def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels
     sampled_query_masks = np.array([])
 
     for l in above_thresh_lbls:
-        i_relevant_masks = imask_on_all_abovethresh[index_labels == l]
-        q_relevant_masks = qmask_on_all_abovethresh[query_labels == l]
+        i_relevant_masks = np.array(imask_on_all_abovethresh)[index_labels == l]
+        q_relevant_masks = np.array(qmask_on_all_abovethresh)[query_labels == l]
 
         sampled_index_masks = np.append(sampled_index_masks,
                                         np.random.choice(i_relevant_masks, min_index_perclass, replace=False))
