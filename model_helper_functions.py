@@ -1697,7 +1697,7 @@ class ModelMethods:
 
 
         if k_at_n:
-            kavg = utils.calculate_k_at_n(args,
+            kavg, unsampled_total = utils.calculate_k_at_n(args,
                                           [test_feats_q, test_feats_i],
                                           [test_classes_q, test_classes_i],
                                           None,
@@ -1723,7 +1723,13 @@ class ModelMethods:
 
             for c in list(kavg.columns):  # plot tb
                 if 'kAT' in c:
-                    tb_tag = c.replace('AT', '@')
+                    tb_tag = c.replace('AT', '@') + '_sampled'
+                    cmode = mode[0].upper() + mode[1:]  # capitalize
+                    self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', kavg[c][0], epoch)
+
+            for c in list(unsampled_total.columns):  # plot tb
+                if 'k@' in c:
+                    tb_tag = c
                     cmode = mode[0].upper() + mode[1:]  # capitalize
                     self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', kavg[c][0], epoch)
 
@@ -1922,7 +1928,7 @@ class ModelMethods:
         # import pdb
         # pdb.set_trace()
         if k_at_n:
-            kavg = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
+            kavg, unsampled_total = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
                                           limit=args.limit_samples,
                                           run_number=args.number_of_runs,
                                           save_path=self.save_path,

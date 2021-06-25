@@ -439,24 +439,24 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
                      sim_matrix=None, metric='cosine', query_index=False, extra_name=''):
     if query_index and len(img_lbls) == 2 and len(img_feats) == 2:
         logger.info('K@N per class')
-        total = _get_per_class_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, mode,
+        unsampled_total = _get_per_class_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, mode,
                                                       sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
-        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_per_class_total_avg_k@n.csv'),
+        unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_per_class_total_avg_k@n.csv'),
                      header=True, index=False)
-
-        kavg, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
-                              run_number, mode,
-                              sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
-        total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n.csv'), header=True,
-                     index=False)
+        for i in range(args.number_of_runs):
+            kavg, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
+                                  run_number, mode,
+                                  sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
+            total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n_r{i}.csv'), header=True,
+                         index=False)
 
 
     else:
         if per_class:
             logger.info('K@N per class')
-            total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
+            unsampled_total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
                                                           sim_matrix=sim_matrix, metric=metric)
-            total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
+            unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
                          index=False)
             seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
                         index=False)
@@ -479,7 +479,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
             unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_per_class_unseen_avg_k@n.csv'),
                           header=True, index=False)
 
-    return kavg
+    return kavg, unsampled_total
 
 def _get_per_class_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, mode, sim_matrix=None, metric='cosine', extra_name=''):
     all_lbls = np.unique(img_lbls_q)
@@ -598,20 +598,21 @@ def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbl
     all_lbls = np.unique(img_lbls_q)
 
 
+    img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(img_feats_q, img_feats_i, img_lbls_q, img_lbls_i)
 
     # sim_mat = cosine_similarity(chosen_img_feats)
-    k_max = min(1000, img_lbls_q.shape[0])
+    k_max = min(1000, img_lbls_q_sampled.shape[0])
 
     if sim_matrix is not None:
         I = (-sim_matrix).argsort()[:, :-1]
     else:
-        _, I = get_faiss_query_index(img_feats_q, img_feats_i, k=k_max, gpu=True, metric=metric)
+        _, I = get_faiss_query_index(img_feats_q_sampled, img_feats_i_sampled, k=k_max, gpu=True, metric=metric)
 
     metric_total = metrics.Accuracy_At_K(classes=all_lbls)
 
-    for idx, lbl in enumerate(img_lbls_q):
+    for idx, lbl in enumerate(img_lbls_q_sampled):
 
-        ret_lbls = img_lbls_i[I[idx]]
+        ret_lbls = img_lbls_i_sampled[I[idx]]
 
         metric_total.update(lbl, ret_lbls)
 
@@ -3099,3 +3100,38 @@ def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_
     print(res)
 
 
+def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels, thresh=6, min_index_perclass=3):
+    ilbls, ilbls_c = np.unique(index_labels, return_counts=True)
+
+    if ilbls_c.mean() > thresh:
+        above_thresh_lbls = ilbls[ilbls_c >= thresh]
+    else:
+        above_thresh_lbls = ilbls
+
+    # df_query_above_thresh = query_labels[query_labels.isin(above_thresh_lbls)]
+    # df_index_above_thresh = index_labels[index_labels.label.isin(above_thresh_lbls)]
+
+    imask_on_all_abovethresh = [i for i in range(len(index_labels))]
+
+    qmask_on_all_abovethresh = [i for i in range(len(query_labels))]
+
+    sampled_index_masks = np.array([])
+    sampled_query_masks = np.array([])
+
+    for l in above_thresh_lbls:
+        i_relevant_masks = imask_on_all_abovethresh[index_labels == l]
+        q_relevant_masks = qmask_on_all_abovethresh[query_labels == l]
+
+        sampled_index_masks = np.append(sampled_index_masks,
+                                        np.random.choice(i_relevant_masks, min_index_perclass, replace=False))
+        sampled_query_masks = np.append(sampled_query_masks,
+                                        np.random.choice(q_relevant_masks, (min_index_perclass // 3), replace=False))
+
+    sampled_index = index_feats[sampled_index_masks, :]
+    sampled_index_lbls = index_labels[sampled_index_masks]
+
+    sampled_query = query_feats[sampled_query_masks, :]
+    sampled_query_lbls = query_labels[sampled_query_masks]
+
+
+    return sampled_query, sampled_index, sampled_query_lbls, sampled_index_lbls
