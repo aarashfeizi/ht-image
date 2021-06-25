@@ -1729,9 +1729,9 @@ class ModelMethods:
 
             for c in list(unsampled_total.columns):  # plot tb
                 if 'k@' in c:
-                    tb_tag = c
+                    tb_tag = 'avg_' + c
                     cmode = mode[0].upper() + mode[1:]  # capitalize
-                    self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', kavg[c][0], epoch)
+                    self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', unsampled_total[c][0], epoch)
 
             self.writer.flush()
 
