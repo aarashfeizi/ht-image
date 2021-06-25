@@ -3127,9 +3127,11 @@ def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels
         sampled_query_masks = np.append(sampled_query_masks,
                                         np.random.choice(q_relevant_masks, (min_index_perclass // 3), replace=False))
 
+    sampled_index_masks = sampled_index_masks.astype(int)
     sampled_index = index_feats[sampled_index_masks, :]
     sampled_index_lbls = index_labels[sampled_index_masks]
 
+    sampled_query_masks = sampled_query_masks.astype(int)
     sampled_query = query_feats[sampled_query_masks, :]
     sampled_query_lbls = query_labels[sampled_query_masks]
 
