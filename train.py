@@ -52,11 +52,15 @@ def main():
     logger.info(f'Batch size is {args_dict["batch_size"]}')
     train_aug = (args.overfit_num == 0)
 
-    data_transforms_train, transform_list_train = utils.TransformLoader(args.image_size,
+    data_transforms_train_1, transform_list_train_1 = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=train_aug, color_jitter=train_aug)
 
-    logger.info(f'train transforms: {transform_list_train}')
+    data_transforms_train_2, transform_list_train_2 = utils.TransformLoader(args.image_size,
+                                                                        rotate=args.rotate, scale=[0.1, 0.5]).get_composed_transform(
+        aug=args.aug, random_crop=train_aug, color_jitter=train_aug)
+
+    logger.info(f'train transforms: {transform_list_train_1}')
 
     data_transforms_val, transform_list_val = utils.TransformLoader(args.image_size,
                                                                     rotate=args.rotate).get_composed_transform(
@@ -107,7 +111,10 @@ def main():
     is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrastive')
     logger.info('*' * 10)
 
-    train_set = Metric_Dataset_Train(args, transform=data_transforms_train, mode=args.train_folder_name,
+    train_set = Metric_Dataset_Train(args,
+                                     transform=data_transforms_train_1,
+                                     transform2=data_transforms_train_2,
+                                     mode=args.train_folder_name,
                                      save_pictures=False, overfit=True,
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K],
                                      allow_same_chain_negative=True,

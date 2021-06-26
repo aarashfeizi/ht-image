@@ -82,12 +82,14 @@ class TransformLoader:
 
     def __init__(self, image_size, rotate=0,
                  normalize_param=dict(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                 jitter_param=dict(Brightness=0.4, Contrast=0.4, Color=0.4)):
+                 jitter_param=dict(Brightness=0.4, Contrast=0.4, Color=0.4),
+                 scale=[0.5, 1.0]):
         self.image_size = image_size
         self.normalize_param = normalize_param
         self.jitter_param = jitter_param
         self.rotate = rotate
         self.normalize = transforms.Normalize(**self.normalize_param)
+        self.scale = scale
 
     def parse_transform(self, transform_type):
         # if transform_type == 'ImageJitter':
@@ -95,7 +97,7 @@ class TransformLoader:
         #     return method
         method = getattr(transforms, transform_type)
         if transform_type == 'RandomResizedCrop':
-            return method(self.image_size, scale=[0.5, 1.0], ratio=[1.0, 1.0])
+            return method(self.image_size, scale=self.scale, ratio=[1.0, 1.0])
         elif transform_type == 'CenterCrop':
             return method(self.image_size)
         elif transform_type == 'Resize':

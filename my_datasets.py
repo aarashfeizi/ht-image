@@ -15,11 +15,17 @@ from utils import get_shuffled_data, load_hotelData_ToMem, loadDataToMem_2, get_
 
 class Metric_Dataset_Train(Dataset):
     def __init__(self, args, transform=None, mode='', save_pictures=False, overfit=False, return_paths=False,
-                 batchhard=[False, 0, 0], allow_same_chain_negative=True, is_train=False):
+                 batchhard=[False, 0, 0], allow_same_chain_negative=True, is_train=False, transform2=None):
         super(Metric_Dataset_Train, self).__init__()
         self.fourth_dim = args.fourth_dim
         np.random.seed(args.seed)
         self.transform = transform
+
+        if transform2:
+            self.transform2 = transform2
+        else:
+            self.transform2 = self.transform
+
         self.save_pictures = save_pictures
         self.no_negative = args.no_negative
         self.aug_mask = args.aug_mask
@@ -248,10 +254,10 @@ class Metric_Dataset_Train(Dataset):
             # pdb.set_trace()
 
             anch = self.do_transform(anch)
-            pos = self.do_transform(pos)
+            pos = self.do_transform(pos, second=True)
 
             for i, neg in enumerate(negs):
-                negs[i] = self.do_transform(neg)
+                negs[i] = self.do_transform(neg, second=True)
 
             neg = torch.stack(negs)
 
@@ -336,8 +342,12 @@ class Metric_Dataset_Train(Dataset):
         else:
             return self.__triplet_getitem__(index)
 
-    def do_transform(self, img):
-        img = self.transform(img)
+    def do_transform(self, img, second=False):
+        if second:
+            img = self.transform2(img)
+        else:
+            img = self.transform(img)
+
         img = self.normalize(img)
         return img
 
