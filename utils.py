@@ -438,18 +438,46 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
                      even_sampled=True, per_class=False, save_path='', mode='',
                      sim_matrix=None, metric='cosine', query_index=False, extra_name=''):
     if query_index and len(img_lbls) == 2 and len(img_feats) == 2:
-        logger.info('K@N per class')
-        unsampled_total = _get_per_class_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, mode,
-                                                      sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
-        unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_per_class_total_avg_k@n.csv'),
+        logger.info('K@N unsampled class')
+        # unsampled_total = _get_per_class_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, mode,
+        #                                               sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
+        unsampled_total, _, _ = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1],
+                                                      logger, limit,
+                                                      run_number, mode,
+                                                      sim_matrix=sim_matrix, metric=metric, extra_name=extra_name,
+                                                      sampled=False)
+
+        unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_UNsampled_avg_k@n.csv'),
                      header=True, index=False)
+
+        all_run_avgs = None
         for i in range(args.number_of_runs):
-            kavg, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
+            logger.info(f'K@N sample {i} class')
+            kavg_i, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
                                   run_number, mode,
                                   sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
-            total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n_r{i}.csv'), header=True,
-                         index=False)
 
+            if all_run_avgs is None:
+                all_run_avgs = kavg_i
+            else:
+                all_run_avgs = pd.concat([all_run_avgs, kavg_i])
+            # kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n_r{i}.csv'), header=True,
+            #              index=False)
+        all_run_avgs = all_run_avgs.reset_index()
+        all_run_avgs.to_csv(
+            os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_all_sampled_avg_k@n.csv'),
+            header=True,
+            index=False)
+
+        kavg = pd.DataFrame()
+        for c in all_run_avgs.columns:
+            all_mean = np.array(all_run_avgs[c]).mean()
+            kavg[c] = [all_mean]
+
+        kavg.to_csv(
+            os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_avg_k@n.csv'),
+            header=True,
+            index=False)
 
     else:
         if per_class:
@@ -594,13 +622,15 @@ def _log_per_class(logger, df, split_kind=''):
     logger.info(f'k@100 per class average: {np.array(df["k@100"]).mean()}\n')
 
 def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, limit=0, run_number=0, mode='',
-                             sim_matrix=None, metric='cosine', extra_name=''):
+                             sim_matrix=None, metric='cosine', extra_name='', sampled=True):
     all_lbls = np.unique(img_lbls_q)
 
+    if sampled:
+        img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(img_feats_q, img_feats_i, img_lbls_q, img_lbls_i)
+    else:
+        img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = img_feats_q, img_feats_i, img_lbls_q, img_lbls_i
 
-    img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(img_feats_q, img_feats_i, img_lbls_q, img_lbls_i)
-
-    # sim_mat = cosine_similarity(chosen_img_feats)
+        # sim_mat = cosine_similarity(chosen_img_feats)
     k_max = min(1000, img_lbls_q_sampled.shape[0])
 
     if sim_matrix is not None:
