@@ -1728,8 +1728,8 @@ class ModelMethods:
                     self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', kavg[c][0], epoch)
 
             for c in list(unsampled_total.columns):  # plot tb
-                if 'k@' in c:
-                    tb_tag = 'avg_' + c
+                if 'kAT' in c:
+                    tb_tag = c.replace('AT', '@')
                     cmode = mode[0].upper() + mode[1:]  # capitalize
                     self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', unsampled_total[c][0], epoch)
 
