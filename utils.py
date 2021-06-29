@@ -284,7 +284,7 @@ def get_args():
     parser.add_argument('-qi', '--query_index', default=False, action='store_true')
     parser.add_argument('--queries', nargs='+', default=[])
     parser.add_argument('--indices', nargs='+', default=[])
-    parser.add_argument('-ciq', '--classes_in_query', default=2200, type=int, help="number of classes in each query/index run")
+    parser.add_argument('-ciq', '--classes_in_query', default=0, type=int, help="number of classes in each query/index run")
 
 
 
