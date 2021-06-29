@@ -1723,7 +1723,7 @@ class ModelMethods:
 
             for c in list(kavg.columns):  # plot tb
                 if 'kAT' in c:
-                    tb_tag = c.replace('AT', '@') + '_sampled'
+                    tb_tag = c.replace('AT', '@') + f'_sampled_c{args.classes_in_query}'
                     cmode = mode[0].upper() + mode[1:]  # capitalize
                     self.writer.add_scalar(f'{pre_name}_{cmode}/{tb_tag}', kavg[c][0], epoch)
 
