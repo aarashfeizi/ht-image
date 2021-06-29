@@ -284,6 +284,8 @@ def get_args():
     parser.add_argument('-qi', '--query_index', default=False, action='store_true')
     parser.add_argument('--queries', nargs='+', default=[])
     parser.add_argument('--indices', nargs='+', default=[])
+    parser.add_argument('-ciq', '--classes_in_query', default=2200, type=int, help="number of classes in each query/index run")
+
 
 
     parser.add_argument('-tqi', '--test_query_index', default=False, action='store_true')
@@ -447,7 +449,7 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
                                                       logger, limit,
                                                       run_number, mode,
                                                       sim_matrix=sim_matrix, metric=metric, extra_name=extra_name,
-                                                      sampled=False)
+                                                      sampled=False) # unsampled
 
         unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_UNsampled_avg_k@n.csv'),
                      header=True, index=False)
@@ -628,11 +630,17 @@ def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbl
     all_lbls = np.unique(img_lbls_q)
 
     if sampled:
-        img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(img_feats_q, img_feats_i, img_lbls_q, img_lbls_i)
+        img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(img_feats_q,
+                                                                                                                   img_feats_i,
+                                                                                                                   img_lbls_q,
+                                                                                                                   img_lbls_i,
+                                                                                                                   classes=args.classes_in_query)
     else:
         img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = img_feats_q, img_feats_i, img_lbls_q, img_lbls_i
 
         # sim_mat = cosine_similarity(chosen_img_feats)
+    print(f'$$$$ {extra_name}: Total of {len(img_lbls_q_sampled)} queries and {len(img_lbls_i_sampled)} indices')
+
     k_max = min(1000, img_lbls_q_sampled.shape[0])
 
     if sim_matrix is not None:
@@ -2351,7 +2359,8 @@ def get_logname(args):
                          'attention': 'att',
                          'same_pic_prob': 'spp',
                          'query_index': 'qi',
-                         'test_query_index': 'tqi'}
+                         'test_query_index': 'tqi',
+                         'classes_in_query': 'ciq'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2388,7 +2397,8 @@ def get_logname(args):
                       'attention',
                       'same_pic_prob',
                       'query_index',
-                      'test_query_index']
+                      'test_query_index',
+                      'classes_in_query']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2408,13 +2418,19 @@ def get_logname(args):
                     'query_index',
                     'test_query_index']
 
+    args_shouldnt_be_zero = ['overfit_num',
+                             'gamma',
+                             'dim_reduction',
+                             'same_pic_prob',
+                             ]
+
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':
             important_args.extend(['margin'])
         else:
             important_args.extend(['trplcoefficient',
-                                   'bcecoefficient',
-                                   'margin'])
+                                   'margin',
+                                   'classes_in_query'])
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         important_args.extend(['margin'])
@@ -2423,14 +2439,11 @@ def get_logname(args):
         if str(arg) in important_args:
             if str(arg) in arg_booleans and not getattr(args, arg):
                 continue
-            elif str(arg) == 'overfit_num' and getattr(args, arg) == 0:
+            elif str(arg) in args_shouldnt_be_zero and getattr(args, arg) == 0:
                 continue
-            elif str(arg) == 'gamma' and getattr(args, arg) == 1.0:
+            elif str(arg) == 'bcecoefficient' and getattr(args, arg) == 1.0:
                 continue
-            elif str(arg) == 'dim_reduction' and getattr(args, arg) == 0:
-                continue
-            elif str(arg) == 'same_pic_prob' and getattr(args, arg) == 0:
-                continue
+
 
             if type(getattr(args, arg)) is not bool:
                 name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
@@ -3132,7 +3145,7 @@ def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_
     print(res)
 
 
-def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels, thresh=6, min_index_perclass=3):
+def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels, thresh=6, min_index_perclass=3, classes=0):
     ilbls, ilbls_c = np.unique(index_labels, return_counts=True)
 
     if ilbls_c.mean() > thresh:
@@ -3149,6 +3162,9 @@ def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels
 
     sampled_index_masks = np.array([])
     sampled_query_masks = np.array([])
+
+    if classes != 0:
+        above_thresh_lbls = np.random.choice(above_thresh_lbls, classes, repalce=False)
 
     for l in above_thresh_lbls:
         i_relevant_masks = np.array(imask_on_all_abovethresh)[index_labels == l]
