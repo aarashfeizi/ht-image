@@ -111,9 +111,14 @@ def main():
     is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrastive')
     logger.info('*' * 10)
 
+    if args.small_and_big:
+        second_transform = data_transforms_train_2
+    else:
+        second_transform = None
+
     train_set = Metric_Dataset_Train(args,
                                      transform=data_transforms_train_1,
-                                     transform2=data_transforms_train_2,
+                                     transform2=second_transform,
                                      mode=args.train_folder_name,
                                      save_pictures=False, overfit=True,
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K],

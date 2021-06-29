@@ -284,7 +284,7 @@ def get_args():
     parser.add_argument('-qi', '--query_index', default=False, action='store_true')
     parser.add_argument('--queries', nargs='+', default=[])
     parser.add_argument('--indices', nargs='+', default=[])
-    parser.add_argument('-ciq', '--classes_in_query', default=0, type=int, help="number of classes in each query/index run")
+    parser.add_argument('-ciq', '--classes_in_query', default=0, type=int, help="number of classes in each query/index run") # 2200
 
 
 
@@ -336,6 +336,7 @@ def get_args():
     parser.add_argument('-smds', '--softmax_diff_sim', default=False, action='store_true')
 
     parser.add_argument('-spatial_projection', '--spatial_projection', default=False, action='store_true')
+    parser.add_argument('--small_and_big', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -2360,7 +2361,8 @@ def get_logname(args):
                          'same_pic_prob': 'spp',
                          'query_index': 'qi',
                          'test_query_index': 'tqi',
-                         'classes_in_query': 'ciq'}
+                         'classes_in_query': 'ciq',
+                         'small_and_big': 'SB'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2398,7 +2400,8 @@ def get_logname(args):
                       'same_pic_prob',
                       'query_index',
                       'test_query_index',
-                      'classes_in_query']
+                      'classes_in_query',
+                      'small_and_big']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2416,7 +2419,8 @@ def get_logname(args):
                     'debug_grad',
                     'from_scratch',
                     'query_index',
-                    'test_query_index']
+                    'test_query_index',
+                    'small_and_big']
 
     args_shouldnt_be_zero = ['overfit_num',
                              'gamma',
