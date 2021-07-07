@@ -455,34 +455,36 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
         unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_UNsampled_avg_k@n.csv'),
                      header=True, index=False)
 
-        all_run_avgs = None
-        for i in range(args.number_of_runs):
-            logger.info(f'K@N sample {i} class')
-            kavg_i, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
-                                  run_number, mode,
-                                  sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
-
-            if all_run_avgs is None:
-                all_run_avgs = kavg_i
-            else:
-                all_run_avgs = pd.concat([all_run_avgs, kavg_i])
-            # kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n_r{i}.csv'), header=True,
-            #              index=False)
-        all_run_avgs = all_run_avgs.reset_index()
-        all_run_avgs.to_csv(
-            os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_all_sampled_avg_k@n.csv'),
-            header=True,
-            index=False)
-
         kavg = pd.DataFrame()
-        for c in all_run_avgs.columns:
-            all_mean = np.array(all_run_avgs[c]).mean()
-            kavg[c] = [all_mean]
+        if sampled:
+            all_run_avgs = None
+            for i in range(args.number_of_runs):
+                logger.info(f'K@N sample {i} class')
+                kavg_i, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
+                                      run_number, mode,
+                                      sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
 
-        kavg.to_csv(
-            os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_avg_k@n.csv'),
-            header=True,
-            index=False)
+                if all_run_avgs is None:
+                    all_run_avgs = kavg_i
+                else:
+                    all_run_avgs = pd.concat([all_run_avgs, kavg_i])
+                # kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_per_class_total_avg_k@n_r{i}.csv'), header=True,
+                #              index=False)
+            all_run_avgs = all_run_avgs.reset_index()
+            all_run_avgs.to_csv(
+                os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_all_sampled_avg_k@n.csv'),
+                header=True,
+                index=False)
+
+            kavg = pd.DataFrame()
+            for c in all_run_avgs.columns:
+                all_mean = np.array(all_run_avgs[c]).mean()
+                kavg[c] = [all_mean]
+
+            kavg.to_csv(
+                os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_sampled_avg_k@n.csv'),
+                header=True,
+                index=False)
 
     else:
         if per_class:

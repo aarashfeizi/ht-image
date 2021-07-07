@@ -1736,7 +1736,7 @@ class ModelMethods:
             self.writer.flush()
 
             if test_suplabels_q is not None:
-                kavg, unsampled_total = utils.calculate_k_at_n(args,
+                _, unsampled_total = utils.calculate_k_at_n(args,
                                                                [test_feats_q, test_feats_i],
                                                                [test_suplabels_q, test_suplabels_i],
                                                                None,
@@ -1744,19 +1744,13 @@ class ModelMethods:
                                                                limit=args.limit_samples,
                                                                run_number=args.number_of_runs,
                                                                save_path=self.save_path,
-                                                               sampled=True,
+                                                               sampled=False,
                                                                even_sampled=False,
                                                                per_class=eval_per_class,
                                                                mode=mode,
                                                                metric=self.metric,
                                                                query_index=True,
                                                                extra_name=f'{query_index_names[0]}_{query_index_names[1]}')
-
-                for c in list(kavg.columns):  # plot tb
-                    if 'kAT' in c:
-                        tb_tag = c.replace('AT', '@') + f'_sampled_c{args.classes_in_query}'
-                        cmode = mode[0].upper() + mode[1:]  # capitalize
-                        self.writer.add_scalar(f'{pre_name}_{cmode}_SupCls/{tb_tag}', kavg[c][0], epoch)
 
                 for c in list(unsampled_total.columns):  # plot tb
                     if 'kAT' in c:
