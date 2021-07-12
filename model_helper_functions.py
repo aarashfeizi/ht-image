@@ -707,8 +707,8 @@ class ModelMethods:
             print('current_device: ', torch.cuda.current_device())
 
         if 'deit' in args.feat_extractor:
-            learnable_params = [{'params': net.module.sm_net.parameters()},
-                                {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}]
+            learnable_params = [{'params': net.sm_net.parameters()},
+                                {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}]
         else:
             if multiple_gpu:  # todo local not supported
                 if net.module.aug_mask:
