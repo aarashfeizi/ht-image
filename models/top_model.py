@@ -747,6 +747,7 @@ class TopModel(nn.Module):
     def __init__(self, args, ft_net, sm_net, aug_mask=False, attention=False):
         super(TopModel, self).__init__()
         self.ft_net = ft_net
+        self.transformer = 'deit' in args.feat_extractor
         print('ResNet50 parameters:', utils.get_number_of_parameters(self.ft_net))
         self.sm_net = sm_net
         self.aug_mask = aug_mask
@@ -831,7 +832,11 @@ class TopModel(nn.Module):
         # print('model input:', x1[-1].size())
         atts_1 = None
         atts_2 = None
-        x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
+        if self.transformer:
+            x1_global = self.ft_net(x1)
+            x1_local = None
+        else:
+            x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
 
         if hook:
             anch_pass_act = self.get_activations().detach().clone()
@@ -843,7 +848,12 @@ class TopModel(nn.Module):
             raise Exception('Both single and feats cannot be True')
 
         if not single:
-            x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
+            if self.transformer:
+                x2_global = self.ft_net(x2)
+                x2_local = None
+            else:
+                x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
+
             if hook:
                 other_pass_act = self.get_activations().detach().clone()
             else:

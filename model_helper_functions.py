@@ -102,6 +102,7 @@ class ModelMethods:
         self.merge_global = args.merge_global
         self.model = model
 
+        self.transformer = 'deit' in args.feat_extractor
         self.model_name = model_name
         self.colored_mask = args.colored_mask
 
@@ -256,8 +257,11 @@ class ModelMethods:
             imgs_c = Variable(imgs.cuda())
         else:
             imgs_c = Variable(imgs)
-
-        features, logits = net.forward(imgs_c, is_feat=True)
+        if self.transformer:
+            features = net.forward(imgs_c)
+            logits = None
+        else:
+            features, logits = net.forward(imgs_c, is_feat=True)
         feats = features[-1]
 
         self.logger.info(f'feats.shape {feats.shape}')
@@ -2740,7 +2744,11 @@ class ModelMethods:
             # device = f'cuda:{net.device_ids[0]}'
             opt.zero_grad()
             forward_start = time.time()
-            imgs_f, imgs_l = net.ft_net(imgs, is_feat=True)
+            if self.transformer:
+                imgs_f = net.ft_net(imgs)
+                imgs_l = None
+            else:
+                imgs_f, imgs_l = net.ft_net(imgs, is_feat=True)
             forward_end = time.time()
 
             imgs_f = imgs_f.view(imgs_f.size()[0], -1)
