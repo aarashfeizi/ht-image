@@ -706,60 +706,59 @@ class ModelMethods:
         if args.cuda:
             print('current_device: ', torch.cuda.current_device())
 
-        if multiple_gpu:  # todo local not supported
-            if net.module.aug_mask:
-                learnable_params = [{'params': net.module.sm_net.parameters()},
-                                    {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                    {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_new}]
-
-            else:
-                learnable_params = [{'params': net.module.sm_net.parameters()},
-                                    {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                    {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_new}]
+        if 'deit' in args.feat_extractor:
+            learnable_params = [{'params': net.module.sm_net.parameters()},
+                                {'params': net.module.ft_net.parameters(), 'lr': args.lr_resnet}]
         else:
-            if net.aug_mask:
-                learnable_params = [{'params': net.sm_net.parameters()},
-                                    {'params': net.ft_net.rest.parameters(),
-                                     'lr': args.lr_resnet,
-                                     'weight_decay': args.weight_decay},
-                                    {'params': net.ft_net.conv1.parameters(),
-                                     'lr': args.lr_new,
-                                     'weight_decay': args.weight_decay}]
+            if multiple_gpu:  # todo local not supported
+                if net.module.aug_mask:
+                    learnable_params = [{'params': net.module.sm_net.parameters()},
+                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_new}]
+
+                else:
+                    learnable_params = [{'params': net.module.sm_net.parameters()},
+                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
+                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_new}]
             else:
-                learnable_params = [{'params': net.sm_net.parameters()},
-                                    {'params': net.ft_net.rest.parameters(),
-                                     'lr': args.lr_resnet,
-                                     'weight_decay': args.weight_decay},
-                                    {'params': net.ft_net.pool.parameters(),
-                                     'lr': args.lr_new,
-                                     'weight_decay': args.weight_decay}]
+                if net.aug_mask:
+                    learnable_params = [{'params': net.sm_net.parameters()},
+                                        {'params': net.ft_net.rest.parameters(),
+                                         'lr': args.lr_resnet,
+                                         'weight_decay': args.weight_decay},
+                                        {'params': net.ft_net.conv1.parameters(),
+                                         'lr': args.lr_new,
+                                         'weight_decay': args.weight_decay}]
+                else:
+                    learnable_params = [{'params': net.sm_net.parameters()},
+                                        {'params': net.ft_net.rest.parameters(),
+                                         'lr': args.lr_resnet,
+                                         'weight_decay': args.weight_decay},
+                                        {'params': net.ft_net.pool.parameters(),
+                                         'lr': args.lr_new,
+                                         'weight_decay': args.weight_decay}]
 
-            if net.local_features:
-                learnable_params += [{'params': net.local_features.parameters(),
-                                      'lr': args.lr_new,
-                                      'weight_decay': args.weight_decay}]
-
-            if net.channel_attention:
-                learnable_params += [{'params': net.channel_attention.parameters(),
-                                      'lr': args.lr_new,
-                                      'weight_decay': args.weight_decay}]
-
-            if net.diffsim_fc_net:
-                learnable_params += [{'params': net.diffsim_fc_net.parameters(),
-                                      'lr': args.lr_new,
-                                      'weight_decay': args.weight_decay}]
-
-            if net.classifier:
-                learnable_params += [{'params': net.classifier.parameters(),
-                                      'lr': args.lr_new,
-                                      'weight_decay': args.weight_decay}]
-
-            if net.ft_net.last_conv is not None:
-                learnable_params += [{'params': net.ft_net.last_conv.parameters(),
-                                      'lr': args.lr_new,
-                                      'weight_decay': args.weight_decay}]
-
-            if net.attention_module is not None:
+                if net.local_features:
+                    learnable_params += [{'params': net.local_features.parameters(),
+                                          'lr': args.lr_new,
+                                          'weight_decay': args.weight_decay}]
+                if net.channel_attention:
+                    learnable_params += [{'params': net.channel_attention.parameters(),
+                                          'lr': args.lr_new,
+                                          'weight_decay': args.weight_decay}]
+                if net.diffsim_fc_net:
+                    learnable_params += [{'params': net.diffsim_fc_net.parameters(),
+                                          'lr': args.lr_new,
+                                          'weight_decay': args.weight_decay}]
+                if net.classifier:
+                    learnable_params += [{'params': net.classifier.parameters(),
+                                          'lr': args.lr_new,
+                                          'weight_decay': args.weight_decay}]
+                if net.ft_net.last_conv is not None:
+                    learnable_params += [{'params': net.ft_net.last_conv.parameters(),
+                                          'lr': args.lr_new,
+                                          'weight_decay': args.weight_decay}]
+                if net.attention_module is not None:
                 learnable_params += [{'params': net.attention_module.parameters(),
                                       'lr': args.lr_new,
                                       'weight_decay': args.weight_decay}]
