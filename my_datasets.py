@@ -33,8 +33,8 @@ class Metric_Dataset_Train(Dataset):
         self.normalize = utils.TransformLoader(-1).transform_normalize
         self.colored_mask = args.colored_mask
         self.batchhard = batchhard[0]
-        self.bh_P = batchhard[1]
-        self.bh_K = batchhard[2]
+        self.bh_P = batchhard[1] # number of batchhard classes in every batch
+        self.bh_K = batchhard[2] # number of batchhard images per class
         self.roc_num = args.roc_num
         self.same_pic_prob = args.same_pic_prob
         self.name = mode if not mode.endswith('.csv') else mode[:-4]
@@ -103,7 +103,7 @@ class Metric_Dataset_Train(Dataset):
         if overfit and args.overfit_num > 0:
             self.overfit = True
             self.overfit_samples = get_overfit(data=self.datas, labels=self.labels, anchors=args.overfit_num,
-                                               neg_per_pos=self.no_negative)
+                                               neg_per_pos=self.no_negative, batchhard=[self.bh_P, self.bh_K])
             print(f'Overfitting to {args.overfit_num} triplet[s]: {self.overfit_samples}')
         else:
             self.overfit = False
@@ -280,6 +280,14 @@ class Metric_Dataset_Train(Dataset):
         start = time.time()
         imgs = []
         if self.overfit:  # todo
+            overfit_batch = np.random.choice(self.overfit_samples, 1)[0]
+
+            random_paths = overfit_batch['batch'][index % self.bh_P]
+            labels_to_return = overfit_batch['labels'][index % self.bh_P]
+
+            for random_path in random_paths:
+                paths.append(random_path)
+                imgs.append(Image.open(random_path).convert('RGB'))
             raise Exception('Not implemented')
 
         else:  # not overfitting

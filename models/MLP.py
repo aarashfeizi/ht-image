@@ -53,6 +53,8 @@ class MLP(nn.Module):
 
         if args.feat_extractor == 'resnet50':
             self.input_shape = 2048
+        elif args.feat_extractor == 'deit16_224':
+            self.input_shape = 768
         elif args.feat_extractor == 'vgg16':
             self.input_shape = 4096
         else:

@@ -193,7 +193,7 @@ def get_args():
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
-                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16'])
+                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16', 'deit16_224'])
     parser.add_argument('--pretrained_model', default='', choices=['swav', 'simclr', 'byol', 'dino'])
     parser.add_argument('-pool', '--pooling', default='spoc',
                         choices=['spoc', 'gem', 'mac', 'rmac'])
@@ -1350,39 +1350,59 @@ def read_masks(path):
     return masks
 
 
-def get_overfit(data, labels, anchors=1, neg_per_pos=1):
-    anch_class = np.random.choice(labels, 1)
-    neg_class = anch_class
-    while neg_class == anch_class:
-        neg_class = np.random.choice(labels, 1)
-
-    triplets = []
-
-    for i in range(anchors):
-        anch_class = np.random.choice(labels, 1)[0]
+def get_overfit(data, labels, anchors=1, neg_per_pos=1, batchhard=[0, 0]):
+    if batchhard != [0, 0]: # not batchhard
+        anch_class = np.random.choice(labels, 1)
         neg_class = anch_class
-
         while neg_class == anch_class:
-            neg_class = np.random.choice(labels, 1)[0]
+            neg_class = np.random.choice(labels, 1)
 
-        anch_path = np.random.choice(data[anch_class], 1)[0]
-        pos_path = np.random.choice(data[anch_class], 1)[0]
+        to_return = []
 
-        while anch_path == pos_path:
+        for i in range(anchors):
+            anch_class = np.random.choice(labels, 1)[0]
+            neg_class = anch_class
+
+            while neg_class == anch_class:
+                neg_class = np.random.choice(labels, 1)[0]
+
+            anch_path = np.random.choice(data[anch_class], 1)[0]
             pos_path = np.random.choice(data[anch_class], 1)[0]
 
-        negs = []
-        for j in range(neg_per_pos):
-            neg_path = np.random.choice(data[neg_class], 1)[0]
+            while anch_path == pos_path:
+                pos_path = np.random.choice(data[anch_class], 1)[0]
 
-            while neg_path in negs:
+            negs = []
+            for j in range(neg_per_pos):
                 neg_path = np.random.choice(data[neg_class], 1)[0]
 
-            negs.append(neg_path)
+                while neg_path in negs:
+                    neg_path = np.random.choice(data[neg_class], 1)[0]
 
-            triplets.append({'anch': anch_path, 'pos': pos_path, 'neg': negs})
+                negs.append(neg_path)
 
-    return triplets
+                to_return.append({'anch': anch_path, 'pos': pos_path, 'neg': negs})
+    else: #batchhard
+
+        to_return = []
+        bh_P = batchhard[0]
+        bh_K = batchhard[1]
+
+        for _ in range(anchors):
+            batch = {}
+            final_labels = {}
+            for p in range(bh_P):
+                label_idx = np.random.choice(labels, 1)
+                label = labels[label_idx]
+                if len(data[label]) >= bh_K:
+                    random_paths = np.random.choice(data[label], size=bh_K, replace=False)
+                else:
+                    random_paths = np.random.choice(data[label], size=bh_K, replace=True)
+                batch[p] = list(random_paths)
+                final_labels[p] = list([label for _ in range(bh_K)])
+            to_return.append({'batch': batch, 'labels': final_labels})
+
+    return to_return
 
 
 def bar_plot_grad_flow(args, named_parameters, label, batch_id, epoch, save_path):

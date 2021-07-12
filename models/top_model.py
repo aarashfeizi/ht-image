@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from models.MLP import *
 from models.resnet import *
 from models.vgg import *
+from models.deit import *
 
 FEATURE_MAP_SIZES = {1: (256, 56, 56),
                      2: (512, 28, 28),
@@ -1045,14 +1046,18 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         'resnet50': resnet50,
         'vgg16': vgg16,
         'resnet101': resnet101,
+        'deit16_224': deit16_224,
     }
 
     use_pretrained = not (args.from_scratch)
 
     if trained_feat_net is None:
         print('Using pretrained model')
-        ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask,
-                                                 fourth_dim=fourth_dim, output_dim=args.dim_reduction)
+        if 'deit' not in args.feat_extractor:
+            ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask,
+                                                     fourth_dim=fourth_dim, output_dim=args.dim_reduction)
+        else:
+            ft_net = model_dict[args.feat_extractor]()
     else:
         print('Using recently trained model')
         ft_net = trained_feat_net
