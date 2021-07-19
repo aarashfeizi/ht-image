@@ -1579,6 +1579,10 @@ class ModelMethods:
         elif args.feat_extractor == 'deit16_224':
             test_feats_q = np.zeros((len(data_loaders[0].dataset), 768 * coeff))
             test_feats_i = np.zeros((len(data_loaders[1].dataset), 768 * coeff))
+        elif args.feat_extractor == 'deit16_small_224':
+            test_feats_q = np.zeros((len(data_loaders[0].dataset), 384 * coeff))
+            test_feats_i = np.zeros((len(data_loaders[1].dataset), 384 * coeff))
+
         else:
             raise Exception('Not handled feature extractor')
 
@@ -1817,6 +1821,8 @@ class ModelMethods:
             test_feats = np.zeros((len(data_loader.dataset), 4096 * coeff))
         elif args.feat_extractor == 'deit16_224':
             test_feats = np.zeros((len(data_loader.dataset), 768 * coeff))
+        elif args.feat_extractor == 'deit16_small_224':
+            test_feats = np.zeros((len(data_loader.dataset), 384 * coeff))
         else:
             raise Exception('Not handled feature extractor')
 
@@ -2130,6 +2136,8 @@ class ModelMethods:
             embs = np.zeros((len(data_loader.dataset), 512), dtype=np.float32)
         elif args.feat_extractor == 'deit16_224':
             embs = np.zeros((len(data_loader.dataset), 768), dtype=np.float32)
+        elif args.feat_extractor == 'deit16_small_224':
+            embs = np.zeros((len(data_loader.dataset), 384), dtype=np.float32)
         else:
             raise Exception('Arch not handled for "get_embeddings" function')
 

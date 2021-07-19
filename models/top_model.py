@@ -1057,6 +1057,7 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
         'vgg16': vgg16,
         'resnet101': resnet101,
         'deit16_224': deit16_224,
+        'deit16_small_224': deit16_small_224,
     }
 
     use_pretrained = not (args.from_scratch)

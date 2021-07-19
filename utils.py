@@ -193,7 +193,7 @@ def get_args():
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
-                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16', 'deit16_224'])
+                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16', 'deit16_224', 'deit16_small_224'])
     parser.add_argument('--pretrained_model', default='', choices=['swav', 'simclr', 'byol', 'dino'])
     parser.add_argument('-pool', '--pooling', default='spoc',
                         choices=['spoc', 'gem', 'mac', 'rmac'])
