@@ -906,21 +906,21 @@ class ModelMethods:
 
                     if (loss_fn is not None) and args.loss == 'contrastive':
                         self.writer.add_scalar('Train/Contrastive_Loss', train_triplet_loss / len(train_loader), epoch)
-                    elif (loss_fn is not None) and args.loss != 'stopgrad':
+                    elif (loss_fn is not None) and args.loss != 'stopgrad' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
 
-                    if args.loss != 'contrastive':
+                    if args.loss != 'contrastive' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                         self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
 
-                    else:
+                    elif args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/Reg', train_reg / len(train_loader), epoch)
 
                     self.writer.flush()
 
                     if val_loaders is not None and (
-                            epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrastive':
+                            epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrastive' and args.loss != 'batchallgen':
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
