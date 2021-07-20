@@ -88,8 +88,6 @@ class BatchAllGeneralization(nn.Module):
 
         gpu = labels.device.type == 'cuda'
 
-        import pdb
-        pdb.set_trace() # for testing and fixing on server
         mask_positive = utils.get_valid_positive_mask(labels, gpu)
         pos_loss = (distances * mask_positive.float()).exp().sum(dim=1)
         # positive_dist_idx = (cosine_sim * mask_positive.float())
