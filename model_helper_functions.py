@@ -28,6 +28,7 @@ from Tensorboard_Writer import SummaryWriter
 #     return t
 from losses import TripletLoss
 
+
 # EVAL_SET_NAMES = {1: ['total'],
 #                   2: ['seen', 'unseen']}
 
@@ -700,7 +701,8 @@ class ModelMethods:
         self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
         self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
 
-    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, cam_args=None, db_loaders=None):
+    def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, cam_args=None,
+                             db_loaders=None):
         net.train()
         # device = f'cuda:{net.device_ids[0]}'
         val_tol = args.early_stopping
@@ -795,7 +797,6 @@ class ModelMethods:
         for name in val_loader_names:
             utils.make_dirs(os.path.join(self.gen_plot_path, f'{args.dataset_name}_{name}'))
 
-
         val_acc = -1
         val_loss = -1
         val_rgt = 0
@@ -852,11 +853,16 @@ class ModelMethods:
                 elif args.loss == 'contrastive':
                     t, (train_loss, train_reg, train_triplet_loss), (
                         _, _) = self.train_metriclearning_one_epoch_contrastive(args, t, net, opt, bce_loss,
-                                                                              metric_ACC,
-                                                                              loss_fn, train_loader, epoch,
-                                                                              grad_save_path, drew_graph)
+                                                                                metric_ACC,
+                                                                                loss_fn, train_loader, epoch,
+                                                                                grad_save_path, drew_graph)
 
 
+                elif args.loss == 'batchallgen':
+                    t, train_loss = self.train_metriclearning_one_epoch_batchallgen(args, t, net, opt, bce_loss,
+                                                                                    metric_ACC,
+                                                                                    loss_fn, train_loader, epoch,
+                                                                                    grad_save_path, drew_graph)
 
                 elif args.loss == 'stopgrad':
                     train_triplet_loss = None
@@ -898,7 +904,6 @@ class ModelMethods:
 
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
 
-
                     if (loss_fn is not None) and args.loss == 'contrastive':
                         self.writer.add_scalar('Train/Contrastive_Loss', train_triplet_loss / len(train_loader), epoch)
                     elif (loss_fn is not None) and args.loss != 'stopgrad':
@@ -909,13 +914,13 @@ class ModelMethods:
                         self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
 
-
                     else:
                         self.writer.add_scalar('Train/Reg', train_reg / len(train_loader), epoch)
 
                     self.writer.flush()
 
-                    if val_loaders is not None and (epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrastive':
+                    if val_loaders is not None and (
+                            epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrastive':
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
@@ -981,7 +986,6 @@ class ModelMethods:
                             # val_preds_unknwn_neg = val_preds_unknwn_pos_neg['neg']
 
                             utils.print_gpu_stuff(args.cuda, 'after all validation')
-
 
                         val_acc_str = ''
 
@@ -1054,16 +1058,15 @@ class ModelMethods:
                             f'[epoch {epoch}] saving model...')
                         best_model = self.save_model(args, net, epoch, 0.0)
 
-
             if db_loaders and not args.query_index:
                 for name in db_loader_names:
                     if name not in self.class_diffs.keys():
                         self.class_diffs[name] = {'between_class_average': [],
-                                 'between_class_min': [],
-                                 'between_class_max': [],
-                                 'in_class_average': [],
-                                 'in_class_min': [],
-                                 'in_class_max': []}
+                                                  'between_class_min': [],
+                                                  'between_class_max': [],
+                                                  'in_class_average': [],
+                                                  'in_class_min': [],
+                                                  'in_class_max': []}
 
                         self.silhouette_scores[name] = []
 
@@ -1071,13 +1074,13 @@ class ModelMethods:
 
                 for loader_pair, m in zip(db_loaders, db_loader_names):
                     self.make_emb_db(args, net, loader_pair,
-                                         eval_sampled=args.sampled_results,
-                                         eval_per_class=args.per_class_results,
-                                         newly_trained=True,
-                                         batch_size=args.db_batch,
-                                         mode=m,
-                                         epoch=epoch,
-                                         k_at_n=args.katn)
+                                     eval_sampled=args.sampled_results,
+                                     eval_per_class=args.per_class_results,
+                                     newly_trained=True,
+                                     batch_size=args.db_batch,
+                                     mode=m,
+                                     epoch=epoch,
+                                     k_at_n=args.katn)
 
             elif db_loaders and args.query_index:
                 for name in db_loader_names:
@@ -1095,13 +1098,13 @@ class ModelMethods:
 
                 for loader_pair, m in zip(db_loaders, db_loader_names):
                     self.make_emb_query_index(args, net, loader_pair,
-                                     eval_sampled=args.sampled_results,
-                                     eval_per_class=args.per_class_results,
-                                     newly_trained=True,
-                                     batch_size=args.db_batch,
-                                     mode=m,
-                                     epoch=epoch,
-                                     k_at_n=args.katn)
+                                              eval_sampled=args.sampled_results,
+                                              eval_per_class=args.per_class_results,
+                                              newly_trained=True,
+                                              batch_size=args.db_batch,
+                                              mode=m,
+                                              epoch=epoch,
+                                              k_at_n=args.katn)
 
             if max_val_between_epochs <= max_val_acc or epoch == self.max_epochs:
                 max_val_between_epochs = max_val_acc
@@ -1194,7 +1197,8 @@ class ModelMethods:
 
         return tests_right, tests_error, test_acc
 
-    def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment='', roc_specific=False):
+    def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment='',
+                    roc_specific=False):
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
         if val:
@@ -1522,8 +1526,9 @@ class ModelMethods:
 
             self.logger.info('results at: ' + self.save_path)
 
-    def make_emb_query_index(self, args, net, data_loaders, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
-                    mode='val', epoch=-1, k_at_n=True):
+    def make_emb_query_index(self, args, net, data_loaders, eval_sampled, eval_per_class, newly_trained=True,
+                             batch_size=None,
+                             mode='val', epoch=-1, k_at_n=True):
         """
 
         :param batch_size:
@@ -1538,7 +1543,6 @@ class ModelMethods:
         :param k_at_n: Do k at n
         :return: None
         """
-
 
         has_attention = 'attention' in args.merge_method
 
@@ -1559,7 +1563,6 @@ class ModelMethods:
             coeff = len(args.feature_map_layers)
         else:
             coeff = 1
-
 
         test_classes_q = np.zeros(((len(data_loaders[0].dataset))))
         test_classes_i = np.zeros(((len(data_loaders[1].dataset))))
@@ -1591,10 +1594,10 @@ class ModelMethods:
             test_feats_i = np.zeros((len(data_loaders[1].dataset), args.dim_reduction * coeff), dtype=np.float32)
 
         for (data_loader, test_feats, test_classes, test_paths, qi) in zip(data_loaders,
-                                                                       [test_feats_q, test_feats_i],
-                                                                       [test_classes_q, test_classes_i],
-                                                                       [test_paths_q, test_paths_i],
-                                                                       ['Query', 'Index']):
+                                                                           [test_feats_q, test_feats_i],
+                                                                           [test_classes_q, test_classes_i],
+                                                                           [test_paths_q, test_paths_i],
+                                                                           ['Query', 'Index']):
 
             with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode} {qi}') as t:
                 for idx, tpl in enumerate(data_loader):
@@ -1618,7 +1621,6 @@ class ModelMethods:
                     test_classes[idx * batch_size:end] = lbl
                     test_paths[idx * batch_size:end] = path
 
-
                     t.update()
 
         # chunks = len(args.feature_map_layers)
@@ -1637,25 +1639,31 @@ class ModelMethods:
             utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_ids_q', test_paths_q, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Ids_q.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_classes_q', test_classes_q, 'i8',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
+                          os.path.join(self.save_path,
+                                       f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_feats_q', test_feats_q, 'f',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_ids_i', test_paths_i, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Ids_i.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_classes_i', test_classes_i, 'i8',
-                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
+                          os.path.join(self.save_path,
+                                       f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
             utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_feats_i', test_feats_i, 'f',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
 
         if epoch == self.max_epochs or epoch == -1:
             test_feats_i = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_feats_i',
-                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
+                                         os.path.join(self.save_path,
+                                                      f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
             test_classes_i = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_classes_i',
-                                         os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
+                                           os.path.join(self.save_path,
+                                                        f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
             test_feats_q = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_feats_q',
-                                         os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
+                                         os.path.join(self.save_path,
+                                                      f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
             test_classes_q = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_classes_q',
-                                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
+                                           os.path.join(self.save_path,
+                                                        f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
 
         if data_loaders[0].dataset.lbl2chain:
             test_suplabels_q = np.array([data_loaders[0].dataset.lbl2chain[i] for i in test_classes_q])
@@ -1664,16 +1672,17 @@ class ModelMethods:
             test_suplabels_q = None
             test_suplabels_i = None
 
-
         if epoch != -1:
-            diff_class_path = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/class_diff_plot_{query_index_names[1]}.png')
+            diff_class_path = os.path.join(self.gen_plot_path,
+                                           f'{args.dataset_name}_{mode}/class_diff_plot_{query_index_names[1]}.png')
             self.plot_class_diff_plots(test_feats_i, test_classes_i,
                                        epoch=epoch,
                                        mode=mode,
                                        path=diff_class_path, attention=has_attention)
 
         silhouette_path = ['', '']
-        silhouette_path[0] = os.path.join(self.gen_plot_path, f'{args.dataset_name}_{mode}/silhouette_scores_plot_{query_index_names[1]}.png')
+        silhouette_path[0] = os.path.join(self.gen_plot_path,
+                                          f'{args.dataset_name}_{mode}/silhouette_scores_plot_{query_index_names[1]}.png')
         silhouette_path[1] = os.path.join(self.gen_plot_path,
                                           f'{args.dataset_name}_{mode}/silhouette_scores_dist_plot_{query_index_names[1]}_{epoch}.png')
 
@@ -1693,35 +1702,34 @@ class ModelMethods:
                 self.logger.info(f'Drawing top {draw_top_k_results} retrievals!!')
                 print(f'Drawing top {draw_top_k_results} retrievals!!')
                 utils.draw_top_results_qi(args,
-                                       [test_feats_q, test_feats_i],
-                                       [test_classes_q, test_classes_i],
-                                       [test_suplabels_q, test_suplabels_i],
-                                       [test_paths_q, test_paths_i],
-                                       None,
-                                       data_loaders,
-                                       self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
-                                       dist_matrix=None)
+                                          [test_feats_q, test_feats_i],
+                                          [test_classes_q, test_classes_i],
+                                          [test_suplabels_q, test_suplabels_i],
+                                          [test_paths_q, test_paths_i],
+                                          None,
+                                          data_loaders,
+                                          self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
+                                          dist_matrix=None)
 
             self.plot_silhouette_score(test_feats_i, test_classes_i, epoch, mode, silhouette_path,
                                        f'Total_{tb_tag}', attention=has_attention, dists=dists)
 
-
         if k_at_n:
             kavg, unsampled_total = utils.calculate_k_at_n(args,
-                                          [test_feats_q, test_feats_i],
-                                          [test_classes_q, test_classes_i],
-                                          None,
-                                          logger=self.logger,
-                                          limit=args.limit_samples,
-                                          run_number=args.number_of_runs,
-                                          save_path=self.save_path,
-                                          sampled=True,
-                                          even_sampled=False,
-                                          per_class=eval_per_class,
-                                          mode=mode,
-                                          metric=self.metric,
-                                          query_index=True,
-                                          extra_name=f'{query_index_names[0]}_{query_index_names[1]}')
+                                                           [test_feats_q, test_feats_i],
+                                                           [test_classes_q, test_classes_i],
+                                                           None,
+                                                           logger=self.logger,
+                                                           limit=args.limit_samples,
+                                                           run_number=args.number_of_runs,
+                                                           save_path=self.save_path,
+                                                           sampled=True,
+                                                           even_sampled=False,
+                                                           per_class=eval_per_class,
+                                                           mode=mode,
+                                                           metric=self.metric,
+                                                           query_index=True,
+                                                           extra_name=f'{query_index_names[0]}_{query_index_names[1]}')
 
             # ,
             # dists = dists[test_seen == 1, :][:, test_seen == 1]
@@ -1747,20 +1755,20 @@ class ModelMethods:
 
             if test_suplabels_q is not None:
                 _, unsampled_total = utils.calculate_k_at_n(args,
-                                                               [test_feats_q, test_feats_i],
-                                                               [test_suplabels_q, test_suplabels_i],
-                                                               None,
-                                                               logger=self.logger,
-                                                               limit=args.limit_samples,
-                                                               run_number=args.number_of_runs,
-                                                               save_path=self.save_path,
-                                                               sampled=False,
-                                                               even_sampled=False,
-                                                               per_class=eval_per_class,
-                                                               mode=mode,
-                                                               metric=self.metric,
-                                                               query_index=True,
-                                                               extra_name=f'{query_index_names[0]}_{query_index_names[1]}')
+                                                            [test_feats_q, test_feats_i],
+                                                            [test_suplabels_q, test_suplabels_i],
+                                                            None,
+                                                            logger=self.logger,
+                                                            limit=args.limit_samples,
+                                                            run_number=args.number_of_runs,
+                                                            save_path=self.save_path,
+                                                            sampled=False,
+                                                            even_sampled=False,
+                                                            per_class=eval_per_class,
+                                                            mode=mode,
+                                                            metric=self.metric,
+                                                            query_index=True,
+                                                            extra_name=f'{query_index_names[0]}_{query_index_names[1]}')
 
                 for c in list(unsampled_total.columns):  # plot tb
                     if 'kAT' in c:
@@ -1769,7 +1777,6 @@ class ModelMethods:
                         self.writer.add_scalar(f'{pre_name}_{cmode}_SupCls/{tb_tag}', unsampled_total[c][0], epoch)
 
                 self.writer.flush()
-
 
         self.logger.info('results at: ' + self.save_path)
 
@@ -1938,7 +1945,8 @@ class ModelMethods:
                 draw_top_k_results = args.draw_top_k_results
                 self.logger.info(f'Drawing top {draw_top_k_results} retrievals!!')
                 print(f'Drawing top {draw_top_k_results} retrievals!!')
-                utils.draw_top_results(args, test_feats, test_classes, test_suplabels, test_paths, test_seen, data_loader,
+                utils.draw_top_results(args, test_feats, test_classes, test_suplabels, test_paths, test_seen,
+                                       data_loader,
                                        self.writer, self.save_path, metric=self.metric, k=draw_top_k_results,
                                        dist_matrix=None, best_negative=False, too_close_negative=False)
 
@@ -1968,15 +1976,16 @@ class ModelMethods:
         # import pdb
         # pdb.set_trace()
         if k_at_n:
-            kavg, unsampled_total = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen, logger=self.logger,
-                                          limit=args.limit_samples,
-                                          run_number=args.number_of_runs,
-                                          save_path=self.save_path,
-                                          sampled=True,
-                                          even_sampled=False,
-                                          per_class=eval_per_class,
-                                          mode=mode,
-                                          metric=self.metric)
+            kavg, unsampled_total = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen,
+                                                           logger=self.logger,
+                                                           limit=args.limit_samples,
+                                                           run_number=args.number_of_runs,
+                                                           save_path=self.save_path,
+                                                           sampled=True,
+                                                           even_sampled=False,
+                                                           per_class=eval_per_class,
+                                                           mode=mode,
+                                                           metric=self.metric)
 
             # ,
             # dists = dists[test_seen == 1, :][:, test_seen == 1]
@@ -2851,9 +2860,95 @@ class ModelMethods:
 
         return t, (train_loss, train_bce_loss, train_batchhard_loss), ([], [])
 
+    def train_metriclearning_one_epoch_batchallgen(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
+                                                   epoch,
+                                                   grad_save_path, drew_graph):
+        train_loss = 0
+        train_reg = 0
+        # train_bce_loss = 0
+        train_contrastive_loss = 0
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+        #
+        # pos_all_merged_vectors = None
+        # neg_all_merged_vectors = None
+
+        labels = torch.Tensor([[i for _ in range(args.bh_K)] for i in range(args.bh_P)]).flatten()
+        if args.cuda:
+            labels = Variable(labels.cuda())
+        else:
+            labels = Variable(labels)
+
+        for batch_id, (imgs, lbls) in enumerate(train_loader, 1):
+
+            imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(imgs.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
+
+            if args.cuda:
+                imgs, one_labels, zero_labels = Variable(imgs.cuda()), \
+                                                Variable(one_labels.cuda()), \
+                                                Variable(zero_labels.cuda())
+            else:
+                imgs, one_labels, zero_labels = Variable(imgs), \
+                                                Variable(one_labels), \
+                                                Variable(zero_labels)
+
+            if not drew_graph:
+                self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+                self.writer.flush()
+                drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+            opt.zero_grad()
+            forward_start = time.time()
+            imgs_f = net(imgs, None, single=True)
+            forward_end = time.time()
+
+            imgs_f = imgs_f.view(imgs_f.size()[0], -1)
+
+            loss = loss_fn(imgs_f, labels[:imgs_f.shape[0]])
+
+            train_loss += loss.item()
+            # train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                raise Exception('Debug grad not implemented for batchhard')
+
+            loss.backward()  # training with triplet loss
+
+            opt.step()
+
+            # if loss_fn is not None:
+            t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}')
+            # else:
+            #     t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+            #                   bce_loss=f'{train_bce_loss / batch_id:.4f}',
+            #                   train_acc=f'{metric_ACC.get_acc():.4f}'
+            #                   )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, train_loss
+
     def train_metriclearning_one_epoch_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
-                                                 epoch,
-                                                 grad_save_path, drew_graph):
+                                                   epoch,
+                                                   grad_save_path, drew_graph):
         train_loss = 0
         train_reg = 0
         # train_bce_loss = 0

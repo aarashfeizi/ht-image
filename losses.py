@@ -73,6 +73,34 @@ class BatchHard(nn.Module):
         else:
             return loss
 
+class BatchAllGeneralization(nn.Module):
+    # https://github.com/Yuol96/pytorch-triplet-loss/blob/master/model/triplet_loss.py
+
+    def __init__(self, args, margin):
+        super(BatchAllGeneralization, self).__init__()
+
+        self.margin = margin
+
+
+    def forward(self, batch, labels):
+
+        distances = utils.squared_pairwise_distances(batch, sqrt=True)
+
+        gpu = labels.device.type == 'cuda'
+
+        import pdb
+        pdb.set_trace() # for testing and fixing on server
+        mask_positive = utils.get_valid_positive_mask(labels, gpu)
+        pos_loss = (distances * mask_positive.float()).exp().sum(dim=1)
+        # positive_dist_idx = (cosine_sim * mask_positive.float())
+
+        mask_negative = utils.get_valid_negative_mask(labels, gpu)
+        neg_loss = ((self.margin - (distances * mask_negative.float()))).exp().sum(dim=1)
+
+
+        loss = F.relu(pos_loss + neg_loss).sum()
+
+        return loss
 
 class MaxMarginLoss(nn.Module):
     def __init__(self, args, margin):

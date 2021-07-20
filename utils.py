@@ -234,7 +234,7 @@ def get_args():
 
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce',
-                        choices=['bce', 'trpl', 'maxmargin', 'batchhard', 'contrastive', 'stopgrad'])
+                        choices=['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrastive', 'stopgrad'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
@@ -2667,7 +2667,7 @@ def get_pos_neg_preds(file_path, pos_freq=10):
     return pos_preds, neg_preds
 
 
-def squared_pairwise_distances(embeddings):
+def squared_pairwise_distances(embeddings, sqrt=False):
     """
     get dot product (batch_size, batch_size)
     ||a-b||^2 = |a|^2 - 2*<a,b> + |b|^2
@@ -2684,6 +2684,10 @@ def squared_pairwise_distances(embeddings):
     distances = square_sum.unsqueeze(1) - 2 * dot_product + square_sum.unsqueeze(0)
 
     distances = distances.clamp(min=0)
+
+    if sqrt:
+        distances = distances.sqrt()
+
     return distances
 
 

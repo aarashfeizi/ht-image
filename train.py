@@ -5,7 +5,7 @@ import torch.nn
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss
+from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization
 from models.top_model import *
 from my_datasets import *
 
@@ -27,7 +27,7 @@ def main():
 
     args_dict = vars(args)
 
-    if args_dict['loss'] == 'batchhard' or args_dict['loss'] == 'contrastive':
+    if args_dict['loss'] == 'batchhard' or args_dict['loss'] == 'contrastive' or args_dict['loss'] == 'batchallgen':
         args_dict['batch_size'] = args_dict['bh_P'] * args_dict['bh_K']
 
     max_bt = np.maximum(args_dict['bcecoefficient'], args_dict['trplcoefficient'])
@@ -108,7 +108,7 @@ def main():
     # logger.info('*' * 10)
     # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
     #                                                   save_pictures=False, overfit=False, return_paths=True)
-    is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrastive')
+    is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrastive' or args.loss == 'batchallgen')
     logger.info('*' * 10)
 
     if args.small_and_big:
@@ -282,7 +282,7 @@ def main():
         workers = args.workers
         pin_memory = args.pin_memory
 
-    if args.loss == 'batchhard' or args.loss == 'contrastive':
+    if args.loss == 'batchhard' or args.loss == 'contrastive' or args.loss == 'batchallgen':
         bs = args.bh_P
     else:
         bs = args.batch_size
@@ -373,6 +373,9 @@ def main():
     elif args.loss == 'batchhard':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = BatchHard(margin=args.margin, args=args, soft=args.softmargin)
+    elif args.loss == 'batchallgen':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = BatchAllGeneralization(margin=args.margin, args=args)
     elif args.loss == 'stopgrad':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')  # already normalized before bce loss
         loss_fn = StopGradientLoss(args)
