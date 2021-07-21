@@ -2920,9 +2920,6 @@ class ModelMethods:
             train_loss += loss.item()
             # train_bce_loss += class_loss.item()
 
-            if debug_grad:
-                raise Exception('Debug grad not implemented for batchhard')
-
             loss.backward()  # training with triplet loss
 
             opt.step()

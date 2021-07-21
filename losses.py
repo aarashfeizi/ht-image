@@ -89,11 +89,11 @@ class BatchAllGeneralization(nn.Module):
         gpu = labels.device.type == 'cuda'
 
         mask_positive = utils.get_valid_positive_mask(labels, gpu)
-        pos_loss = (distances * mask_positive.float()).exp().sum(dim=1)
+        pos_loss = (distances * mask_positive.float()).exp().sum(dim=1).log()
         # positive_dist_idx = (cosine_sim * mask_positive.float())
 
         mask_negative = utils.get_valid_negative_mask(labels, gpu)
-        neg_loss = ((self.margin - (distances * mask_negative.float()))).exp().sum(dim=1)
+        neg_loss = ((self.margin - (distances * mask_negative.float()))).exp().sum(dim=1).log()
 
 
         loss = F.relu(pos_loss + neg_loss).sum()

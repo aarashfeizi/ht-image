@@ -2686,7 +2686,7 @@ def squared_pairwise_distances(embeddings, sqrt=False):
     distances = distances.clamp(min=0)
 
     if sqrt:
-        distances = distances.sqrt()
+        distances = (distances + 1e-7).sqrt()
 
     return distances
 
