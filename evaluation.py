@@ -6,6 +6,7 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 import argparse
 import pickle
+import torch
 
 # softtriplet loss code
 def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matrix=None, ):
@@ -154,9 +155,13 @@ def main():
     print(f'Calc Recall at {args.kset}')
     with open(args.X, 'rb') as f:
         features = pickle.load(f)
+        if torch.is_tensor(features):
+            features = features.cpu().numpy()
 
     with open(args.Y, 'rb') as f:
         labels = pickle.load(f)
+        if torch.is_tensor(labels):
+            labels = labels.cpu().numpy()
 
     rec = evaluate_recall_at_k(features, labels, Kset=args.kset, metric=args.metric)
     print(args.kset)
