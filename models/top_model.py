@@ -93,6 +93,20 @@ class LinearAttentionBlock_BOTH(nn.Module):
 
         return l1_map, l1_vector
 
+class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
+    def __init__(self, in_features, normalize_attn=True):
+        super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
+        self.normalize_attn = normalize_attn
+        self.channel = LinearAttentionBlock_Channel(in_features)
+        self.spatial = LinearAttentionBlock_Spatial(in_features)
+
+    def forward(self, g1, g2):
+        g1, _ = self.channel.forward(g1, g2)
+
+        g1_map, g1_vector = self.spatial.forward(g1, g1)
+
+        return g1_map, g1_vector
+
 
 class AttentionModule_C(nn.Module):
     def __init__(self, in_features, reduce_space=True):
@@ -773,6 +787,7 @@ class TopModel(nn.Module):
         self.classifier = None
         self.attention_module = None
         self.global_attention = args.attention
+        self.glb_atn = None
         if args.loss != 'stopgrad':
             if self.merge_method.startswith('local'):
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
@@ -806,6 +821,9 @@ class TopModel(nn.Module):
             elif self.merge_method.startswith('diff-sim') and self.global_attention:
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
                 self.attention_module = DiffSimFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
+
+            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'glb-both':
+                self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output)
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -962,6 +980,11 @@ class TopModel(nn.Module):
 
                         x1_global, x2_global = self.attention_module(x1_input, x1_global, x2_input, x2_global)
 
+                    if self.glb_atn is not None:
+                        print('Using glb_atn! *********')
+                        _, x1_global = self.glb_atn(x1_local[-1], x2_local[-1])
+                        _, x2_global = self.glb_atn(x2_local[-1], x1_local[-1])
+
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
                     if feats:
@@ -1018,6 +1041,9 @@ class TopModel(nn.Module):
                         x1_input.append(x1_local[i - 1])
 
                     x1_global, _ = self.attention_module(x1_input, x1_global, None, None, single=single)
+                if self.glb_atn is not None:
+                    print('Using glb_atn! *********')
+                    _, x1_global = self.glb_atn(x1_local[-1], x1_local[-1])
 
                 output = self.sm_net(x1_global, None, single)  # single is true
 

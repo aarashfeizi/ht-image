@@ -195,7 +195,6 @@ class ResNet(tResNet):
         x = self.layer3(x)
         f3 = x
         x = self.layer4(x)
-        f4 = x
 
         if self.last_conv is not None:
             x = self.last_conv(x)  # downsampling channels for dim reduction
@@ -204,6 +203,7 @@ class ResNet(tResNet):
             x.register_hook(self.activations_hook)
             self.activations = x.clone()
 
+        f4 = x
         x = self.pool(x)
 
         feat = x

@@ -2943,6 +2943,8 @@ class ModelMethods:
 
         return t, train_loss
 
+
+
     def train_metriclearning_one_epoch_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
                                                    epoch,
                                                    grad_save_path, drew_graph):
