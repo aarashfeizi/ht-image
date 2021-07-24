@@ -48,6 +48,34 @@ class LinearAttentionBlock_Spatial(nn.Module):
         # return c.view(N, 1, W, H), g
         return l_att, l_att_vector
 
+class LinearAttentionBlock_Spatial2(nn.Module):
+    def __init__(self, in_features, normalize_attn=True):
+        super(LinearAttentionBlock_Spatial2, self).__init__()
+        self.normalize_attn = normalize_attn
+        self.op_transform = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
+
+    def forward(self, l, g):
+        N, C, W, H = l.size()
+        if g is not None:
+            g = self.op_transform(g)
+            c = self.op(l + g)  # batch_sizex1xWxH
+        else:
+            g = self.op_transform(l)
+            c = self.op(l + g)
+
+        if self.normalize_attn:  # todo plot "a" for "att_all"
+            a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
+        else:
+            a = c
+
+        l_att = torch.mul(a.expand_as(l), l)
+        if self.normalize_attn:
+            l_att_vector = l_att.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        else:
+            l_att_vector = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
+        # return c.view(N, 1, W, H), g
+        return l_att, l_att_vector
 
 class LinearAttentionBlock_Channel(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
@@ -98,7 +126,7 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
         self.channel = LinearAttentionBlock_Channel(in_features)
-        self.spatial = LinearAttentionBlock_Spatial(in_features)
+        self.spatial = LinearAttentionBlock_Spatial2(in_features) # transforms second one before applying it
 
     def forward(self, g1, g2):
         g1, _ = self.channel.forward(g1, g2)
