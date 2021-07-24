@@ -981,7 +981,7 @@ class TopModel(nn.Module):
                         x1_global, x2_global = self.attention_module(x1_input, x1_global, x2_input, x2_global)
 
                     if self.glb_atn is not None:
-                        print('Using glb_atn! *********')
+                        # print('Using glb_atn! *********')
                         _, x1_global = self.glb_atn(x1_local[-1], x2_local[-1])
                         _, x2_global = self.glb_atn(x2_local[-1], x1_local[-1])
 
