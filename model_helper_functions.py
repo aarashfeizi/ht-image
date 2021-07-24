@@ -768,6 +768,11 @@ class ModelMethods:
                     learnable_params += [{'params': net.attention_module.parameters(),
                                           'lr': args.lr_new,
                                           'weight_decay': args.weight_decay}]
+                if net.glb_atn is not None:
+                    learnable_params += [{'params': net.glb_atn.parameters(),
+                                          'lr': args.lr_new,
+                                          'weight_decay': args.weight_decay}]
+
 
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt = torch.optim.Adam(learnable_params, lr=args.lr_new, weight_decay=args.weight_decay)
