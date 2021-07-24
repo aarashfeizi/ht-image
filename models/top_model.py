@@ -49,11 +49,15 @@ class LinearAttentionBlock_Spatial(nn.Module):
         return l_att, l_att_vector
 
 class LinearAttentionBlock_Spatial2(nn.Module):
-    def __init__(self, in_features, normalize_attn=True):
+    def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_Spatial2, self).__init__()
         self.normalize_attn = normalize_attn
         self.op_transform = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
         self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
+
+        if constant_weight is not None:
+            self.op_transform.weight.data.fill_(constant_weight)
+            self.op.weight.data.fill_(constant_weight)
 
     def forward(self, l, g):
         N, C, W, H = l.size()
@@ -78,10 +82,13 @@ class LinearAttentionBlock_Spatial2(nn.Module):
         return l_att, l_att_vector
 
 class LinearAttentionBlock_Channel(nn.Module):
-    def __init__(self, in_features, normalize_attn=True):
+    def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_Channel, self).__init__()
         self.normalize_attn = normalize_attn
         self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+
+        if constant_weight is not None:
+            self.op.weight.data.fill_(constant_weight)
 
     def forward(self, l1, l2):
         N, C, W, H = l1.size()
@@ -125,8 +132,8 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
-        self.channel = LinearAttentionBlock_Channel(in_features)
-        self.spatial = LinearAttentionBlock_Spatial2(in_features) # transforms second one before applying it
+        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=1)
+        self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=1) # transforms second one before applying it
 
     def forward(self, g1, g2):
         g1, _ = self.channel.forward(g1, g2)
