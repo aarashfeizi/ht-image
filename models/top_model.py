@@ -1042,7 +1042,7 @@ class TopModel(nn.Module):
 
                     x1_global, _ = self.attention_module(x1_input, x1_global, None, None, single=single)
                 if self.glb_atn is not None:
-                    print('Using glb_atn! *********')
+                    # print('Using glb_atn! *********')
                     _, x1_global = self.glb_atn(x1_local[-1], x1_local[-1])
 
                 output = self.sm_net(x1_global, None, single)  # single is true
