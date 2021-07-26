@@ -132,13 +132,13 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
-        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=constant_weight)
         self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=constant_weight) # transforms second one before applying it
+        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=constant_weight)
 
     def forward(self, g1, g2):
-        g1, _ = self.channel.forward(g1, g2)
 
         g1_map, g1_vector = self.spatial.forward(g1, g1)
+        g1_vector, _ = self.channel.forward(g1_vector, g2)
 
         return g1_map, g1_vector
 
@@ -1017,8 +1017,8 @@ class TopModel(nn.Module):
 
                     if self.glb_atn is not None:
                         # print('Using glb_atn! *********')
-                        _, x1_global = self.glb_atn(x1_local[-1], x2_local[-1])
-                        _, x2_global = self.glb_atn(x2_local[-1], x1_local[-1])
+                        _, x1_global = self.glb_atn(x1_local[-1], x2_global)
+                        _, x2_global = self.glb_atn(x2_local[-1], x1_global)
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
@@ -1078,7 +1078,7 @@ class TopModel(nn.Module):
                     x1_global, _ = self.attention_module(x1_input, x1_global, None, None, single=single)
                 if self.glb_atn is not None:
                     # print('Using glb_atn! *********')
-                    _, x1_global = self.glb_atn(x1_local[-1], x1_local[-1])
+                    _, x1_global = self.glb_atn(x1_local[-1], x1_global)
 
                 output = self.sm_net(x1_global, None, single)  # single is true
 
