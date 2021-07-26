@@ -2452,10 +2452,10 @@ class ModelMethods:
                 anch, pos, neg, one_labels, zero_labels = Variable(anch), Variable(pos), Variable(neg), Variable(
                     one_labels), Variable(zero_labels)
 
-            if not drew_graph:
-                self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
-                self.writer.flush()
-                drew_graph = True
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
@@ -2528,10 +2528,10 @@ class ModelMethods:
                                                           Variable(one_labels), \
                                                           Variable(zero_labels)
 
-            if not drew_graph:
-                self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
-                self.writer.flush()
-                drew_graph = True
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
@@ -2757,10 +2757,10 @@ class ModelMethods:
                                                 Variable(one_labels), \
                                                 Variable(zero_labels)
 
-            if not drew_graph:
-                self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
-                self.writer.flush()
-                drew_graph = True
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
@@ -2906,10 +2906,10 @@ class ModelMethods:
                                                 Variable(one_labels), \
                                                 Variable(zero_labels)
 
-            if not drew_graph:
-                self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
-                self.writer.flush()
-                drew_graph = True
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
@@ -2991,10 +2991,10 @@ class ModelMethods:
                                                 Variable(one_labels), \
                                                 Variable(zero_labels)
 
-            if not drew_graph:
-                self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
-                self.writer.flush()
-                drew_graph = True
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
