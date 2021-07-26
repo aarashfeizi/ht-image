@@ -132,8 +132,8 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
-        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=1)
-        self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=1) # transforms second one before applying it
+        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=0)
+        self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=0) # transforms second one before applying it
 
     def forward(self, g1, g2):
         g1, _ = self.channel.forward(g1, g2)
