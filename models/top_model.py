@@ -1017,8 +1017,9 @@ class TopModel(nn.Module):
 
                     if self.glb_atn is not None:
                         # print('Using glb_atn! *********')
-                        _, x1_global = self.glb_atn(x1_local[-1], x2_global)
+                        _, x1_global_new = self.glb_atn(x1_local[-1], x2_global)
                         _, x2_global = self.glb_atn(x2_local[-1], x1_global)
+                        x1_global = x1_global_new
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
