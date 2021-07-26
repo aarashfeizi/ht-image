@@ -171,7 +171,7 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
     def forward(self, g1, g2):
         N, C, W, H = g1.size()
         g1_map, g1_vector = self.spatial.forward(g1, g1)
-        g1_vector, _ = self.channel.forward(g1_vector, g2)
+        g1_vector, _ = self.channel.forward(g1_vector, g2.view(N, C))
 
         return g1_map, g1_vector
 
