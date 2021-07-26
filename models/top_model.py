@@ -63,10 +63,10 @@ class LinearAttentionBlock_Spatial2(nn.Module):
         N, C, W, H = l.size()
         if g is not None:
             g = self.op_transform(g)
-            c = self.op(l + g)  # batch_sizex1xWxH
+            c = self.op(g)  # batch_sizex1xWxH
         else:
             g = self.op_transform(l)
-            c = self.op(l + g)
+            c = self.op(g)
 
         if self.normalize_attn:  # todo plot "a" for "att_all"
             a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
@@ -93,8 +93,8 @@ class LinearAttentionBlock_Channel(nn.Module):
     def forward(self, l1, l2):
         N, C, W, H = l1.size()
         if l2 is not None:
-            c = l1 + l2  # batch_sizex1xWxH
-            c = torch.sum(c, dim=(2, 3)).view(N, C, 1, 1)
+            # c = l1 + l2  # batch_sizex1xWxH
+            c = torch.sum(l2, dim=(2, 3)).view(N, C, 1, 1)
             c = self.op(c)
         else:
             c = torch.sum(l1, dim=(2, 3)).view(N, C, 1, 1)
@@ -129,11 +129,11 @@ class LinearAttentionBlock_BOTH(nn.Module):
         return l1_map, l1_vector
 
 class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
-    def __init__(self, in_features, normalize_attn=True):
+    def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
-        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=0)
-        self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=0) # transforms second one before applying it
+        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=constant_weight)
+        self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=constant_weight) # transforms second one before applying it
 
     def forward(self, g1, g2):
         g1, _ = self.channel.forward(g1, g2)
@@ -858,7 +858,7 @@ class TopModel(nn.Module):
                 self.attention_module = DiffSimFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
 
             elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'glb-both':
-                self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output)
+                self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output, constant_weight=args.att_weight_init)
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
