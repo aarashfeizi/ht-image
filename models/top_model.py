@@ -113,6 +113,39 @@ class LinearAttentionBlock_Channel(nn.Module):
         # return c.view(N, 1, W, H), g
         return a, l_att_vector
 
+class LinearAttentionBlock_Channel2(nn.Module):
+    def __init__(self, in_features, normalize_attn=True, constant_weight=None):
+        super(LinearAttentionBlock_Channel2, self).__init__()
+        self.normalize_attn = normalize_attn
+        # self.op = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        self.op = nn.Sequential(nn.Linear(in_features=in_features, out_features=in_features))
+        # self.op = nn.Sequential(nn.Linear(in_features=in_features, out_features=in_features // 4),
+        #                         nn.ReLU(),
+        #                         nn.Linear(in_features=in_features // 4, out_features=in_features))
+        if constant_weight is not None:
+            self.op.weight.data.fill_(constant_weight)
+
+    def forward(self, l1, l2):
+        N, C = l1.size()
+        if l2 is not None:
+            # c = l1 + l2  # batch_sizex1xWxH
+            c = self.op(l2)
+        else:
+            c = self.op(l1)
+
+        if self.normalize_attn:
+            a = F.softmax(c.view(N, C), dim=1)
+        else:
+            a = torch.sigmoid(c)
+
+        a = torch.mul(a.expand_as(l1), l1)
+        l_att_vector = a.view(N, C)
+        # if self.normalize_attn:
+        #     l_att_vector = a.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        # else:
+        #     l_att_vector = F.adaptive_avg_pool2d(a, (1, 1)).view(N, C)
+        # return c.view(N, 1, W, H), g
+        return a, l_att_vector
 
 class LinearAttentionBlock_BOTH(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
@@ -133,10 +166,10 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
         self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=constant_weight) # transforms second one before applying it
-        self.channel = LinearAttentionBlock_Channel(in_features, constant_weight=constant_weight)
+        self.channel = LinearAttentionBlock_Channel2(in_features, constant_weight=constant_weight)
 
     def forward(self, g1, g2):
-
+        N, C, W, H = g1.size()
         g1_map, g1_vector = self.spatial.forward(g1, g1)
         g1_vector, _ = self.channel.forward(g1_vector, g2)
 
