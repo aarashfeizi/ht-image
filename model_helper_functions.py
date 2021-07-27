@@ -1351,6 +1351,7 @@ class ModelMethods:
         self.writer.add_scalar(f'{prompt_text_tb}/BCE_Loss', test_bce_loss / len(data_loader), epoch)
 
         self.logger.error(f'{prompt_text_tb}/ROC_AUC: {roc_auc}, epoch: {epoch}')
+        print(f'&& {prompt_text_tb}/ROC_AUC: {roc_auc}, epoch: {epoch}')
         self.writer.add_scalar(f'{prompt_text_tb}/ROC_AUC', roc_auc, epoch)
 
         self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')

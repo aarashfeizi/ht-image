@@ -147,6 +147,57 @@ class LinearAttentionBlock_Channel2(nn.Module):
         # return c.view(N, 1, W, H), g
         return a, l_att_vector
 
+class LongRangedAttention(nn.Module):
+    def __init__(self, in_features, normalize_attn=True, constant_weight=None):
+        super(LongRangedAttention, self).__init__()
+        self.normalize_attn = normalize_attn
+        self.op1 = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        # self.op2 = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        # self.op = nn.Sequential(nn.Linear(in_features=in_features, out_features=in_features))
+        # self.op = nn.Sequential(nn.Linear(in_features=in_features, out_features=in_features // 4),
+        #                         nn.ReLU(),
+        #                         nn.Linear(in_features=in_features // 4, out_features=in_features))
+        if constant_weight is not None:
+            self.op.weight.data.fill_(constant_weight)
+
+    def forward(self, l1_org, l2_org):
+        N, C, H, W = l1_org.size()
+
+        l1 = self.op1(l1_org)
+        l2 = self.op1(l2_org)
+
+        l1_reshaped = l1.view(N, C, H * W, 1)
+        l2_reshaped = l2.view(N, C, H * W, 1)
+
+        A = torch.matmul(l1_reshaped, l2_reshaped.transpose(2, 3))
+
+
+        A = F.softmax(A, dim=3) # size (N, C, H*W, H*W) and normalized on last dim
+
+        l1_forattention = l1.view(N, C, 1, H * W)
+        l2_forattention = l2.view(N, C, 1, H * W)
+
+        att_mask_from_l1 = torch.matmul(A.transpose(2, 3), l1_forattention.transpose(2, 3))  # size (N, C, H*W, 1)
+        att_mask_from_l1 = att_mask_from_l1.softmax(A, dim=3).view(N, C, H, W)
+
+        att_mask_from_l2 = torch.matmul(A, l2_forattention.transpose(2, 3)) # size (N, C, H*W, 1)
+        att_mask_from_l2 = att_mask_from_l2.softmax(A, dim=3).view(N, C, H, W)
+
+        l1_res = (l1_org * att_mask_from_l1)
+        l1_att_vector = F.adaptive_avg_pool2d(l1_res, (1, 1)).view(N, C)
+        att_mask_from_l1 = att_mask_from_l1.sum(dim=1)
+
+        l2_res = (l2_org * att_mask_from_l2)
+        l2_att_vector = F.adaptive_avg_pool2d(l2_res, (1, 1)).view(N, C)
+        att_mask_from_l2 = att_mask_from_l2.sum(dim=1)
+
+        # if self.normalize_attn:
+        #     l_att_vector = a.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        # else:
+        # l_att_vector = F.adaptive_avg_pool2d(a, (1, 1)).view(N, C)
+        # return c.view(N, 1, W, H), g
+        return [att_mask_from_l1, l1_att_vector], [att_mask_from_l2, l2_att_vector]
+
 class LinearAttentionBlock_BOTH(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock_BOTH, self).__init__()
@@ -174,6 +225,18 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
         g1_vector, _ = self.channel.forward(g1_vector, g2.view(N, C))
 
         return g1_map, g1_vector
+
+class Att_For_Unet(nn.Module):
+    def __init__(self, in_features, normalize_attn=True, constant_weight=None):
+        super(Att_For_Unet, self).__init__()
+        self.normalize_attn = normalize_attn
+        self.att = LongRangedAttention(in_features, constant_weight=constant_weight) # transforms second one before applying it
+
+    def forward(self, g1, g2):
+        N, C, W, H = g1.size()
+        [g1_map, g1_vector], [g2_map, g2_vector] = self.spatial.forward(g1, g2)
+
+        return [g1_map, g1_vector], [g2_map, g2_vector]
 
 
 class AttentionModule_C(nn.Module):
@@ -856,6 +919,7 @@ class TopModel(nn.Module):
         self.attention_module = None
         self.global_attention = args.attention
         self.glb_atn = None
+        self.att_type = ''
         if args.loss != 'stopgrad':
             if self.merge_method.startswith('local'):
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
@@ -891,7 +955,11 @@ class TopModel(nn.Module):
                 self.attention_module = DiffSimFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
 
             elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'glb-both':
+                self.att_type = 'channel_spatial'
                 self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output, constant_weight=args.att_weight_init)
+            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'unet-att':
+                self.att_type = 'unet'
+                self.glb_atn = Att_For_Unet(in_features=ft_net_output, constant_weight=args.att_weight_init)
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -1048,11 +1116,13 @@ class TopModel(nn.Module):
 
                         x1_global, x2_global = self.attention_module(x1_input, x1_global, x2_input, x2_global)
 
-                    if self.glb_atn is not None:
+                    if self.att_type == 'channel_spatial':
                         # print('Using glb_atn! *********')
                         _, x1_global_new = self.glb_atn(x1_local[-1], x2_global)
                         _, x2_global = self.glb_atn(x2_local[-1], x1_global)
                         x1_global = x1_global_new
+                    elif self.att_type == 'unet':
+                        [_, x1_global], [_, x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
@@ -1110,9 +1180,11 @@ class TopModel(nn.Module):
                         x1_input.append(x1_local[i - 1])
 
                     x1_global, _ = self.attention_module(x1_input, x1_global, None, None, single=single)
-                if self.glb_atn is not None:
+                if self.att_type == 'channel_spatial':
                     # print('Using glb_atn! *********')
                     _, x1_global = self.glb_atn(x1_local[-1], x1_global)
+                elif self.att_type == 'unet':
+                    pass # shouldn't pass through attention
 
                 output = self.sm_net(x1_global, None, single)  # single is true
 

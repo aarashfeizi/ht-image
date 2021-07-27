@@ -324,7 +324,7 @@ def get_args():
     parser.add_argument('-add_local_features', '--add_local_features', default=False, action='store_true')
 
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
-    parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial', 'channel', 'both', 'glb-both'])
+    parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial', 'channel', 'both', 'glb-both', 'unet-att'])
     parser.add_argument('-att_weight_init', '--att_weight_init', default=None, type=float, help="initialize glb-both att")
 
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
