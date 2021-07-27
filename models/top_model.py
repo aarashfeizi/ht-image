@@ -234,7 +234,7 @@ class Att_For_Unet(nn.Module):
 
     def forward(self, g1, g2):
         N, C, W, H = g1.size()
-        [g1_map, g1_vector], [g2_map, g2_vector] = self.spatial.forward(g1, g2)
+        [g1_map, g1_vector], [g2_map, g2_vector] = self.att.forward(g1, g2)
 
         return [g1_map, g1_vector], [g2_map, g2_vector]
 
