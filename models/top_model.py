@@ -158,7 +158,7 @@ class LongRangedAttention(nn.Module):
         #                         nn.ReLU(),
         #                         nn.Linear(in_features=in_features // 4, out_features=in_features))
         if constant_weight is not None:
-            self.op.weight.data.fill_(constant_weight)
+            self.op1.weight.data.fill_(constant_weight)
 
     def forward(self, l1_org, l2_org):
         N, C, H, W = l1_org.size()
