@@ -178,10 +178,10 @@ class LongRangedAttention(nn.Module):
         l2_forattention = l2.view(N, C, 1, H * W)
 
         att_mask_from_l1 = torch.matmul(A.transpose(2, 3), l1_forattention.transpose(2, 3))  # size (N, C, H*W, 1)
-        att_mask_from_l1 = att_mask_from_l1.softmax(A, dim=3).view(N, C, H, W)
+        att_mask_from_l1 = F.softmax(att_mask_from_l1, dim=3).view(N, C, H, W)
 
         att_mask_from_l2 = torch.matmul(A, l2_forattention.transpose(2, 3)) # size (N, C, H*W, 1)
-        att_mask_from_l2 = att_mask_from_l2.softmax(A, dim=3).view(N, C, H, W)
+        att_mask_from_l2 = F.softmax(att_mask_from_l2, dim=3).view(N, C, H, W)
 
         l1_res = (l1_org * att_mask_from_l1)
         l1_att_vector = F.adaptive_avg_pool2d(l1_res, (1, 1)).view(N, C)
