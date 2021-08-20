@@ -776,7 +776,7 @@ class ModelMethods:
 
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt = torch.optim.Adam(learnable_params, lr=args.lr_new, weight_decay=args.weight_decay)
-        opt.zero_grad()
+
 
         time_start = time.time()
         queue = deque(maxlen=20)
@@ -1785,6 +1785,17 @@ class ModelMethods:
                 self.writer.flush()
 
         self.logger.info('results at: ' + self.save_path)
+    #
+    # def warmup_learning_rate(self, args, epoch, batch_id, total_batches, optimizer):
+    #     if args.warm and epoch <= args.warm_epochs:
+    #         for param_group in optimizer.param_groups:
+    #             warmup_to =
+    #             p = (batch_id + (epoch - 1) * total_batches) / \
+    #                 (args.warm_epochs * total_batches)
+    #             lr = args.warmup_from + p * (args.warmup_to - args.warmup_from)
+    #
+    #
+    #             param_group['lr'] = lr
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
@@ -2460,7 +2471,7 @@ class ModelMethods:
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
-            opt.zero_grad()
+
 
             loss_pos, pos_predictions = self.__get_loss_stopgrad(net, anch, pos, bce_loss, one_labels)
 
@@ -2480,6 +2491,7 @@ class ModelMethods:
             train_loss += loss.item()
             train_bce_loss += loss.item()
 
+            opt.zero_grad()
             loss.backward()  # training with stop gradient
 
             opt.step()
@@ -2536,7 +2548,10 @@ class ModelMethods:
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
-            opt.zero_grad()
+
+            # warm-up learning rate
+            # self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+
             forward_start = time.time()
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
             forward_end = time.time()
@@ -2620,7 +2635,6 @@ class ModelMethods:
 
                     # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
                     #                           grad_save_path)
-                    opt.zero_grad()
 
             else:
                 loss = self.bce_weight * class_loss
@@ -2674,8 +2688,8 @@ class ModelMethods:
                                                  [bce_ave_grads, bce_max_grads, layers],
                                                  'BOTH', batch_id, epoch, grad_save_path)
 
-                opt.zero_grad()
 
+            opt.zero_grad()
             loss.backward()  # training with triplet loss
 
             # if debug_grad:
@@ -2765,7 +2779,6 @@ class ModelMethods:
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
-            opt.zero_grad()
             forward_start = time.time()
             if self.transformer:
                 imgs_f = net.ft_net(imgs)
@@ -2828,6 +2841,7 @@ class ModelMethods:
             if debug_grad:
                 raise Exception('Debug grad not implemented for batchhard')
 
+            opt.zero_grad()
             loss.backward()  # training with triplet loss
 
             opt.step()
@@ -2914,7 +2928,6 @@ class ModelMethods:
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
-            opt.zero_grad()
             forward_start = time.time()
             imgs_f = net(imgs, None, single=True)
             forward_end = time.time()
@@ -2925,7 +2938,7 @@ class ModelMethods:
 
             train_loss += loss.item()
             # train_bce_loss += class_loss.item()
-
+            opt.zero_grad()
             loss.backward()  # training with triplet loss
 
             opt.step()
@@ -2999,7 +3012,6 @@ class ModelMethods:
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
-            opt.zero_grad()
             forward_start = time.time()
             imgs_f = net(imgs, None, single=True)
             forward_end = time.time()
@@ -3056,6 +3068,7 @@ class ModelMethods:
             if debug_grad:
                 raise Exception('Debug grad not implemented for batchhard')
 
+            opt.zero_grad()
             loss.backward()  # training with triplet loss
 
             opt.step()
