@@ -84,6 +84,12 @@ class TransformLoader:
                  normalize_param=dict(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                  jitter_param=dict(Brightness=0.4, Contrast=0.4, Color=0.4),
                  scale=[0.5, 1.0]):
+        # hotels v5 train small mean: tensor([0.5791, 0.5231, 0.4664])
+        # hotels v5 train small std: tensor([0.2512, 0.2581, 0.2698])
+
+        # hotels v5 train mean: tensor([0.5805, 0.5247, 0.4683])
+        # hotels v5 train std: tensor([0.2508, 0.2580, 0.2701])
+
         self.image_size = image_size
         self.normalize_param = normalize_param
         self.jitter_param = jitter_param

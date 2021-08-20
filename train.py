@@ -52,6 +52,12 @@ def main():
     logger.info(f'Batch size is {args_dict["batch_size"]}')
     train_aug = (args.overfit_num == 0)
 
+    # hotels v5 train small mean: tensor([0.5791, 0.5231, 0.4664])
+    # hotels v5 train small std: tensor([0.2512, 0.2581, 0.2698])
+
+    # hotels v5 train mean: tensor([0.5805, 0.5247, 0.4683])
+    # hotels v5 train std: tensor([0.2508, 0.2580, 0.2701])
+
     data_transforms_train_1, transform_list_train_1 = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=train_aug, color_jitter=train_aug)
@@ -79,6 +85,9 @@ def main():
     if args.gpu_ids != '':
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
         logger.info(f"use gpu: {args.gpu_ids} to train.")
+        if args.cuda:
+            if torch.cuda.device_count() > 1:
+                args.drop_last = True
 
     train_set = None
     test_set = None
@@ -405,6 +414,7 @@ def main():
 
     if args.cuda:
         if torch.cuda.device_count() > 1:
+            args.drop_last = True
             logger.info(f'torch.cuda.device_count() = {torch.cuda.device_count()}')
             net = nn.DataParallel(net)
         logger.info(f'Let\'s use {torch.cuda.device_count()} GPUs!')
