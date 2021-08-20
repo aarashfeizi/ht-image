@@ -224,6 +224,7 @@ def get_args():
     parser.add_argument('-dbb', '--db_batch', default=128, type=int, help="number of batch size for db")
     parser.add_argument('-lrs', '--lr_new', default=1e-3, type=float, help="siamese learning rate")
     parser.add_argument('-lrr', '--lr_resnet', default=1e-6, type=float, help="resnet learning rate")
+    parser.add_argument('-warm', '--warm', default=False, action='store_true', help='Warmup learning rates')
     parser.add_argument('-lf', '--log_freq', default=10, type=int, help="show result after each show_every iter.")
     parser.add_argument('-sf', '--save_freq', default=100, type=int, help="save model after each save_every iter.")
     parser.add_argument('-tf', '--test_freq', default=100, type=int, help="test model after each test_every iter.")
@@ -2392,7 +2393,8 @@ def get_logname(args):
                          'query_index': 'qi',
                          'test_query_index': 'tqi',
                          'classes_in_query': 'ciq',
-                         'small_and_big': 'SB'}
+                         'small_and_big': 'SB',
+                         'warm': 'warm'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2431,7 +2433,8 @@ def get_logname(args):
                       'query_index',
                       'test_query_index',
                       'classes_in_query',
-                      'small_and_big']
+                      'small_and_big',
+                      'warm']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2450,7 +2453,8 @@ def get_logname(args):
                     'from_scratch',
                     'query_index',
                     'test_query_index',
-                    'small_and_big']
+                    'small_and_big',
+                    'warm']
 
     args_shouldnt_be_zero = ['overfit_num',
                              'gamma',

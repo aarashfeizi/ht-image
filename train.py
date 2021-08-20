@@ -40,6 +40,9 @@ def main():
     args_dict.update(dataset_info[args.dataset_name])
     args = Namespace(**args_dict)
 
+    if args.warm:
+        args.warm_epochs = min(args.epochs // 10, 10)
+
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
@@ -52,11 +55,6 @@ def main():
     logger.info(f'Batch size is {args_dict["batch_size"]}')
     train_aug = (args.overfit_num == 0)
 
-    # if args.warm:
-    #     args.model_name = '{}_warm'.format(args.model_name)
-    #     args.warmup_from = 0.01
-    #     args.warm_epochs = 10
-    #     args.warmup_to = args.lrs
 
     # hotels v5 train small mean: tensor([0.5791, 0.5231, 0.4664])
     # hotels v5 train small std: tensor([0.2512, 0.2581, 0.2698])

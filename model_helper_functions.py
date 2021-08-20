@@ -713,65 +713,78 @@ class ModelMethods:
             print('current_device: ', torch.cuda.current_device())
 
         if 'deit' in args.feat_extractor:
-            learnable_params = [{'params': net.sm_net.parameters()},
-                                {'params': net.ft_net.parameters(), 'lr': args.lr_resnet}]
+            learnable_params = [{'params': net.sm_net.parameters(), 'new': True},
+                                {'params': net.ft_net.parameters(), 'lr': args.lr_resnet, 'new': False}]
         else:
             if multiple_gpu:  # todo local not supported
                 if net.module.aug_mask:
-                    learnable_params = [{'params': net.module.sm_net.parameters()},
-                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_new}]
+                    learnable_params = [{'params': net.module.sm_net.parameters(), 'new': True},
+                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet, 'new': False},
+                                        {'params': net.module.ft_net.conv1.parameters(), 'lr': args.lr_new, 'new': True}]
 
                 else:
-                    learnable_params = [{'params': net.module.sm_net.parameters()},
-                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet},
-                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_new}]
+                    learnable_params = [{'params': net.module.sm_net.parameters(), 'new': True},
+                                        {'params': net.module.ft_net.rest.parameters(), 'lr': args.lr_resnet, 'new': False},
+                                        {'params': net.module.ft_net.pool.parameters(), 'lr': args.lr_new, 'new': True}]
             else:
                 if net.aug_mask:
-                    learnable_params = [{'params': net.sm_net.parameters()},
+                    learnable_params = [{'params': net.sm_net.parameters(),
+                                         'new': True},
                                         {'params': net.ft_net.rest.parameters(),
                                          'lr': args.lr_resnet,
-                                         'weight_decay': args.weight_decay},
+                                         'weight_decay': args.weight_decay,
+                                         'new': False},
                                         {'params': net.ft_net.conv1.parameters(),
                                          'lr': args.lr_new,
-                                         'weight_decay': args.weight_decay}]
+                                         'weight_decay': args.weight_decay,
+                                         'new': True}]
                 else:
-                    learnable_params = [{'params': net.sm_net.parameters()},
+                    learnable_params = [{'params': net.sm_net.parameters(),
+                                         'new': True},
                                         {'params': net.ft_net.rest.parameters(),
                                          'lr': args.lr_resnet,
-                                         'weight_decay': args.weight_decay},
+                                         'weight_decay': args.weight_decay,
+                                         'new': False},
                                         {'params': net.ft_net.pool.parameters(),
                                          'lr': args.lr_new,
-                                         'weight_decay': args.weight_decay}]
+                                         'weight_decay': args.weight_decay,
+                                         'new': True}]
 
                 if net.local_features:
                     learnable_params += [{'params': net.local_features.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
                 if net.channel_attention:
                     learnable_params += [{'params': net.channel_attention.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
                 if net.diffsim_fc_net:
                     learnable_params += [{'params': net.diffsim_fc_net.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
                 if net.classifier:
                     learnable_params += [{'params': net.classifier.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
                 if net.ft_net.last_conv is not None:
                     learnable_params += [{'params': net.ft_net.last_conv.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
                 if net.attention_module is not None:
                     learnable_params += [{'params': net.attention_module.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
                 if net.glb_atn is not None:
                     learnable_params += [{'params': net.glb_atn.parameters(),
                                           'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay}]
+                                          'weight_decay': args.weight_decay,
+                                          'new': True}]
 
 
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
@@ -1786,16 +1799,21 @@ class ModelMethods:
 
         self.logger.info('results at: ' + self.save_path)
     #
-    # def warmup_learning_rate(self, args, epoch, batch_id, total_batches, optimizer):
-    #     if args.warm and epoch <= args.warm_epochs:
-    #         for param_group in optimizer.param_groups:
-    #             warmup_to =
-    #             p = (batch_id + (epoch - 1) * total_batches) / \
-    #                 (args.warm_epochs * total_batches)
-    #             lr = args.warmup_from + p * (args.warmup_to - args.warmup_from)
-    #
-    #
-    #             param_group['lr'] = lr
+    def warmup_learning_rate(self, args, epoch, batch_id, total_batches, optimizer):
+        if args.warm and epoch <= args.warm_epochs:
+            for param_group in optimizer.param_groups:
+                if param_group['new']:
+                    warmup_to = args.lr_new
+                    warmup_from = args.lr_new * 0.01
+                else:
+                    warmup_to = args.lr_resnet
+                    warmup_from = args.lr_resnet * 0.01
+
+                p = ((batch_id - 1) + (epoch - 1) * total_batches) / \
+                    (args.warm_epochs * total_batches)
+                lr = warmup_from + p * (warmup_to - warmup_from)
+
+                param_group['lr'] = lr
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
@@ -2550,7 +2568,7 @@ class ModelMethods:
             # device = f'cuda:{net.device_ids[0]}'
 
             # warm-up learning rate
-            # self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
 
             forward_start = time.time()
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
@@ -2777,6 +2795,7 @@ class ModelMethods:
             #     self.writer.flush()
             #     drew_graph = True
 
+            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()
@@ -2926,6 +2945,8 @@ class ModelMethods:
             #     self.writer.flush()
             #     drew_graph = True
 
+            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()
@@ -3009,7 +3030,7 @@ class ModelMethods:
             #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
             #     self.writer.flush()
             #     drew_graph = True
-
+            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()
