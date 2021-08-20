@@ -1799,21 +1799,6 @@ class ModelMethods:
 
         self.logger.info('results at: ' + self.save_path)
     #
-    def warmup_learning_rate(self, args, epoch, batch_id, total_batches, optimizer):
-        if args.warm and epoch <= args.warm_epochs:
-            for param_group in optimizer.param_groups:
-                if param_group['new']:
-                    warmup_to = args.lr_new
-                    warmup_from = args.lr_new * 0.01
-                else:
-                    warmup_to = args.lr_resnet
-                    warmup_from = args.lr_resnet * 0.01
-
-                p = ((batch_id - 1) + (epoch - 1) * total_batches) / \
-                    (args.warm_epochs * total_batches)
-                lr = warmup_from + p * (warmup_to - warmup_from)
-
-                param_group['lr'] = lr
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
                     mode='val', epoch=-1, k_at_n=True):
@@ -2568,7 +2553,7 @@ class ModelMethods:
             # device = f'cuda:{net.device_ids[0]}'
 
             # warm-up learning rate
-            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
 
             forward_start = time.time()
             pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
@@ -2795,7 +2780,7 @@ class ModelMethods:
             #     self.writer.flush()
             #     drew_graph = True
 
-            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()
@@ -2945,7 +2930,7 @@ class ModelMethods:
             #     self.writer.flush()
             #     drew_graph = True
 
-            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
 
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
@@ -3030,7 +3015,7 @@ class ModelMethods:
             #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
             #     self.writer.flush()
             #     drew_graph = True
-            self.warmup_learning_rate(opt, epoch, batch_id, len(train_loader), opt)
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()

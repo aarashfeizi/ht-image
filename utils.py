@@ -3227,3 +3227,19 @@ def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels
 
 
     return sampled_query, sampled_index, sampled_query_lbls, sampled_index_lbls
+
+def warmup_learning_rate(args, epoch, batch_id, total_batches, optimizer):
+    if args.warm and epoch <= args.warm_epochs:
+        for param_group in optimizer.param_groups:
+            if param_group['new']:
+                warmup_to = args.lr_new
+                warmup_from = args.lr_new * 0.01
+            else:
+                warmup_to = args.lr_resnet
+                warmup_from = args.lr_resnet * 0.01
+
+            p = ((batch_id - 1) + (epoch - 1) * total_batches) / \
+                (args.warm_epochs * total_batches)
+            lr = warmup_from + p * (warmup_to - warmup_from)
+
+            param_group['lr'] = lr
