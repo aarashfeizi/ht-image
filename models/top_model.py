@@ -1196,16 +1196,16 @@ class TopModel(nn.Module):
                         _, attended_x1_global = self.glb_atn(x1_local[-1], x2_global)
                         _, attended_x2_global = self.glb_atn(x2_local[-1], x1_global)
 
-                        x1_global = x1_global + attended_x1_global
-                        x2_global = x2_global + attended_x2_global
+                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
                     elif self.att_type == 'unet':
                         [_, attended_x1_global], [_, attended_x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
-                        x1_global = x1_global + attended_x1_global
-                        x2_global = x2_global + attended_x2_global
+                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
                     elif self.att_type == 'dot-product':
                         attended_x1_global, attended_x2_global = self.glb_atn(x1_local[-1], x2_local[-1])
-                        x1_global = x1_global + attended_x1_global
-                        x2_global = x2_global + attended_x2_global
+                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
