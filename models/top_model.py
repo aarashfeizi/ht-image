@@ -1193,13 +1193,19 @@ class TopModel(nn.Module):
 
                     if self.att_type == 'channel_spatial':
                         # print('Using glb_atn! *********')
-                        _, x1_global_new = self.glb_atn(x1_local[-1], x2_global)
-                        _, x2_global = self.glb_atn(x2_local[-1], x1_global)
-                        x1_global = x1_global_new
+                        _, attended_x1_global = self.glb_atn(x1_local[-1], x2_global)
+                        _, attended_x2_global = self.glb_atn(x2_local[-1], x1_global)
+
+                        x1_global = x1_global + attended_x1_global
+                        x2_global = x2_global + attended_x2_global
                     elif self.att_type == 'unet':
-                        [_, x1_global], [_, x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
+                        [_, attended_x1_global], [_, attended_x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
+                        x1_global = x1_global + attended_x1_global
+                        x2_global = x2_global + attended_x2_global
                     elif self.att_type == 'dot-product':
-                        x1_global, x2_global = self.glb_atn(x1_local[-1], x2_local[-1])
+                        attended_x1_global, attended_x2_global = self.glb_atn(x1_local[-1], x2_local[-1])
+                        x1_global = x1_global + attended_x1_global
+                        x2_global = x2_global + attended_x2_global
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
