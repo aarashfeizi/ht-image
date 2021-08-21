@@ -81,6 +81,75 @@ class LinearAttentionBlock_Spatial2(nn.Module):
         # return c.view(N, 1, W, H), g
         return l_att, l_att_vector
 
+class CrossDotProductAttentionBlock(nn.Module):
+    def __init__(self, in_features, constant_weight=None):
+        super(CrossDotProductAttentionBlock, self).__init__()
+
+        self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        # self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+
+        # self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
+
+        if constant_weight is not None:
+            self.op_k.weight.data.fill_(constant_weight)
+            self.op_k.weight.data.fill_(constant_weight)
+
+            self.op_q.weight.data.fill_(constant_weight)
+            self.op_q.weight.data.fill_(constant_weight)
+
+    def forward(self, pre_local_query, pre_local_key):
+        N, C, W, H = pre_local_query.size()
+
+        local_1_query = self.op_q(pre_local_query).reshape(N, C, W * H)
+
+        if pre_local_key is not None:
+            local_2_key = self.op_k(pre_local_key).reshape(N, C, W * H)
+        else:
+            local_2_key = local_1_query
+
+        attention_map = local_1_query.transpose(-2, -1) @ local_2_key
+
+        query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, W, H)
+        key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, W, H)
+
+        attended_local1_asq = torch.mul(query_atts_map.expand_as(pre_local_query), pre_local_query)
+        attended_local2_ask = torch.mul(key_atts_map.expand_as(pre_local_key), pre_local_key)
+
+        attended_local1_asq = attended_local1_asq.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        attended_local2_ask = attended_local2_ask.view(N, C, -1).sum(dim=2)  # batch_sizexC
+
+        # return c.view(N, 1, W, H), g
+        return attended_local1_asq, attended_local2_ask
+
+class CrossDotProductAttention(nn.Module):
+    def __init__(self, in_features, constant_weight=None, mode='query'): # mode can be "query", "key", and "both"
+        super(CrossDotProductAttention, self).__init__()
+        self.mode = mode
+        self.qk_module = CrossDotProductAttentionBlock(in_features=in_features, constant_weight=constant_weight)
+
+    def return_representation(self, q, k):
+        if self.mode == 'query':
+            return q
+        elif self.mode == 'key':
+            return k
+        elif self.mode == 'both':
+            return (q + k) / 2
+        else:
+            raise Exception('Unsuppored representation generation for CrossDotProductAttention')
+
+    def forward(self, local1, local2):
+
+        if local2 is not None:
+            attended_local_1_asq, attended_local_2_ask = self.qk_module(local1, local2)
+            attended_local_2_asq, attended_local_1_ask = self.qk_module(local2, local1)
+        else:
+            attended_local_1_asq, attended_local_1_ask = self.qk_module(local1, local1)
+            return self.return_representation(attended_local_1_asq, attended_local_1_ask), None
+
+        return self.return_representation(attended_local_1_asq, attended_local_1_ask),\
+               self.return_representation(attended_local_2_asq, attended_local_2_ask)
+
 class LinearAttentionBlock_Channel(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_Channel, self).__init__()
@@ -960,6 +1029,12 @@ class TopModel(nn.Module):
             elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'unet-att':
                 self.att_type = 'unet'
                 self.glb_atn = Att_For_Unet(in_features=ft_net_output, constant_weight=args.att_weight_init)
+            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'dot-product':
+                self.att_type = 'dot-product'
+                self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
+                                                        constant_weight=args.att_weight_init,
+                                                        mode=args.dp_type)
+
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -1123,6 +1198,8 @@ class TopModel(nn.Module):
                         x1_global = x1_global_new
                     elif self.att_type == 'unet':
                         [_, x1_global], [_, x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
+                    elif self.att_type == 'dot-product':
+                        x1_global, x2_global = self.glb_atn(x1_local[-1], x2_local[-1])
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
@@ -1183,6 +1260,8 @@ class TopModel(nn.Module):
                 if self.att_type == 'channel_spatial':
                     # print('Using glb_atn! *********')
                     _, x1_global = self.glb_atn(x1_local[-1], x1_global)
+                elif self.att_type == 'dot-product':
+                    x1_global, _ = self.glb_atn(x1_local[-1], None)
                 elif self.att_type == 'unet':
                     pass # shouldn't pass through attention
 

@@ -328,10 +328,20 @@ def get_args():
     parser.add_argument('-draw_top_k_results', '--draw_top_k_results', default=5, type=int)
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
+
+    parser.add_argument('-dp_type', '--dp_type', default='both',
+                        choices=['query', 'key', 'both'])
     parser.add_argument('-add_local_features', '--add_local_features', default=False, action='store_true')
 
     parser.add_argument('-l2l', '--local_to_local', default=False, action='store_true')
-    parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial', 'channel', 'both', 'glb-both', 'unet-att'])
+
+    parser.add_argument('-att_mode_sc', '--att_mode_sc', default='spatial', choices=['spatial',
+                                                                                     'channel',
+                                                                                     'both',
+                                                                                     'glb-both',
+                                                                                     'unet-att',
+                                                                                     'dot-product'])
+
     parser.add_argument('-att_weight_init', '--att_weight_init', default=None, type=float, help="initialize glb-both att")
 
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
@@ -2504,13 +2514,21 @@ def get_logname(args):
                 name += f'-{lays}-{att_type}'
 
             if str(arg) == 'merge_method' and (
-                    getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and args.attention:
+                    getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and \
+                    args.attention and \
+                    args.att_mode_sc != 'dot-product':
+
                 lays = 'L' + ''.join(args.feature_map_layers)
                 name += f'-att-{lays}'
                 if args.add_local_features:
                     name += 'ADD'
                 else:
                     name += 'CONC'
+
+            if str(arg) == 'merge_method' and (
+                    getattr(args, arg).startswith('diff') or getattr(args, arg).startswith(
+                'sim')) and args.attention and args.att_mode_sc == 'dot-product':
+                name += f'-{args.dp_type}'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
                 lays = 'L' + ''.join(args.feature_map_layers)
