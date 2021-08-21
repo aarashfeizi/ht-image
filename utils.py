@@ -2515,8 +2515,7 @@ def get_logname(args):
 
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith('sim')) and \
-                    args.attention and \
-                    args.att_mode_sc != 'dot-product':
+                    args.attention:
 
                 lays = 'L' + ''.join(args.feature_map_layers)
                 name += f'-att-{lays}'
@@ -2527,7 +2526,7 @@ def get_logname(args):
 
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith(
-                'sim')) and args.attention and args.att_mode_sc == 'dot-product':
+                'sim')) and args.att_mode_sc == 'dot-product':
                 name += f'-{args.dp_type}'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
