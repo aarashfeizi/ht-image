@@ -110,8 +110,8 @@ class CrossDotProductAttentionBlock(nn.Module):
 
         attention_map = local_1_query.transpose(-2, -1) @ local_2_key
 
-        query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, W, H)
-        key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, W, H)
+        query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
+        key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
         attended_local1_asq = torch.mul(query_atts_map.expand_as(pre_local_query), pre_local_query)
         attended_local2_ask = torch.mul(key_atts_map.expand_as(pre_local_key), pre_local_key)
