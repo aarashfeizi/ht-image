@@ -1663,8 +1663,9 @@ def get_heatmaps(activations, shape, save_path=None, label=None, normalize=[], m
             cpu_activations.append(activation)
 
     method_list = [method for _ in range(len(cpu_activations))]
-    cpu_activations = np.array(list(map(activation_reduction,
-                                        cpu_activations, method_list)))
+    # cpu_activations = np.array(list(map(activation_reduction,
+    #                                     cpu_activations, method_list)))
+    cpu_activations = [act.squeeze().data.cpu().numpy() for act in cpu_activations]
 
     # relu on top of the heatmap
     # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
