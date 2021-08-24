@@ -340,7 +340,8 @@ def get_args():
                                                                                      'both',
                                                                                      'glb-both',
                                                                                      'unet-att',
-                                                                                     'dot-product'])
+                                                                                     'dot-product',
+                                                                                     'dot-product-add'])
 
     parser.add_argument('-att_weight_init', '--att_weight_init', default=None, type=float, help="initialize glb-both att")
 

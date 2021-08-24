@@ -113,7 +113,7 @@ class CrossDotProductAttentionBlock(nn.Module):
         query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
-        attended_local1_from2 = pre_local_key.reshape(N, C, W * H) @ attention_map.softmax(axis=1)
+        attended_local1_from2 = (pre_local_key.reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(N, C, W, H)
 
         attended_local1_asq = torch.mul(query_atts_map.expand_as(pre_local_query), pre_local_query)
         attended_local2_ask = torch.mul(key_atts_map.expand_as(pre_local_key), pre_local_key)
@@ -1049,12 +1049,13 @@ class TopModel(nn.Module):
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
                                                         cross_add=False)
+
             elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'dot-product-add':
                 self.att_type = 'dot-product-add'
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
-                                                        cross_add=False)
+                                                        cross_add=True)
 
 
             # if self.mask:
@@ -1223,8 +1224,8 @@ class TopModel(nn.Module):
                         [_, attended_x1_global], [_, attended_x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
                         x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
                         x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
-                    elif self.att_type == 'dot-product':
-                        attended_x1_global, attended_x2_global, (x1_map, x2_map) = self.glb_atn(x1_local[-1], x2_local[-1])
+                    elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
+                        attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1], x2_local[-1])
                         x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
                         x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
 
