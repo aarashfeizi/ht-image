@@ -282,6 +282,12 @@ class ModelMethods:
     def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
                       transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
 
+        multiple_gpu = len(args.gpu_ids.split(",")) > 1
+        if multiple_gpu:  # todo local not supported
+            netmod = net.module
+        else:
+            netmod = net
+
         net.eval()
         # device = f'cuda:{net.device_ids[0]}'
         heatmap_path = f'{self.save_path}/heatmap/'
@@ -302,7 +308,7 @@ class ModelMethods:
             sub_methods = self.merge_method.split('-')
 
         if args.loss != 'stopgrad':
-            classifier_weights = net.get_classifier_weights().data[0]
+            classifier_weights = netmod.get_classifier_weights().data[0]
             classifier_dim = len(classifier_weights)
             classifier_histogram_path = os.path.join(heatmap_path_perepoch,
                                                      f'classifier_histogram_epoch{epoch}.png')
@@ -437,8 +443,8 @@ class ModelMethods:
                 neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
                 neg_class_loss.backward(retain_graph=True)
                 class_loss += neg_class_loss
-                utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                          net.get_activations().detach(),
+                utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
+                                          netmod.get_activations().detach(),
                                           {'anch': anch_org,
                                            'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
                                           plot_title, f'triplet_{id}_anchneg_bce', epoch, self.writer)
@@ -671,8 +677,8 @@ class ModelMethods:
 
                     plot_title = f"Backward Triplet Loss" + result_text
 
-                    utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                              net.get_activations().detach(),
+                    utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
+                                              netmod.get_activations().detach(),
                                               {'anch': anch_org,
                                                'pos': pos_org,
                                                'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
@@ -689,8 +695,8 @@ class ModelMethods:
                 plot_title = f"Backward Total Loss" + result_text
 
                 loss.backward()
-                utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                          net.get_activations().detach(),
+                utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
+                                          netmod.get_activations().detach(),
                                           {'anch': anch_org,
                                            'pos': pos_org,
                                            'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
@@ -708,14 +714,15 @@ class ModelMethods:
         val_tol = args.early_stopping
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
-
-        if args.cuda:
-            print('current_device: ', torch.cuda.current_device())
-
         if multiple_gpu:  # todo local not supported
             netmod = net.module
         else:
             netmod = net
+
+        if args.cuda:
+            print('current_device: ', torch.cuda.current_device())
+
+
 
         if 'deit' in args.feat_extractor:
             learnable_params = [{'params': netmod.sm_net.parameters(), 'new': True},
