@@ -48,11 +48,13 @@ class LinearAttentionBlock_Spatial(nn.Module):
         # return c.view(N, 1, W, H), g
         return l_att, l_att_vector
 
+
 class LinearAttentionBlock_Spatial2(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_Spatial2, self).__init__()
         self.normalize_attn = normalize_attn
-        self.op_transform = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        self.op_transform = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0,
+                                      bias=False)
         self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
 
         if constant_weight is not None:
@@ -80,6 +82,7 @@ class LinearAttentionBlock_Spatial2(nn.Module):
             l_att_vector = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
         return l_att, l_att_vector
+
 
 class CrossDotProductAttentionBlock(nn.Module):
     def __init__(self, in_features, constant_weight=None):
@@ -126,8 +129,10 @@ class CrossDotProductAttentionBlock(nn.Module):
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
 
+
 class CrossDotProductAttention(nn.Module):
-    def __init__(self, in_features, constant_weight=None, mode='query', cross_add=False): # mode can be "query", "key", and "both"
+    def __init__(self, in_features, constant_weight=None, mode='query',
+                 cross_add=False):  # mode can be "query", "key", and "both"
         super(CrossDotProductAttention, self).__init__()
         self.mode = mode
         self.cross_add = cross_add
@@ -146,23 +151,27 @@ class CrossDotProductAttention(nn.Module):
     def forward(self, local1, local2):
 
         if local2 is not None:
-            attended_local_1_asq, attended_local_2_ask, (l1_query_map, l2_key_map), attended_local_1 = self.qk_module(local1, local2)
-            attended_local_2_asq, attended_local_1_ask, (l2_query_map, l1_key_map), attended_local_2 = self.qk_module(local2, local1)
+            attended_local_1_asq, attended_local_2_ask, (l1_query_map, l2_key_map), attended_local_1 = self.qk_module(
+                local1, local2)
+            attended_local_2_asq, attended_local_1_ask, (l2_query_map, l1_key_map), attended_local_2 = self.qk_module(
+                local2, local1)
         else:
-            attended_local_1_asq, attended_local_1_ask, (l1_query_map, l1_key_map), attended_local_1 = self.qk_module(local1, local1)
-            return self.return_representation(attended_local_1_asq, attended_local_1_ask), None,\
-               (self.return_representation(l1_query_map, l1_key_map),
-                None)
+            attended_local_1_asq, attended_local_1_ask, (l1_query_map, l1_key_map), attended_local_1 = self.qk_module(
+                local1, local1)
+            return self.return_representation(attended_local_1_asq, attended_local_1_ask), None, \
+                   (self.return_representation(l1_query_map, l1_key_map),
+                    None)
         if self.cross_add:
             return attended_local_1, \
                    attended_local_2, \
                    (self.return_representation(l1_query_map, l1_key_map),
                     self.return_representation(l2_query_map, l2_key_map))
         else:
-            return self.return_representation(attended_local_1_asq, attended_local_1_ask),\
-                   self.return_representation(attended_local_2_asq, attended_local_2_ask),\
+            return self.return_representation(attended_local_1_asq, attended_local_1_ask), \
+                   self.return_representation(attended_local_2_asq, attended_local_2_ask), \
                    (self.return_representation(l1_query_map, l1_key_map),
                     self.return_representation(l2_query_map, l2_key_map))
+
 
 class LinearAttentionBlock_Channel(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
@@ -195,6 +204,7 @@ class LinearAttentionBlock_Channel(nn.Module):
             l_att_vector = F.adaptive_avg_pool2d(a, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
         return a, l_att_vector
+
 
 class LinearAttentionBlock_Channel2(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
@@ -230,6 +240,7 @@ class LinearAttentionBlock_Channel2(nn.Module):
         # return c.view(N, 1, W, H), g
         return a, l_att_vector
 
+
 class LongRangedAttention(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LongRangedAttention, self).__init__()
@@ -254,8 +265,7 @@ class LongRangedAttention(nn.Module):
 
         A = torch.matmul(l1_reshaped, l2_reshaped.transpose(2, 3))
 
-
-        A = F.softmax(A, dim=3) # size (N, C, H*W, H*W) and normalized on last dim
+        A = F.softmax(A, dim=3)  # size (N, C, H*W, H*W) and normalized on last dim
 
         l1_forattention = l1.view(N, C, 1, H * W)
         l2_forattention = l2.view(N, C, 1, H * W)
@@ -263,7 +273,7 @@ class LongRangedAttention(nn.Module):
         att_mask_from_l1 = torch.matmul(A.transpose(2, 3), l1_forattention.transpose(2, 3))  # size (N, C, H*W, 1)
         att_mask_from_l1 = F.softmax(att_mask_from_l1, dim=3).view(N, C, H, W)
 
-        att_mask_from_l2 = torch.matmul(A, l2_forattention.transpose(2, 3)) # size (N, C, H*W, 1)
+        att_mask_from_l2 = torch.matmul(A, l2_forattention.transpose(2, 3))  # size (N, C, H*W, 1)
         att_mask_from_l2 = F.softmax(att_mask_from_l2, dim=3).view(N, C, H, W)
 
         l1_res = (l1_org * att_mask_from_l1)
@@ -281,6 +291,7 @@ class LongRangedAttention(nn.Module):
         # return c.view(N, 1, W, H), g
         return [att_mask_from_l1, l1_att_vector], [att_mask_from_l2, l2_att_vector]
 
+
 class LinearAttentionBlock_BOTH(nn.Module):
     def __init__(self, in_features, normalize_attn=True):
         super(LinearAttentionBlock_BOTH, self).__init__()
@@ -295,11 +306,13 @@ class LinearAttentionBlock_BOTH(nn.Module):
 
         return l1_map, l1_vector
 
+
 class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(LinearAttentionBlock_GlbChannelSpatial, self).__init__()
         self.normalize_attn = normalize_attn
-        self.spatial = LinearAttentionBlock_Spatial2(in_features, constant_weight=constant_weight) # transforms second one before applying it
+        self.spatial = LinearAttentionBlock_Spatial2(in_features,
+                                                     constant_weight=constant_weight)  # transforms second one before applying it
         self.channel = LinearAttentionBlock_Channel2(in_features, constant_weight=constant_weight)
 
     def forward(self, g1, g2):
@@ -309,11 +322,13 @@ class LinearAttentionBlock_GlbChannelSpatial(nn.Module):
 
         return g1_map, g1_vector
 
+
 class Att_For_Unet(nn.Module):
     def __init__(self, in_features, normalize_attn=True, constant_weight=None):
         super(Att_For_Unet, self).__init__()
         self.normalize_attn = normalize_attn
-        self.att = LongRangedAttention(in_features, constant_weight=constant_weight) # transforms second one before applying it
+        self.att = LongRangedAttention(in_features,
+                                       constant_weight=constant_weight)  # transforms second one before applying it
 
     def forward(self, g1, g2):
         N, C, W, H = g1.size()
@@ -1039,7 +1054,8 @@ class TopModel(nn.Module):
 
             elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'glb-both':
                 self.att_type = 'channel_spatial'
-                self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output, constant_weight=args.att_weight_init)
+                self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output,
+                                                                      constant_weight=args.att_weight_init)
             elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'unet-att':
                 self.att_type = 'unet'
                 self.glb_atn = Att_For_Unet(in_features=ft_net_output, constant_weight=args.att_weight_init)
@@ -1056,7 +1072,6 @@ class TopModel(nn.Module):
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
                                                         cross_add=True)
-
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -1225,13 +1240,17 @@ class TopModel(nn.Module):
                         x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
                         x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
                     elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
-                        attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1], x2_local[-1])
+                        attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1],
+                                                                                                x2_local[-1])
                         # utils.save_representation_hists(attended_x1_global, savepath='attentions.npy')
                         # utils.save_representation_hists(attended_x2_global, savepath='attentions.npy')
                         # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
                         # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
-                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
-                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
+                        x1_global = F.normalize(x1_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
+                                    + F.normalize(attended_x1_global, p=2, dim=1)
+
+                        x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
+                                    + F.normalize(attended_x2_global, p=2, dim=1)
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
@@ -1295,7 +1314,7 @@ class TopModel(nn.Module):
                 elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
                     x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
                 elif self.att_type == 'unet':
-                    pass # shouldn't pass through attention
+                    pass  # shouldn't pass through attention
 
                 output = self.sm_net(x1_global, None, single)  # single is true
 
@@ -1343,7 +1362,8 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
     if trained_feat_net is None:
         print('Using pretrained model')
         if 'deit' not in args.feat_extractor:
-            ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes, mask=mask,
+            ft_net = model_dict[args.feat_extractor](args, pretrained=use_pretrained, num_classes=num_classes,
+                                                     mask=mask,
                                                      fourth_dim=fourth_dim, output_dim=args.dim_reduction)
         else:
             ft_net = model_dict[args.feat_extractor]()
