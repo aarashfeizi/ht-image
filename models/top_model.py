@@ -1226,6 +1226,10 @@ class TopModel(nn.Module):
                         x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
                     elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
                         attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1], x2_local[-1])
+                        # utils.save_representation_hists(attended_x1_global, savepath='attentions.npy')
+                        # utils.save_representation_hists(attended_x2_global, savepath='attentions.npy')
+                        # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
+                        # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
                         x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
                         x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
 

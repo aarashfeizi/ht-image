@@ -2687,6 +2687,17 @@ def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savep
     plt.savefig(savepath)
     plt.close('all')
 
+def save_representation_hists(representation, savepath):
+    representation = representation.cpu().detach().numpy()
+    if os.path.exists(savepath):
+        previous_reps = np.load(savepath)
+        new_reps = np.concatenate([previous_reps, representation], axis=0)
+    else:
+        new_reps = representation
+
+    np.save(new_reps, new_reps)
+
+
 
 def get_pos_neg_preds(file_path, pos_freq=10):
     preds = np.load(file_path)['arr_0']
