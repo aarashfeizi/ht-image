@@ -465,7 +465,7 @@ class ModelMethods:
 
             result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
 
-            if ('diff' in self.merge_method or 'sim' in self.merge_method) and args.att_mode_sc != 'dot-product':
+            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (not args.att_mode_sc.startswith('dot-product')):
                 ks = list(map(lambda x: int(x), args.k_best_maps))
 
                 value = ''
@@ -624,12 +624,12 @@ class ModelMethods:
                                                                        :].squeeze(dim=0),
                                                     tb_path=f'triplet_{id}_anch_neg_forward', epoch=epoch,
                                                     writer=self.writer)
-            elif ('attention' in self.merge_method) or (args.att_mode_sc == 'dot-product'):
+            elif ('attention' in self.merge_method) or (args.att_mode_sc.startswith('dot-product')):
                 att_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_att.png')
                 anch_name = utils.get_file_name(anch_path)
                 pos_name = utils.get_file_name(pos_path)
                 neg_name = utils.get_file_name(neg_path)
-                if args.local_to_local or self.merge_global or (args.att_mode_sc == 'dot-product'):
+                if args.local_to_local or self.merge_global or (args.att_mode_sc.startswith('dot-product')):
 
                     utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],
                                                   [(anch_name, anch_org), (pos_name, pos_org)],
@@ -667,7 +667,7 @@ class ModelMethods:
                                                   epoch=epoch,
                                                   writer=self.writer)
 
-            if ('diff' in self.merge_method or 'sim' in self.merge_method) and args.att_mode_sc != 'dot-product':
+            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (not args.att_mode_sc.startswith('dot-product')):
                 if loss_fn is not None:
                     ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
                     ext_loss = ext_batch_loss

@@ -1288,7 +1288,7 @@ class TopModel(nn.Module):
                 if self.att_type == 'channel_spatial':
                     # print('Using glb_atn! *********')
                     _, x1_global = self.glb_atn(x1_local[-1], x1_global)
-                elif self.att_type == 'dot-product':
+                elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
                     x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
                 elif self.att_type == 'unet':
                     pass # shouldn't pass through attention
