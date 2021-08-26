@@ -2528,8 +2528,10 @@ def get_logname(args):
 
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith(
-                'sim')) and args.att_mode_sc == 'dot-product':
-                name += f'-{args.dp_type}'
+                'sim')) and args.att_mode_sc.startswith('dot-product'):
+                name += f'-{args.att_mode_sc}'
+                if args.att_mode_sc == 'dot-product':
+                    name += f'-{args.dp_type}'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('channel-attention'):
                 lays = 'L' + ''.join(args.feature_map_layers)
