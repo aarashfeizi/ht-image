@@ -87,15 +87,7 @@ class LinearAttentionBlock_Spatial2(nn.Module):
 class CrossDotProductAttentionBlock(nn.Module):
     def __init__(self, in_features, constant_weight=None):
         super(CrossDotProductAttentionBlock, self).__init__()
-
-        layers = None
-        for k, v in FEATURE_MAP_SIZES.items():
-            if v[0] == in_features:
-                layers = list(v)
-        if layers is None:
-            raise Exception('Shoud\'ve found layers')
-
-        self.layernorm = nn.LayerNorm(layers)
+        self.layernorm = nn.LayerNorm([in_features, 7, 7])
 
         self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
         self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
