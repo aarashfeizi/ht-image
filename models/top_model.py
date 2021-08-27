@@ -121,13 +121,15 @@ class CrossDotProductAttentionBlock(nn.Module):
 
         attended_local1_from2 = (pre_local_key.reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(N, C, W, H)
 
+        attended_local1_from1 = (attention_map.softmax(axis=2) @ pre_local_query.reshape(N, C, W * H).transpose(-2, -1)).reshape(N, C, W, H)
+
         attended_local1_asq = torch.mul(query_atts_map.expand_as(pre_local_query), pre_local_query)
         attended_local2_ask = torch.mul(key_atts_map.expand_as(pre_local_key), pre_local_key)
 
         attended_local1_asq = attended_local1_asq.view(N, C, -1).sum(dim=2)  # batch_sizexC
         attended_local2_ask = attended_local2_ask.view(N, C, -1).sum(dim=2)  # batch_sizexC
 
-        attended_local1 = (pre_local_query + attended_local1_from2).reshape(N, C, -1).mean(axis=2)
+        attended_local1 = (pre_local_query + attended_local1_from1 + attended_local1_from2).reshape(N, C, -1).mean(axis=2)
 
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
