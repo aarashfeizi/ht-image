@@ -88,6 +88,15 @@ class CrossDotProductAttentionBlock(nn.Module):
     def __init__(self, in_features, constant_weight=None):
         super(CrossDotProductAttentionBlock, self).__init__()
 
+        layers = None
+        for k, v in FEATURE_MAP_SIZES.items():
+            if v[0] == in_features:
+                layers = list(v)
+        if layers is None:
+            raise Exception('Shoud\'ve found layers')
+
+        self.layernorm = nn.LayerNorm(layers)
+
         self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
         self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
         # self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
@@ -104,9 +113,11 @@ class CrossDotProductAttentionBlock(nn.Module):
     def forward(self, pre_local_query, pre_local_key):
         N, C, W, H = pre_local_query.size()
 
+        pre_local_query = self.layernorm(pre_local_query)
         local_1_query = self.op_q(pre_local_query).reshape(N, C, W * H)
 
         if pre_local_key is not None:
+            pre_local_key = self.layernorm(pre_local_key)
             local_2_key = self.op_k(pre_local_key).reshape(N, C, W * H)
         else:
             local_2_key = local_1_query
