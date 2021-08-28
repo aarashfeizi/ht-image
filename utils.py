@@ -2712,7 +2712,7 @@ def save_representation_hists(representation, savepath):
     else:
         new_reps = representation
 
-    np.save(new_reps, new_reps)
+    np.save(savepath, new_reps)
 
 
 
