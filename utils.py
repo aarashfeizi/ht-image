@@ -206,7 +206,7 @@ def get_args():
     parser.add_argument('-a', '--aug', default=False, action='store_true')
     # parser.add_argument('-m', '--mask', default=False, action='store_true')
     parser.add_argument('-r', '--rotate', default=0.0, type=float)
-    parser.add_argument('-random_erase', '--random_erase', default=0.0, type=float)
+    parser.add_argument('-re', '--random_erase', default=0.0, type=float)
 
     parser.add_argument('-mn', '--pretrained_model_name', default='')
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
