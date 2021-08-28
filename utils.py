@@ -96,6 +96,7 @@ class TransformLoader:
         self.rotate = rotate
         self.normalize = transforms.Normalize(**self.normalize_param)
         self.scale = scale
+        self.random_erase_prob = 0.0
 
     def parse_transform(self, transform_type):
         # if transform_type == 'ImageJitter':
@@ -114,11 +115,17 @@ class TransformLoader:
             return method(self.rotate)
         elif transform_type == 'ColorJitter':
             return method(brightness=0.5, hue=0.5, contrast=0.5, saturation=0.5)
+        elif transform_type == 'RandomErasing':
+            return method(p=self.random_erase_prob, scale=(0.1, 0.75), ratio=(0.3, 3.3)) # TODO RANDOM ERASE!!!
 
         else:
             return method()
 
-    def get_composed_transform(self, aug=False, random_crop=False, for_network=True, color_jitter=False):
+    def get_composed_transform(self, aug=False,
+                               random_crop=False,
+                               for_network=True,
+                               color_jitter=False,
+                               random_erase=0.0):
         transform_list = []
 
         if aug:
@@ -138,6 +145,10 @@ class TransformLoader:
 
         if for_network:
             transform_list.extend(['ToTensor'])
+            if random_erase > 0.0:
+                self.random_erase_prob = random_erase
+                transform_list.extend(['RandomErasing'])
+
 
         transform_funcs = [self.parse_transform(x) for x in transform_list]
         transform = transforms.Compose(transform_funcs)
@@ -195,6 +206,8 @@ def get_args():
     parser.add_argument('-a', '--aug', default=False, action='store_true')
     # parser.add_argument('-m', '--mask', default=False, action='store_true')
     parser.add_argument('-r', '--rotate', default=0.0, type=float)
+    parser.add_argument('-random_erase', '--random_erase', default=0.0, type=float)
+
     parser.add_argument('-mn', '--pretrained_model_name', default='')
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
@@ -2406,7 +2419,10 @@ def get_logname(args):
                          'test_query_index': 'tqi',
                          'classes_in_query': 'ciq',
                          'small_and_big': 'SB',
-                         'warm': 'warm'}
+                         'warm': 'w',
+                         'random_erase': 're',
+                         'dot-product': 'dp',
+                         'dot-product-add': 'dpa'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2446,7 +2462,8 @@ def get_logname(args):
                       'test_query_index',
                       'classes_in_query',
                       'small_and_big',
-                      'warm']
+                      'warm',
+                      'random_erase']
 
     arg_booleans = ['spatial_projection',
                     'attention',
@@ -2472,7 +2489,7 @@ def get_logname(args):
                              'gamma',
                              'dim_reduction',
                              'same_pic_prob',
-                             ]
+                             'random_erase']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrastive':
@@ -2529,7 +2546,7 @@ def get_logname(args):
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith(
                 'sim')) and args.att_mode_sc.startswith('dot-product'):
-                name += f'-{args.att_mode_sc}'
+                name += f'-{name_replace_dict[args.att_mode_sc]}'
                 if args.att_mode_sc == 'dot-product':
                     name += f'-{args.dp_type}'
 

@@ -64,7 +64,7 @@ def main():
 
     data_transforms_train_1, transform_list_train_1 = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate).get_composed_transform(
-        aug=args.aug, random_crop=train_aug, color_jitter=train_aug)
+        aug=args.aug, random_crop=train_aug, color_jitter=train_aug, random_erase=args.random_erase)
 
     data_transforms_train_2, transform_list_train_2 = utils.TransformLoader(args.image_size,
                                                                         rotate=args.rotate, scale=[0.1, 0.5]).get_composed_transform(
