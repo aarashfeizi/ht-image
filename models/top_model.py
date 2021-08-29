@@ -87,6 +87,7 @@ class LinearAttentionBlock_Spatial2(nn.Module):
 class CrossDotProductAttentionBlock(nn.Module):
     def __init__(self, in_features, constant_weight=None):
         super(CrossDotProductAttentionBlock, self).__init__()
+
         self.layernorm = nn.LayerNorm([in_features, 7, 7])
 
         self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
@@ -129,7 +130,10 @@ class CrossDotProductAttentionBlock(nn.Module):
         attended_local1_asq = attended_local1_asq.view(N, C, -1).sum(dim=2)  # batch_sizexC
         attended_local2_ask = attended_local2_ask.view(N, C, -1).sum(dim=2)  # batch_sizexC
 
-        attended_local1 = (pre_local_query + attended_local1_from1 + attended_local1_from2).reshape(N, C, -1).mean(axis=2)
+        attended_local1 = (pre_local_query +
+                           attended_local1_from1 +
+                           attended_local1_from2).reshape(N, C, -1
+                                                          ) .mean(axis=2)
 
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
@@ -1251,11 +1255,15 @@ class TopModel(nn.Module):
                         # utils.save_representation_hists(attended_x2_global, savepath='attentions.npy')
                         # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
                         # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
-                        x1_global = F.normalize(x1_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
-                                    + F.normalize(attended_x1_global, p=2, dim=1)
+                        # x1_global = F.normalize(x1_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
+                        #             + F.normalize(attended_x1_global, p=2, dim=1)
+                        #
+                        # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
+                        #             + F.normalize(attended_x2_global, p=2, dim=1)
 
-                        x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
-                                    + F.normalize(attended_x2_global, p=2, dim=1)
+                    x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+
+                    x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
@@ -1317,7 +1325,8 @@ class TopModel(nn.Module):
                     # print('Using glb_atn! *********')
                     _, x1_global = self.glb_atn(x1_local[-1], x1_global)
                 elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
-                    x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
+                    attended_x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
+                    x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
                 elif self.att_type == 'unet':
                     pass  # shouldn't pass through attention
 
