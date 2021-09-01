@@ -1261,9 +1261,9 @@ class TopModel(nn.Module):
                         # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                         #             + F.normalize(attended_x2_global, p=2, dim=1)
 
-                    x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
 
-                    x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
+                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
