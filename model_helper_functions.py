@@ -852,9 +852,9 @@ class ModelMethods:
             #     train_loader.dataset.load_best_negatives(args.negative_path)
 
             models.top_model.A_SUM = [0, 0]
-            # if args.cam:
-            #     print(f'Drawing heatmaps on epoch {epoch}...')
-            #     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+            if args.cam:
+                print(f'Drawing heatmaps on epoch {epoch}...')
+                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
                 self.draw_heatmaps(net=net,
                                    loss_fn=loss_fn,
                                    bce_loss=bce_loss,
