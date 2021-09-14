@@ -279,6 +279,135 @@ class ModelMethods:
         self.writer.flush()
 
     @utils.MY_DEC
+
+    def draw_activation_layers(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
+                      transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
+
+        multiple_gpu = len(args.gpu_ids.split(",")) > 1
+        if multiple_gpu:  # todo local not supported
+            netmod = net.module
+        else:
+            netmod = net
+
+        net.eval()
+        # device = f'cuda:{net.device_ids[0]}'
+        heatmap_path = f'{self.save_path}/heatmap/'
+        heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
+
+        utils.make_dirs(heatmap_path_perepoch)
+        self.cam_all += 1
+
+        for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
+
+            self.logger.info(f'Anch path: {anch_path}')
+            self.logger.info(f'Pos path: {pos_path}')
+            self.logger.info(f'Neg path: {neg_path}')
+
+            heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
+
+            utils.make_dirs(heatmap_path_perepoch_id)
+
+            anch = Image.open(anch_path)
+            pos = Image.open(pos_path)
+            neg = Image.open(neg_path)
+
+            if self.aug_mask:
+                anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask,
+                                                                          offsets=self.anch_offsets,
+                                                                          resize_factors=self.anch_resizefactors,
+                                                                          colored=self.colored_mask)
+                pos, masked_pos, pos_mask, param_pos = utils.add_mask(pos, self.pos_mask, offsets=self.pos_offsets,
+                                                                      resize_factors=self.pos_resizefactors,
+                                                                      colored=self.colored_mask)
+                neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
+                                                                      resize_factors=self.neg_resizefactors,
+                                                                      colored=self.colored_mask)
+
+                if not args.fourth_dim:
+                    anch = masked_anch
+                    pos = masked_pos
+                    neg = masked_neg
+
+                if self.anch_offsets is None:
+                    self.anch_offsets = param_anch['offsets']
+                    self.anch_resizefactors = param_anch['resize_factors']
+
+                    self.pos_offsets = param_pos['offsets']
+                    self.pos_resizefactors = param_pos['resize_factors']
+
+                    self.neg_offsets = param_neg['offsets']
+                    self.neg_resizefactors = param_neg['resize_factors']
+
+            tl = utils.TransformLoader(228)
+
+            anch = tl.transform_normalize(transform_for_model(anch))
+            pos = tl.transform_normalize(transform_for_model(pos))
+            neg = tl.transform_normalize(transform_for_model(neg))
+
+            anch = anch.reshape(shape=(1, anch.shape[0], anch.shape[1], anch.shape[2]))
+            pos = pos.reshape(shape=(1, pos.shape[0], pos.shape[1], pos.shape[2]))
+            neg = neg.reshape(shape=(1, neg.shape[0], neg.shape[1], neg.shape[2]))
+
+            if self.aug_mask:
+                anch_org = np.asarray(transform_for_heatmap(masked_anch))
+                pos_org = np.asarray(transform_for_heatmap(masked_pos))
+                neg_org = np.asarray(transform_for_heatmap(masked_neg))
+            else:
+                anch_org = np.asarray(transform_for_heatmap(Image.open(anch_path)))
+                pos_org = np.asarray(transform_for_heatmap(Image.open(pos_path)))
+                neg_org = np.asarray(transform_for_heatmap(Image.open(neg_path)))
+
+            zero_labels = torch.tensor([0], dtype=float)
+            one_labels = torch.tensor([1], dtype=float)
+
+            if args.cuda:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                          Variable(pos.cuda()), \
+                                                          Variable(neg.cuda()), \
+                                                          Variable(one_labels.cuda()), \
+                                                          Variable(zero_labels.cuda())
+            else:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), \
+                                                          Variable(pos), \
+                                                          Variable(neg), \
+                                                          Variable(one_labels), \
+                                                          Variable(zero_labels)
+
+
+            pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anchp_att, pos_att = net.forward(anch, pos,
+                                                                                                     feats=True,
+                                                                                                     hook=True,
+                                                                                                     return_att=True)
+
+
+            pos_pred_int = int(torch.sigmoid(pos_pred).item() >= 0.5)
+            self.cam_pos[id - 1] += pos_pred_int
+            pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
+
+            neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anchn_att, neg_att = net.forward(anch, neg,
+                                                                                             feats=True,
+                                                                                             hook=True,
+                                                                                             return_att=True)
+
+            neg_pred_int = int(torch.sigmoid(neg_pred).item() < 0.5)
+            self.cam_neg[id - 1] += neg_pred_int
+
+            neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
+
+            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
+
+            # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
+
+            result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
+
+            utils.draw_entire_heatmaps([acts_anch_pos[0],
+                                        acts_anch_pos[1],
+                                        acts_anch_neg[1]],
+                                       [anch_org, pos_org, neg_org],
+                                       ['l1', 'l2', 'l3', 'l4'],
+                                       all_heatmap_grid_path,
+                                       f'Anch, Pos, Neg\n{result_text}')
+
     def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
                       transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
 
@@ -440,7 +569,12 @@ class ModelMethods:
                                                                                              feats=True,
                                                                                              hook=True,
                                                                                              return_att=True)
-
+            utils.draw_entire_heatmaps([acts_anch_neg[0],
+                                        acts_anch_neg[1]],
+                                       [anch_org, neg_org],
+                                       ['l1', 'l2', 'l3', 'l4'],
+                                       all_heatmap_grid_path,
+                                       'Anch and Neg')
             neg_pred_int = int(torch.sigmoid(neg_pred).item() < 0.5)
             self.cam_neg[id - 1] += neg_pred_int
 
@@ -863,16 +997,16 @@ class ModelMethods:
             if args.cam:
                 print(f'Drawing heatmaps on epoch {epoch}...')
                 self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_heatmaps(net=net,
-                                   loss_fn=loss_fn,
-                                   bce_loss=bce_loss,
-                                   args=args,
-                                   cam_loader=cam_args[0],
-                                   transform_for_model=cam_args[1],
-                                   transform_for_heatmap=cam_args[2],
-                                   epoch=epoch,
-                                   count=1,
-                                   draw_all_thresh=self.draw_all_thresh)
+                self.draw_activation_layers(net=net,
+                                       loss_fn=loss_fn,
+                                       bce_loss=bce_loss,
+                                       args=args,
+                                       cam_loader=cam_args[0],
+                                       transform_for_model=cam_args[1],
+                                       transform_for_heatmap=cam_args[2],
+                                       epoch=epoch,
+                                       count=1,
+                                       draw_all_thresh=self.draw_all_thresh)
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
