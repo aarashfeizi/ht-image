@@ -2303,9 +2303,9 @@ def get_distances(dists, img_classes):
 
 def draw_entire_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     plt.rcParams.update({'font.size': 5})
-    fig, axes = plt.subplots(1, 3)
-    for acts, img, plot_title, ax in zip(actss, imgs, subplot_titles, axes):
-        for layer_i, act in enumerate(acts, 1):
+    fig, axes = plt.subplots(len(actss), 4)
+    for acts, img, ax_row in zip(actss, imgs, axes):
+        for layer_i, (act, plot_title, ax) in enumerate(zip(acts, subplot_titles, ax_row), 1):
             act = act.cpu().numpy()
             # acts = np.maximum(acts, 0)
             # plt.rcParams.update({'figure.figsize': (20, 10)})
@@ -2319,19 +2319,16 @@ def draw_entire_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
             rows = []
             all = []
             row = []
-            channel_length = len(acts_pos.squeeze(axis=0))
 
             row_length = 1
             all_length_power = 0
 
-            while np.power(2, all_length_power) <= channel_length:
-                if (all_length_power) % 2 == 0:
-                    row_length = np.power(2, int((all_length_power + 1) / 2))
-                all_length_power += 1
+            average_act = acts_pos.mean(axis=0).mean(axis=0)
+            max_act = acts_pos.max(axis=0).max(axis=0)
 
-            for i, act in enumerate(acts_pos.squeeze(axis=0)):
+            for i, agg_act in enumerate([average_act, max_act]):
 
-                heatmap = __post_create_heatmap(act, (img.shape[0], img.shape[1]))
+                heatmap = __post_create_heatmap(agg_act, (img.shape[0], img.shape[1]))
                 pic = merge_heatmap_img(img, heatmap)
                 row.append(pic)
                 if (i + 1) % row_length == 0:

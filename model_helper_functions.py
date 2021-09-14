@@ -405,7 +405,7 @@ class ModelMethods:
             utils.draw_entire_heatmaps([acts_anch_pos[0],
                                      acts_anch_pos[1]],
                                     [anch_org, pos_org],
-                                    ['Anch', 'Pos'],
+                                    ['l1', 'l2', 'l3', 'l4'],
                                     all_heatmap_grid_path,
                                     'Anch and Pos')
 
