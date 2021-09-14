@@ -994,19 +994,19 @@ class ModelMethods:
             #     train_loader.dataset.load_best_negatives(args.negative_path)
 
             models.top_model.A_SUM = [0, 0]
-            if args.cam:
-                print(f'Drawing heatmaps on epoch {epoch}...')
-                self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                self.draw_activation_layers(net=net,
-                                       loss_fn=loss_fn,
-                                       bce_loss=bce_loss,
-                                       args=args,
-                                       cam_loader=cam_args[0],
-                                       transform_for_model=cam_args[1],
-                                       transform_for_heatmap=cam_args[2],
-                                       epoch=epoch,
-                                       count=1,
-                                       draw_all_thresh=self.draw_all_thresh)
+            # if args.cam:
+            #     print(f'Drawing heatmaps on epoch {epoch}...')
+            #     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+            #     self.draw_activation_layers(net=net,
+            #                            loss_fn=loss_fn,
+            #                            bce_loss=bce_loss,
+            #                            args=args,
+            #                            cam_loader=cam_args[0],
+            #                            transform_for_model=cam_args[1],
+            #                            transform_for_heatmap=cam_args[2],
+            #                            epoch=epoch,
+            #                            count=1,
+            #                            draw_all_thresh=self.draw_all_thresh)
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
@@ -1287,7 +1287,7 @@ class ModelMethods:
                 if args.cam:
                     print(f'Drawing heatmaps on epoch {epoch}...')
                     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                    self.draw_heatmaps(net=net,
+                    self.draw_activation_layers(net=net,
                                        loss_fn=loss_fn,
                                        bce_loss=bce_loss,
                                        args=args,
