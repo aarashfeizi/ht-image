@@ -400,6 +400,14 @@ class ModelMethods:
                                                                                                      feats=True,
                                                                                                      hook=True,
                                                                                                      return_att=True)
+            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_pos_anch_heatmaps.pdf')
+
+            utils.draw_entire_heatmaps([acts_anch_pos[0],
+                                     acts_anch_pos[1]],
+                                    [anch_org, pos_org],
+                                    ['Anch', 'Pos'],
+                                    all_heatmap_grid_path,
+                                    'Anch and Pos')
 
             map_shape = acts_anch_pos[0].shape
             classifier_weights_tensor = torch.repeat_interleave(classifier_weights, repeats=map_shape[2] * map_shape[3],
@@ -454,7 +462,7 @@ class ModelMethods:
             # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
             # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
 
-            # all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
+            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
             utils.draw_entire_heatmaps([acts_anch_pos[0],
                                      acts_anch_pos[1],
                                      acts_anch_neg[1]],
