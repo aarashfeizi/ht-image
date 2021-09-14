@@ -439,6 +439,7 @@ class ModelMethods:
             neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
+            # grad heatmaps
             if 'diff' in self.merge_method or 'sim' in self.merge_method:
                 neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
                 neg_class_loss.backward(retain_graph=True)
@@ -454,12 +455,12 @@ class ModelMethods:
             # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
 
             # all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
-            # utils.draw_all_heatmaps([acts_anch_pos[0],
-            #                          acts_anch_pos[1],
-            #                          acts_anch_neg[1]],
-            #                         [anch_org, pos_org, neg_org],
-            #                         ['Anch', 'Pos', 'Neg'],
-            #                         all_heatmap_grid_path)
+            utils.draw_entire_heatmaps([acts_anch_pos[0],
+                                     acts_anch_pos[1],
+                                     acts_anch_neg[1]],
+                                    [anch_org, pos_org, neg_org],
+                                    ['Anch', 'Pos', 'Neg'],
+                                    all_heatmap_grid_path)
 
             # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
 
@@ -854,16 +855,16 @@ class ModelMethods:
             # if args.cam:
             #     print(f'Drawing heatmaps on epoch {epoch}...')
             #     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-            #     self.draw_heatmaps(net=net,
-            #                        loss_fn=loss_fn,
-            #                        bce_loss=bce_loss,
-            #                        args=args,
-            #                        cam_loader=cam_args[0],
-            #                        transform_for_model=cam_args[1],
-            #                        transform_for_heatmap=cam_args[2],
-            #                        epoch=epoch,
-            #                        count=1,
-            #                        draw_all_thresh=self.draw_all_thresh)
+                self.draw_heatmaps(net=net,
+                                   loss_fn=loss_fn,
+                                   bce_loss=bce_loss,
+                                   args=args,
+                                   cam_loader=cam_args[0],
+                                   transform_for_model=cam_args[1],
+                                   transform_for_heatmap=cam_args[2],
+                                   epoch=epoch,
+                                   count=1,
+                                   draw_all_thresh=self.draw_all_thresh)
 
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:

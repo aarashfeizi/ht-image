@@ -1114,7 +1114,7 @@ class TopModel(nn.Module):
             x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
 
         if hook:
-            anch_pass_act = self.get_activations().detach().clone()
+            anch_pass_act = [l.detach().clone() for l in x1_local]
         else:
             anch_pass_act = None
         out1, out2 = None, None
@@ -1130,7 +1130,7 @@ class TopModel(nn.Module):
                 x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
 
             if hook:
-                other_pass_act = self.get_activations().detach().clone()
+                other_pass_act = [l.detach().clone() for l in x2_local]
             else:
                 other_pass_act = None
 
