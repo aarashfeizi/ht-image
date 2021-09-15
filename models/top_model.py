@@ -92,7 +92,7 @@ class CrossDotProductAttentionBlock(nn.Module):
 
         self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
         self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
-        # self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
 
         # self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
 
@@ -102,6 +102,9 @@ class CrossDotProductAttentionBlock(nn.Module):
 
             self.op_q.weight.data.fill_(constant_weight)
             self.op_q.weight.data.fill_(constant_weight)
+
+            self.op_v.weight.data.fill_(constant_weight)
+            self.op_v.weight.data.fill_(constant_weight)
 
     def forward(self, pre_local_query, pre_local_key):
         N, C, W, H = pre_local_query.size()
@@ -120,9 +123,9 @@ class CrossDotProductAttentionBlock(nn.Module):
         query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
-        attended_local1_from2 = (pre_local_key.reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(N, C, W, H)
+        attended_local1_from2 = (self.op_v(pre_local_key).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(N, C, W, H)
 
-        attended_local1_from1 = (attention_map.softmax(axis=2) @ pre_local_query.reshape(N, C, W * H).transpose(-2, -1)).reshape(N, C, W, H)
+        attended_local1_from1 = (attention_map.softmax(axis=2) @ self.op_v(pre_local_query).reshape(N, C, W * H).transpose(-2, -1)).reshape(N, C, W, H)
 
         attended_local1_asq = torch.mul(query_atts_map.expand_as(pre_local_query), pre_local_query)
         attended_local2_ask = torch.mul(key_atts_map.expand_as(pre_local_key), pre_local_key)
