@@ -1266,11 +1266,11 @@ class TopModel(nn.Module):
 
                         x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
                         if anch_pass_act:
-                            anch_pass_act.append(attended_x1_global)
+                            anch_pass_act.append(attended_x1_global.detach().cpu().clone().numpy())
 
                         x2_global = attended_x2_global.reshape(N, C, -1).mean(axis=2)
                         if other_pass_act:
-                            other_pass_act.append(attended_x2_global)
+                            other_pass_act.append(attended_x2_global.detach().cpu().clone().numpy())
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
