@@ -179,8 +179,8 @@ class CrossDotProductAttention(nn.Module):
                    (self.return_representation(l1_query_map, l1_key_map),
                     self.return_representation(l2_query_map, l2_key_map))
         else:
-            return self.return_representation(attended_local_1_asq, attended_local_1_ask), \
-                   self.return_representation(attended_local_2_asq, attended_local_2_ask), \
+            return self.return_representation(attended_local_1_asq, attended_local_1_ask) + local1, \
+                   self.return_representation(attended_local_2_asq, attended_local_2_ask) + local2, \
                    (self.return_representation(l1_query_map, l1_key_map),
                     self.return_representation(l2_query_map, l2_key_map))
 
@@ -1264,9 +1264,9 @@ class TopModel(nn.Module):
                         # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                         #             + F.normalize(attended_x2_global, p=2, dim=1)
 
-                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                        x1_global = attended_x1_global
 
-                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
+                        x2_global = attended_x2_global
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
@@ -1329,7 +1329,7 @@ class TopModel(nn.Module):
                     _, x1_global = self.glb_atn(x1_local[-1], x1_global)
                 elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
                     attended_x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
-                    x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                    x1_global = attended_x1_global
                 elif self.att_type == 'unet':
                     pass  # shouldn't pass through attention
 
