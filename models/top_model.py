@@ -1265,10 +1265,12 @@ class TopModel(nn.Module):
                         #             + F.normalize(attended_x2_global, p=2, dim=1)
 
                         x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
-                        anch_pass_act.append(attended_x1_global)
+                        if anch_pass_act:
+                            anch_pass_act.append(attended_x1_global)
 
                         x2_global = attended_x2_global.reshape(N, C, -1).mean(axis=2)
-                        other_pass_act.append(attended_x2_global)
+                        if other_pass_act:
+                            other_pass_act.append(attended_x2_global)
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
