@@ -400,11 +400,13 @@ class ModelMethods:
 
             result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
 
+            l_labels = [f'l{i}' for i in range(len(acts_anch_pos[0]))]
+
             utils.draw_entire_heatmaps([acts_anch_pos[0],
                                         acts_anch_pos[1],
                                         acts_anch_neg[1]],
                                        [anch_org, pos_org, neg_org],
-                                       ['l1', 'l2', 'l3', 'l4'],
+                                       l_labels,
                                        all_heatmap_grid_path,
                                        f'Epoch {epoch}\n{result_text}')
 
@@ -1475,6 +1477,16 @@ class ModelMethods:
                 if args.cam:
                     print(f'Drawing heatmaps on epoch {epoch}...')
                     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
+                    self.draw_attentions(net=net,
+                                        loss_fn=loss_fn,
+                                        bce_loss=bce_loss,
+                                        args=args,
+                                        cam_loader=cam_args[0],
+                                        transform_for_model=cam_args[1],
+                                        transform_for_heatmap=cam_args[2],
+                                        epoch=epoch,
+                                        count=1,
+                                        draw_all_thresh=self.draw_all_thresh)
                     self.draw_activation_layers(net=net,
                                        loss_fn=loss_fn,
                                        bce_loss=bce_loss,

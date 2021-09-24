@@ -135,8 +135,7 @@ class CrossDotProductAttentionBlock(nn.Module):
 
         attended_local1 = (pre_local_query +
                            attended_local1_from1 +
-                           attended_local1_from2).reshape(N, C, -1
-                                                          ) .mean(axis=2)
+                           attended_local1_from2)
 
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
@@ -1252,6 +1251,7 @@ class TopModel(nn.Module):
                         x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
                         x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
                     elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
+                        N, C, H, W = x1_local[-1].size()
                         attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1],
                                                                                                 x2_local[-1])
                         # utils.save_representation_hists(attended_x1_global, savepath='attentions.npy')
@@ -1264,9 +1264,11 @@ class TopModel(nn.Module):
                         # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                         #             + F.normalize(attended_x2_global, p=2, dim=1)
 
-                        x1_global = attended_x1_global
+                        x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
+                        anch_pass_act.append(attended_x1_global)
 
-                        x2_global = attended_x2_global
+                        x2_global = attended_x2_global.reshape(N, C, -1).mean(axis=2)
+                        other_pass_act.append(attended_x2_global)
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 

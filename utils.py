@@ -2303,7 +2303,7 @@ def get_distances(dists, img_classes):
 
 def draw_entire_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     plt.rcParams.update({'font.size': 5})
-    fig, axes = plt.subplots(len(actss), 4)
+    fig, axes = plt.subplots(len(actss), len(subplot_titles))
     for acts, img, ax_row in zip(actss, imgs, axes):
         for layer_i, (act, plot_title, ax) in enumerate(zip(acts, subplot_titles, ax_row), 1):
             act = act.cpu().numpy()
@@ -2323,10 +2323,9 @@ def draw_entire_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
             row_length = 1
             all_length_power = 0
 
-            average_act = acts_pos.mean(axis=0).mean(axis=0)
             max_act = acts_pos.max(axis=0).max(axis=0)
 
-            for i, agg_act in enumerate([average_act, max_act]):
+            for i, agg_act in enumerate([max_act]):
 
                 heatmap = __post_create_heatmap(agg_act, (img.shape[0], img.shape[1]))
                 pic = merge_heatmap_img(img, heatmap)
