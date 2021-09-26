@@ -2427,19 +2427,19 @@ def get_logname(args):
     if args.extra_name != '':
         name += '-' + args.extra_name
 
-    name_replace_dict = {'dataset_name': 'dsn',
+    name_replace_dict = {'dataset_name': '',
                          'batch_size': 'bs',
                          'lr_new': 'lrs',
                          'lr_resnet': 'lrr',
                          # 'early_stopping',
-                         'feat_extractor': 'fe',
+                         'feat_extractor': '',
                          'classifier_layer': 'cl',
                          'projection_layer': 'pl',
                          'normalize': 'normalClas',
                          'number_of_runs': 'nor',
                          'no_negative': 'nn',
                          'margin': 'm',
-                         'loss': 'loss',
+                         'loss': '',
                          'overfit_num': 'on',
                          'bcecoefficient': 'bco',
                          'trplcoefficient': 'tco',
@@ -2450,13 +2450,13 @@ def get_logname(args):
                          'fourth_dim': 'fd',
                          'image_size': 'igsz',
                          'pooling': 'pool',
-                         'merge_method': 'mm',
+                         'merge_method': '',
                          'softmargin': 'softm',
                          'static_size': 'fcsize',
                          'dim_reduction': 'dr',
                          'leaky_relu': 'lrel',
                          'bn_before_classifier': 'bnbc',
-                         'weight_decay': 'decay',
+                         'weight_decay': 'dec',
                          'drop_last': 'dl',
                          'softmax_diff_sim': 'smds',
                          'feature_map_layers': 'fml',
@@ -2565,7 +2565,10 @@ def get_logname(args):
 
 
             if type(getattr(args, arg)) is not bool:
-                name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
+                if name_replace_dict[str(arg)] != '':
+                    name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
+                else:
+                    name += '_' + str(getattr(args, arg))
             else:
                 name += '-' + name_replace_dict[str(arg)]
 
