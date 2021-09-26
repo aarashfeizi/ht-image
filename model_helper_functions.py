@@ -1477,16 +1477,17 @@ class ModelMethods:
                 if args.cam:
                     print(f'Drawing heatmaps on epoch {epoch}...')
                     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
-                    self.draw_attentions(net=net,
-                                         loss_fn=loss_fn,
-                                         bce_loss=bce_loss,
-                                         args=args,
-                                         cam_loader=cam_args[0],
-                                         transform_for_model=cam_args[1],
-                                         transform_for_heatmap=cam_args[2],
-                                         epoch=epoch,
-                                         count=1,
-                                         draw_all_thresh=self.draw_all_thresh)
+                    if args.att_mode_sc.startswith('dot-product'):
+                        self.draw_attentions(net=net,
+                                             loss_fn=loss_fn,
+                                             bce_loss=bce_loss,
+                                             args=args,
+                                             cam_loader=cam_args[0],
+                                             transform_for_model=cam_args[1],
+                                             transform_for_heatmap=cam_args[2],
+                                             epoch=epoch,
+                                             count=1,
+                                             draw_all_thresh=self.draw_all_thresh)
                     self.draw_activation_layers(net=net,
                                                 loss_fn=loss_fn,
                                                 bce_loss=bce_loss,
