@@ -4,6 +4,53 @@ import torch.nn.functional as F
 
 import utils
 
+# todo between local features, use the nearest/farthest distances among them (between two image tensors) as distances of two tensors?'
+
+class LocalTripletLoss(nn.Module):
+    def __init__(self, args, margin, soft=False):
+        super(LocalTripletLoss, self).__init__()
+
+        self.margin = margin
+        self.loss = 0
+        self.pd = torch.nn.PairwiseDistance(p=2)
+        self.soft = soft
+
+    def forward(self, anch_tensors, pos_tensor, neg_tensor):
+        if type(anch_tensors) == list: # different anch activations for pos and neg
+            posanch_tensor = anch_tensors[0]
+            neganch_tensor = anch_tensors[1]
+
+            N, C, H, W = posanch_tensor.size()
+
+            posanch_tensor_tensor_locals = posanch_tensor.view(N, C, H * W).transpose(2, 1)
+            neganch_tensor_tensor_locals = neganch_tensor.view(N, C, H * W).transpose(2, 1)
+            pos_tensor_locals = pos_tensor.view(N, C, H * W).transpose(2, 1)
+            neg_tensor_locals = neg_tensor.view(N, C, H * W).transpose(2, 1)
+
+            pos_dist = torch.cdist(posanch_tensor_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
+            neg_dist = torch.cdist(neganch_tensor_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
+
+        else: # same anch activations
+            anch_tensor = anch_tensors
+            N, C, H, W = anch_tensor.size()
+
+            anch_tensor_locals = anch_tensor.view(N, C, H * W).transpose(2, 1)
+            pos_tensor_locals = pos_tensor.view(N, C, H * W).transpose(2, 1)
+            neg_tensor_locals = neg_tensor.view(N, C, H * W).transpose(2, 1)
+
+            pos_dist = torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
+            neg_dist = torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
+
+        if self.soft:
+            loss = F.softplus(pos_dist - neg_dist)
+        else:
+            dist = pos_dist - neg_dist + self.margin
+            loss = F.relu(dist)
+
+        loss = loss.mean()
+
+        return loss
+
 
 class TripletLoss(nn.Module):
     def __init__(self, args, margin, soft=False):

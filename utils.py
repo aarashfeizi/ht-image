@@ -37,6 +37,8 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim',
                  'channel-attention']
 
+LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrastive', 'stopgrad', 'trpl_local']
+
 try:
     from torch.hub import load_state_dict_from_url
 except ImportError:
@@ -254,7 +256,7 @@ def get_args():
 
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce',
-                        choices=['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrastive', 'stopgrad'])
+                        choices=LOSS_METHODS)
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
@@ -2544,7 +2546,8 @@ def get_logname(args):
         if args.loss == 'contrastive':
             important_args.extend(['margin'])
         else:
-            important_args.extend(['trplcoefficient',
+            important_args.extend(['bcecoefficient',
+                                   'trplcoefficient',
                                    'margin',
                                    'classes_in_query'])
 

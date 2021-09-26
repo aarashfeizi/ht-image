@@ -1274,6 +1274,10 @@ class TopModel(nn.Module):
 
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
 
+                    if self.loss == 'trpl_local':
+                        pred, pdist, out1, out2 = ret
+                        ret = (pred, pdist, attended_x1_global, attended_x2_global)
+
                     if feats:
                         pred, pdist, out1, out2 = ret
                         if hook:

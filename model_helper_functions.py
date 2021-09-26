@@ -279,9 +279,8 @@ class ModelMethods:
         self.writer.flush()
 
     @utils.MY_DEC
-
     def draw_activation_layers(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
-                      transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
+                               transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
         if multiple_gpu:  # todo local not supported
@@ -373,12 +372,10 @@ class ModelMethods:
                                                           Variable(one_labels), \
                                                           Variable(zero_labels)
 
-
             pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anchp_att, pos_att = net.forward(anch, pos,
                                                                                                      feats=True,
                                                                                                      hook=True,
                                                                                                      return_att=True)
-
 
             pos_pred_int = int(torch.sigmoid(pos_pred).item() >= 0.5)
             self.cam_pos[id - 1] += pos_pred_int
@@ -411,7 +408,7 @@ class ModelMethods:
                                        f'Epoch {epoch}\n{result_text}')
 
     def draw_attentions(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
-                      transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
+                        transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
 
         multiple_gpu = len(args.gpu_ids.split(",")) > 1
         if multiple_gpu:  # todo local not supported
@@ -539,7 +536,6 @@ class ModelMethods:
             neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
             plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
 
-
             all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
 
             # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
@@ -593,7 +589,6 @@ class ModelMethods:
 
         self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
         self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
-
 
     def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
                       transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
@@ -773,17 +768,18 @@ class ModelMethods:
 
             all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
             utils.draw_entire_heatmaps([acts_anch_pos[0],
-                                     acts_anch_pos[1],
-                                     acts_anch_neg[1]],
-                                    [anch_org, pos_org, neg_org],
-                                    ['Anch', 'Pos', 'Neg'],
-                                    all_heatmap_grid_path)
+                                        acts_anch_pos[1],
+                                        acts_anch_neg[1]],
+                                       [anch_org, pos_org, neg_org],
+                                       ['Anch', 'Pos', 'Neg'],
+                                       all_heatmap_grid_path)
 
             # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
 
             result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
 
-            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (not args.att_mode_sc.startswith('dot-product')):
+            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
+            not args.att_mode_sc.startswith('dot-product')):
                 ks = list(map(lambda x: int(x), args.k_best_maps))
 
                 value = ''
@@ -985,7 +981,8 @@ class ModelMethods:
                                                   epoch=epoch,
                                                   writer=self.writer)
 
-            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (not args.att_mode_sc.startswith('dot-product')):
+            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
+            not args.att_mode_sc.startswith('dot-product')):
                 if loss_fn is not None:
                     ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
                     ext_loss = ext_batch_loss
@@ -1039,8 +1036,6 @@ class ModelMethods:
 
         if args.cuda:
             print('current_device: ', torch.cuda.current_device())
-
-
 
         if 'deit' in args.feat_extractor:
             learnable_params = [{'params': netmod.sm_net.parameters(), 'new': True},
@@ -1101,15 +1096,13 @@ class ModelMethods:
                                       'weight_decay': args.weight_decay,
                                       'new': True}]
             if netmod.glb_atn is not None:
-                    learnable_params += [{'params': netmod.glb_atn.parameters(),
-                                          'lr': args.lr_new,
-                                          'weight_decay': args.weight_decay,
-                                          'new': True}]
-
+                learnable_params += [{'params': netmod.glb_atn.parameters(),
+                                      'lr': args.lr_new,
+                                      'weight_decay': args.weight_decay,
+                                      'new': True}]
 
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt = torch.optim.Adam(learnable_params, lr=args.lr_new, weight_decay=args.weight_decay)
-
 
         time_start = time.time()
         queue = deque(maxlen=20)
@@ -1197,7 +1190,6 @@ class ModelMethods:
             #                         count=1,
             #                         draw_all_thresh=self.draw_all_thresh)
 
-
             with tqdm(total=len(train_loader), desc=f'Epoch {epoch}/{args.epochs}') as t:
                 if self.draw_grad:
                     grad_save_path = os.path.join(self.plt_save_path, f'grads/epoch_{epoch}/')
@@ -1241,6 +1233,14 @@ class ModelMethods:
                                                                                                    train_loader, epoch,
                                                                                                    grad_save_path,
                                                                                                    drew_graph)
+                elif args.loss == 'trpl_local':
+                    t, (train_loss, train_bce_loss, train_triplet_loss), (
+                    pos_parts, neg_parts) = self.train_metriclearning_one_epoch_localtriplet(args, t, net, opt,
+                                                                                             bce_loss,
+                                                                                             metric_ACC,
+                                                                                             loss_fn, train_loader,
+                                                                                             epoch,
+                                                                                             grad_save_path, drew_graph)
 
                 else:
                     t, (train_loss, train_bce_loss, train_triplet_loss), (
@@ -1478,25 +1478,25 @@ class ModelMethods:
                     print(f'Drawing heatmaps on epoch {epoch}...')
                     self.logger.info(f'Drawing heatmaps on epoch {epoch}...')
                     self.draw_attentions(net=net,
-                                        loss_fn=loss_fn,
-                                        bce_loss=bce_loss,
-                                        args=args,
-                                        cam_loader=cam_args[0],
-                                        transform_for_model=cam_args[1],
-                                        transform_for_heatmap=cam_args[2],
-                                        epoch=epoch,
-                                        count=1,
-                                        draw_all_thresh=self.draw_all_thresh)
+                                         loss_fn=loss_fn,
+                                         bce_loss=bce_loss,
+                                         args=args,
+                                         cam_loader=cam_args[0],
+                                         transform_for_model=cam_args[1],
+                                         transform_for_heatmap=cam_args[2],
+                                         epoch=epoch,
+                                         count=1,
+                                         draw_all_thresh=self.draw_all_thresh)
                     self.draw_activation_layers(net=net,
-                                       loss_fn=loss_fn,
-                                       bce_loss=bce_loss,
-                                       args=args,
-                                       cam_loader=cam_args[0],
-                                       transform_for_model=cam_args[1],
-                                       transform_for_heatmap=cam_args[2],
-                                       epoch=epoch,
-                                       count=1,
-                                       draw_all_thresh=self.draw_all_thresh)
+                                                loss_fn=loss_fn,
+                                                bce_loss=bce_loss,
+                                                args=args,
+                                                cam_loader=cam_args[0],
+                                                transform_for_model=cam_args[1],
+                                                transform_for_heatmap=cam_args[2],
+                                                epoch=epoch,
+                                                count=1,
+                                                draw_all_thresh=self.draw_all_thresh)
 
                     self.logger.info(f'DONE drawing heatmaps on epoch {epoch}!!!')
 
@@ -1674,7 +1674,7 @@ class ModelMethods:
                     for neg_iter in range(self.no_negative):
                         # self.logger.info(anch.shape)
                         # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                        neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                        neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
                                                                       feats=True)
 
                         all_neg_predictions.extend(neg_pred.data.cpu().numpy())
@@ -1685,7 +1685,10 @@ class ModelMethods:
                         metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
 
                         if loss_fn is not None:
-                            ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+                            if args.loss == 'trpl_local':
+                                ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
+                            else:
+                                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
                             if neg_iter == 0:
                                 ext_loss = ext_batch_loss
@@ -2156,6 +2159,7 @@ class ModelMethods:
                 self.writer.flush()
 
         self.logger.info('results at: ' + self.save_path)
+
     #
 
     def make_emb_db(self, args, net, data_loader, eval_sampled, eval_per_class, newly_trained=True, batch_size=None,
@@ -2833,7 +2837,6 @@ class ModelMethods:
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
 
-
             loss_pos, pos_predictions = self.__get_loss_stopgrad(net, anch, pos, bce_loss, one_labels)
 
             metric_ACC.update_acc(pos_predictions[0].squeeze(), one_labels.squeeze())
@@ -3048,7 +3051,6 @@ class ModelMethods:
                     utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
                                                  [bce_ave_grads, bce_max_grads, layers],
                                                  'BOTH', batch_id, epoch, grad_save_path)
-
 
             opt.zero_grad()
             loss.backward()  # training with triplet loss
@@ -3326,8 +3328,6 @@ class ModelMethods:
 
         return t, train_loss
 
-
-
     def train_metriclearning_one_epoch_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
                                                    epoch,
                                                    grad_save_path, drew_graph):
@@ -3471,6 +3471,213 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_reg, train_contrastive_loss), ([], [])
+
+    def train_metriclearning_one_epoch_localtriplet(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn,
+                                                    train_loader, epoch,
+                                                    grad_save_path, drew_graph):
+        train_loss = 0
+        train_bce_loss = 0
+        train_local_triplet_loss = 0
+        pos_parts = []
+        neg_parts = []
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+
+        pos_all_merged_vectors = None
+        neg_all_merged_vectors = None
+
+        for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+
+            if args.cuda:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                          Variable(pos.cuda()), \
+                                                          Variable(neg.cuda()), \
+                                                          Variable(one_labels.cuda()), \
+                                                          Variable(zero_labels.cuda())
+            else:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), \
+                                                          Variable(pos), \
+                                                          Variable(neg), \
+                                                          Variable(one_labels), \
+                                                          Variable(zero_labels)
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+
+            # warm-up learning rate
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
+
+            forward_start = time.time()
+            pos_pred, pos_dist, posanch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            forward_end = time.time()
+
+            # if pos_all_merged_vectors is None:
+            #     pos_all_merged_vectors = pos_dist.data.cpu()
+            # else:
+            #     pos_all_merged_vectors = torch.cat([pos_all_merged_vectors, pos_dist.data.cpu()], dim=0)
+
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+
+            class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
+
+            for neg_iter in range(self.no_negative):
+                forward_start = time.time()
+                neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                                                                         feats=True)
+
+                if neg_all_merged_vectors is None:
+                    neg_all_merged_vectors = neg_dist.data.cpu()
+                else:
+                    neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+
+                forward_end = time.time()
+                if utils.MY_DEC.enabled:
+                    self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+                # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+                # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+
+                # if args.verbose:
+                #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+
+                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+
+                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+
+                ext_batch_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
+
+                if neg_iter == 0:
+                    ext_loss = ext_batch_loss
+                else:
+                    ext_loss += ext_batch_loss
+
+            class_loss /= (self.no_negative + 1)
+
+            ext_loss /= self.no_negative
+            loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+            train_local_triplet_loss += ext_loss.item()
+
+            if debug_grad:
+                ext_loss.backward(retain_graph=True)
+                triplet_loss_named_parameters = net.named_parameters()
+
+                trpl_ave_grads = []
+                trpl_max_grads = []
+                layers = []
+                for n, p in net.named_parameters():
+                    if (p.requires_grad) and ("bias" not in n):
+                        if n == 'ft_net.fc.weight':
+                            continue
+                        if p.grad is None:
+                            trpl_ave_grads.append(torch.Tensor([0.0]))
+                            trpl_max_grads.append(torch.Tensor([0.0]))
+                        else:
+                            trpl_ave_grads.append(p.grad.abs().mean())
+                            trpl_max_grads.append(p.grad.abs().max())
+
+                        layers.append(n)
+
+                self.logger.info('got triplet loss grads')
+
+                # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                #                           grad_save_path)
+
+            train_loss += loss.item()
+            train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                lambda_class_loss = self.bce_weight * class_loss
+                lambda_class_loss.backward(retain_graph=True)
+
+                bce_named_parameters = net.named_parameters()
+                bce_named_parameters = {k: v for k, v in bce_named_parameters}
+
+                bce_ave_grads = []
+                bce_max_grads = []
+                for n, p in net.named_parameters():
+                    if (p.requires_grad) and ("bias" not in n):
+                        if n == 'ft_net.fc.weight':
+                            continue
+                        if p.grad is None:
+                            continue
+
+                        bce_ave_grads.append(p.grad.abs().mean())
+                        bce_max_grads.append(p.grad.abs().max())
+
+                # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
+                #                          epoch, grad_save_path)
+                #
+                # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
+                #                          grad_save_path)
+
+                self.logger.info('got bce grads')
+
+                if loss_fn is None:
+                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                             grad_save_path)
+                    utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                              grad_save_path)
+                else:
+                    # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
+                    #                          'TRIPLET', batch_id, epoch, grad_save_path)
+                    # utils.bar_plot_grad_flow(args, bce_named_parameters,
+                    #                          'BCE', batch_id, epoch, grad_save_path)
+                    utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                  [bce_ave_grads, bce_max_grads, layers],
+                                                  'BOTH', batch_id, epoch, grad_save_path)
+                    # import pdb
+                    # pdb.set_trace()
+                    utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                 [bce_ave_grads, bce_max_grads, layers],
+                                                 'BOTH', batch_id, epoch, grad_save_path)
+
+            opt.zero_grad()
+            loss.backward()  # training with triplet loss
+
+            # if debug_grad:
+            #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+            #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
+            #                               grad_save_path)
+
+            opt.step()
+
+            t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                          bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                          local_triplet_loss=f'{train_local_triplet_loss / batch_id:.4f}',
+                          train_acc=f'{metric_ACC.get_acc():.4f}'
+                          )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        # if self.merge_method == 'diff-sim':
+        #
+        #     merged_vectors['pos-diff'] = pos_all_merged_vectors[:, :(pos_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['pos-sim'] = pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
+        #
+        #     merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
+        # else:
+        #     merged_vectors[f'pos-{self.merge_method}'] = pos_all_merged_vectors
+        #     merged_vectors[f'neg-{self.merge_method}'] = neg_all_merged_vectors
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, (train_loss, train_bce_loss, train_local_triplet_loss), (pos_parts, neg_parts)
 
     def plot_classifier_hist(self, classifier_weights_methods, titles, plot_title, save_path, tb_title, epoch):
 

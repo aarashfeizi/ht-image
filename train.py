@@ -5,7 +5,7 @@ import torch.nn
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization
+from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, LocalTripletLoss
 from models.top_model import *
 from my_datasets import *
 
@@ -379,6 +379,9 @@ def main():
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)
+    elif args.loss == 'trpl_local':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = LocalTripletLoss(margin=args.margin, args=args, soft=args.softmargin)
     elif args.loss == 'maxmargin':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = MaxMarginLoss(margin=args.margin, args=args)
