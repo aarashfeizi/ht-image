@@ -1228,6 +1228,8 @@ class TopModel(nn.Module):
                     return x1, x2, x1_pred, x2_pred
 
                 else:
+                    attended_x1_global = None
+                    attended_x2_global = None
 
                     if self.global_attention:
                         x1_input = []
@@ -1276,7 +1278,11 @@ class TopModel(nn.Module):
 
                     if self.loss == 'trpl_local':
                         pred, pdist, out1, out2 = ret
-                        ret = (pred, pdist, attended_x1_global, attended_x2_global)
+                        if attended_x1_global:
+                            ret = (pred, pdist, attended_x1_global, attended_x2_global)
+                        else:
+                            ret = (pred, pdist, x1_local[-1], x2_local[-1])
+
 
                     if feats:
                         pred, pdist, out1, out2 = ret
