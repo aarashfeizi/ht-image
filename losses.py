@@ -27,6 +27,11 @@ class LocalTripletLoss(nn.Module):
             pos_tensor_locals = pos_tensor.view(N, C, H * W).transpose(2, 1)
             neg_tensor_locals = neg_tensor.view(N, C, H * W).transpose(2, 1)
 
+            posanch_tensor_tensor_locals = F.normalize(posanch_tensor_tensor_locals, dim=2)
+            neganch_tensor_tensor_locals = F.normalize(neganch_tensor_tensor_locals, dim=2)
+            pos_tensor_locals = F.normalize(pos_tensor_locals, dim=2)
+            neg_tensor_locals = F.normalize(neg_tensor_locals, dim=2)
+
             pos_dist = torch.cdist(posanch_tensor_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
             neg_dist = torch.cdist(neganch_tensor_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
 
@@ -37,6 +42,10 @@ class LocalTripletLoss(nn.Module):
             anch_tensor_locals = anch_tensor.view(N, C, H * W).transpose(2, 1)
             pos_tensor_locals = pos_tensor.view(N, C, H * W).transpose(2, 1)
             neg_tensor_locals = neg_tensor.view(N, C, H * W).transpose(2, 1)
+
+            anch_tensor_locals = F.normalize(anch_tensor_locals, dim=2)
+            pos_tensor_locals = F.normalize(pos_tensor_locals, dim=2)
+            neg_tensor_locals = F.normalize(neg_tensor_locals, dim=2)
 
             pos_dist = torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
             neg_dist = torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
