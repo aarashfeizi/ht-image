@@ -1216,8 +1216,7 @@ class ModelMethods:
                                                                                 grad_save_path, drew_graph)
 
                 elif args.loss == 'contrv_mlp':
-                    t, (train_loss, train_reg, train_triplet_loss), (
-                        _, _) = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt, bce_loss,
+                    t, (train_loss, train_bce_loss, train_triplet_loss), _ = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt, bce_loss,
                                                                                 metric_ACC,
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
@@ -3263,7 +3262,7 @@ class ModelMethods:
             self.writer.add_histogram(name, param.flatten(), epoch)
             self.writer.flush()
 
-        return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
+        return t, (train_loss, train_bce_loss, train_triplet_loss), None
 
 
     def train_metriclearning_one_epoch_batchhard(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
