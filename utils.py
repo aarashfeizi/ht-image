@@ -37,7 +37,7 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim',
                  'channel-attention']
 
-LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local', 'mlp_contrv']
+LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local', 'contrv_mlp']
 
 try:
     from torch.hub import load_state_dict_from_url

@@ -1215,7 +1215,7 @@ class ModelMethods:
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
 
-                elif args.loss == 'mlp_contrv':
+                elif args.loss == 'contrv_mlp':
                     t, (train_loss, train_reg, train_triplet_loss), (
                         _, _) = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt, bce_loss,
                                                                                 metric_ACC,

@@ -376,7 +376,7 @@ def main():
     elif args.loss == 'contrv':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = ContrastiveLoss(args, args.margin, l=args.reg_lambda)
-    elif args.loss == 'mlp_contrv':
+    elif args.loss == 'contrv_mlp':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)
     elif args.loss == 'trpl':
