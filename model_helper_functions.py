@@ -1694,7 +1694,7 @@ class ModelMethods:
                             if args.loss == 'trpl_local':
                                 ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
                             elif args.loss == 'contrv_mlp':
-                                ext_batch_loss, parts = loss_fn(-1 * pos_pred, -1 * neg_pred)
+                                ext_batch_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
                             else:
                                 ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
@@ -1707,7 +1707,10 @@ class ModelMethods:
                     if loss_fn is not None:
                         ext_loss /= self.no_negative
                         test_triplet_loss += ext_loss.item()
-                        loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                        if args.loss == 'contrv_mlp':
+                            loss = ext_loss
+                        else:
+                            loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
                     else:
                         loss = self.bce_weight * class_loss
 
@@ -3205,7 +3208,7 @@ class ModelMethods:
 
 
             ext_loss /= self.no_negative
-            loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+            loss = ext_loss
             train_triplet_loss += ext_loss.item()
 
             if debug_grad:
