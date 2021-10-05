@@ -128,7 +128,7 @@ class Metric_Dataset_Train(Dataset):
         if self.overfit:
             return len(self.overfit_samples) * 10 * self.roc_num
         else:
-            return self.length * self.roc_num
+            return self.length * self.roc_num * self.no_negative
 
     def legal_class_condition(self, lbl1, lbl2):
         if (self.allow_same_chain_negative) or (self.lbl2chain is None):
