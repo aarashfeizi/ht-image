@@ -1215,6 +1215,12 @@ class ModelMethods:
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
 
+                elif args.loss == 'mlp_contrv':
+                    t, (train_loss, train_reg, train_triplet_loss), (
+                        _, _) = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt, bce_loss,
+                                                                                metric_ACC,
+                                                                                loss_fn, train_loader, epoch,
+                                                                                grad_save_path, drew_graph)
 
                 elif args.loss == 'batchallgen':
                     t, train_loss = self.train_metriclearning_one_epoch_batchallgen(args, t, net, opt, bce_loss,
@@ -1270,12 +1276,12 @@ class ModelMethods:
 
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
 
-                    if (loss_fn is not None) and args.loss == 'contrastive':
+                    if (loss_fn is not None) and args.loss == 'contrv':
                         self.writer.add_scalar('Train/Contrastive_Loss', train_triplet_loss / len(train_loader), epoch)
                     elif (loss_fn is not None) and args.loss != 'stopgrad' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
 
-                    if args.loss != 'contrastive' and args.loss != 'batchallgen':
+                    if args.loss != 'contrv' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                         self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
@@ -1286,7 +1292,7 @@ class ModelMethods:
                     self.writer.flush()
 
                     if val_loaders is not None and (
-                            epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrastive' and args.loss != 'batchallgen':
+                            epoch % args.test_freq == 0 or epoch == self.max_epochs) and args.loss != 'contrv' and args.loss != 'batchallgen':
                         net.eval()
                         # device = f'cuda:{net.device_ids[0]}'
                         val_acc_unknwn, val_acc_knwn = -1, -1
@@ -3096,6 +3102,169 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
+
+    def train_metriclearning_one_epoch_mlp_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
+                                       grad_save_path, drew_graph):
+        train_loss = 0
+        train_bce_loss = 0
+        train_triplet_loss = 0
+        pos_parts = []
+        neg_parts = []
+        ext_loss = 0
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+
+        pos_all_merged_vectors = None
+        neg_all_merged_vectors = None
+
+        for batch_id, (anch, pos, neg) in enumerate(train_loader, 1):
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+
+            if args.cuda:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+                                                          Variable(pos.cuda()), \
+                                                          Variable(neg.cuda()), \
+                                                          Variable(one_labels.cuda()), \
+                                                          Variable(zero_labels.cuda())
+            else:
+                anch, pos, neg, one_labels, zero_labels = Variable(anch), \
+                                                          Variable(pos), \
+                                                          Variable(neg), \
+                                                          Variable(one_labels), \
+                                                          Variable(zero_labels)
+
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+
+            # warm-up learning rate
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
+
+            forward_start = time.time()
+            pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            forward_end = time.time()
+
+            if pos_all_merged_vectors is None:
+                pos_all_merged_vectors = pos_dist.data.cpu()
+            else:
+                pos_all_merged_vectors = torch.cat([pos_all_merged_vectors, pos_dist.data.cpu()], dim=0)
+
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+
+            # if args.verbose:
+            #     self.logger.info(f'norm pos: {pos_dist}')
+            class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
+
+            for neg_iter in range(self.no_negative):
+                forward_start = time.time()
+                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
+                                                              feats=True)
+
+                if neg_all_merged_vectors is None:
+                    neg_all_merged_vectors = neg_dist.data.cpu()
+                else:
+                    neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+
+                forward_end = time.time()
+                if utils.MY_DEC.enabled:
+                    self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+                # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+                # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+
+                # if args.verbose:
+                #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+
+                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+
+                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+
+                ext_batch_loss = loss_fn(1 - F.sigmoid(pos_pred), 1 - F.sigmoid(neg_pred))
+
+                if neg_iter == 0:
+                    ext_loss = ext_batch_loss
+                else:
+                    ext_loss += ext_batch_loss
+
+
+            class_loss /= (self.no_negative + 1)
+
+
+            ext_loss /= self.no_negative
+            loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+            train_triplet_loss += ext_loss.item()
+
+            if debug_grad:
+                ext_loss.backward(retain_graph=True)
+                triplet_loss_named_parameters = net.named_parameters()
+
+                trpl_ave_grads = []
+                trpl_max_grads = []
+                layers = []
+                for n, p in net.named_parameters():
+                    if (p.requires_grad) and ("bias" not in n):
+                        if n == 'ft_net.fc.weight':
+                            continue
+                        if p.grad is None:
+                            trpl_ave_grads.append(torch.Tensor([0.0]))
+                            trpl_max_grads.append(torch.Tensor([0.0]))
+                        else:
+                            trpl_ave_grads.append(p.grad.abs().mean())
+                            trpl_max_grads.append(p.grad.abs().max())
+
+                        layers.append(n)
+
+                self.logger.info('got triplet loss grads')
+
+                    # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                    #                           grad_save_path)
+
+
+            train_loss += loss.item()
+            train_bce_loss += class_loss.item()
+
+            opt.zero_grad()
+            loss.backward()  # training with triplet loss
+
+            # if debug_grad:
+            #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+            #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
+            #                               grad_save_path)
+
+            opt.step()
+
+
+            t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                          bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                          triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
+                          train_acc=f'{metric_ACC.get_acc():.4f}'
+                          )
+
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
+
 
     def train_metriclearning_one_epoch_batchhard(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
                                                  epoch,

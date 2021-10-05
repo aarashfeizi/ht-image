@@ -27,7 +27,7 @@ def main():
 
     args_dict = vars(args)
 
-    if args_dict['loss'] == 'batchhard' or args_dict['loss'] == 'contrastive' or args_dict['loss'] == 'batchallgen':
+    if args_dict['loss'] == 'batchhard' or args_dict['loss'] == 'contrv' or args_dict['loss'] == 'batchallgen':
         args_dict['batch_size'] = args_dict['bh_P'] * args_dict['bh_K']
 
     max_bt = np.maximum(args_dict['bcecoefficient'], args_dict['trplcoefficient'])
@@ -121,7 +121,7 @@ def main():
     # logger.info('*' * 10)
     # cam_val_set_unknown_metric = train_metric_dataset(args, transform=data_transforms_val, mode='val_unseen',
     #                                                   save_pictures=False, overfit=False, return_paths=True)
-    is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrastive' or args.loss == 'batchallgen')
+    is_batchhard = (args.loss == 'batchhard' or args.loss == 'contrv' or args.loss == 'batchallgen')
     logger.info('*' * 10)
 
     if args.small_and_big:
@@ -295,7 +295,7 @@ def main():
         workers = args.workers
         pin_memory = args.pin_memory
 
-    if args.loss == 'batchhard' or args.loss == 'contrastive' or args.loss == 'batchallgen':
+    if args.loss == 'batchhard' or args.loss == 'contrv' or args.loss == 'batchallgen':
         bs = args.bh_P
     else:
         bs = args.batch_size
@@ -373,9 +373,12 @@ def main():
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = None
-    elif args.loss == 'contrastive':
+    elif args.loss == 'contrv':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = ContrastiveLoss(args, args.margin, l=args.reg_lambda)
+    elif args.loss == 'mlp_contrv':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)
     elif args.loss == 'trpl':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)

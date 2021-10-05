@@ -37,7 +37,7 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim',
                  'channel-attention']
 
-LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrastive', 'stopgrad', 'trpl_local']
+LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local', 'mlp_contrv']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -2543,7 +2543,7 @@ def get_logname(args):
                              'random_erase']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
-        if args.loss == 'contrastive':
+        if args.loss == 'contrv':
             important_args.extend(['margin'])
         else:
             important_args.extend(['bcecoefficient',
@@ -2577,7 +2577,7 @@ def get_logname(args):
             if str(arg) == 'trplcoefficient':
                 name += f'#{args.bcotco_freq}-{args.tco_base}#'
 
-            if str(arg) == 'loss' and getattr(args, arg).startswith('contrastive') and args.reg_lambda != 0.0:
+            if str(arg) == 'loss' and getattr(args, arg).startswith('contrv') and args.reg_lambda != 0.0:
                 name += f'-lbd{args.reg_lambda}'
 
             if str(arg) == 'merge_method' and getattr(args, arg).startswith('local'):
@@ -2627,7 +2627,7 @@ def get_logname(args):
         id_str = ''
 
 
-    if args.loss == 'batchhard' or args.loss == 'contrastive':
+    if args.loss == 'batchhard' or args.loss == 'contrv':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
     # if args.pretrained_model != '':  # for running baselines and feature extractors

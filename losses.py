@@ -88,7 +88,6 @@ class TripletLoss(nn.Module):
 
         return loss
 
-
 class BatchHard(nn.Module):
     # https://github.com/Yuol96/pytorch-triplet-loss/blob/master/model/triplet_loss.py
 
