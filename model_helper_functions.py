@@ -1693,6 +1693,8 @@ class ModelMethods:
                         if loss_fn is not None:
                             if args.loss == 'trpl_local':
                                 ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
+                            elif args.loss == 'contrv_mlp':
+                                ext_batch_loss, parts = loss_fn(-1 * pos_pred, -1 * neg_pred)
                             else:
                                 ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
@@ -3191,7 +3193,7 @@ class ModelMethods:
 
                 class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-                ext_batch_loss = loss_fn(1 - F.sigmoid(pos_pred), 1 - F.sigmoid(neg_pred))
+                ext_batch_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
 
                 if neg_iter == 0:
                     ext_loss = ext_batch_loss
