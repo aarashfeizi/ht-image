@@ -988,7 +988,7 @@ class ModelMethods:
                     ext_loss = ext_batch_loss
 
                     ext_loss.backward(retain_graph=True)
-                    ext_loss /= self.no_negative
+                    # ext_loss /= self.no_negative
 
                     plot_title = f"Backward Triplet Loss" + result_text
 
@@ -999,7 +999,7 @@ class ModelMethods:
                                                'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
                                               plot_title, f'triplet_{id}_anchpos_triplet', epoch, self.writer)
 
-                    class_loss /= (self.no_negative + 1)
+                    # class_loss /= (self.no_negative + 1)
 
                     loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
 
@@ -1640,28 +1640,27 @@ class ModelMethods:
 
                     loss = loss_fn(anch_pred, pos_pred, anch_rep, pos_pred)
 
-                    for neg_iter in range(self.no_negative):
-                        # self.logger.info(anch.shape)
-                        # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                        anch_rep, neg_rep, anch_pred, neg_pred = net.forward(anch,
-                                                                             neg[:, neg_iter, :, :, :].squeeze(dim=1))
-                        predictions = [self.D_stopgrad_probpred(anch_rep, neg_pred),
-                                       self.D_stopgrad_probpred(neg_rep, anch_pred)]
 
-                        all_neg_predictions.extend(predictions[0].data.cpu().numpy())
-                        all_neg_predictions.extend(predictions[1].data.cpu().numpy())
+                    # self.logger.info(anch.shape)
+                    # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                    anch_rep, neg_rep, anch_pred, neg_pred = net.forward(anch, neg)
+                    predictions = [self.D_stopgrad_probpred(anch_rep, neg_pred),
+                                   self.D_stopgrad_probpred(neg_rep, anch_pred)]
 
-                        pred_label_auc.extend(predictions[0].data.cpu().numpy())
-                        pred_label_auc.extend(predictions[1].data.cpu().numpy())
+                    all_neg_predictions.extend(predictions[0].data.cpu().numpy())
+                    all_neg_predictions.extend(predictions[1].data.cpu().numpy())
 
-                        true_label_auc.extend(zero_labels.data.cpu().numpy())
-                        true_label_auc.extend(zero_labels.data.cpu().numpy())
+                    pred_label_auc.extend(predictions[0].data.cpu().numpy())
+                    pred_label_auc.extend(predictions[1].data.cpu().numpy())
 
-                        class_loss += bce_loss(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
-                        class_loss += bce_loss(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
+                    true_label_auc.extend(zero_labels.data.cpu().numpy())
+                    true_label_auc.extend(zero_labels.data.cpu().numpy())
 
-                        metric_ACC.update_acc(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
-                        metric_ACC.update_acc(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
+                    class_loss += bce_loss(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
+                    class_loss += bce_loss(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
+
+                    metric_ACC.update_acc(predictions[0].squeeze(), zero_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(predictions[1].squeeze(), zero_labels.squeeze(axis=1))
 
                     test_loss += loss.item()
 
@@ -1677,35 +1676,33 @@ class ModelMethods:
                     all_pos_predictions.extend(pos_pred.data.cpu().numpy())
                     metric_ACC.update_acc(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
 
-                    for neg_iter in range(self.no_negative):
-                        # self.logger.info(anch.shape)
-                        # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                        neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                                      feats=True)
+                    # self.logger.info(anch.shape)
+                    # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
+                    neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg, feats=True)
 
-                        all_neg_predictions.extend(neg_pred.data.cpu().numpy())
-                        pred_label_auc.extend(neg_pred.data.cpu().numpy())
-                        true_label_auc.extend(zero_labels.data.cpu().numpy())
+                    all_neg_predictions.extend(neg_pred.data.cpu().numpy())
+                    pred_label_auc.extend(neg_pred.data.cpu().numpy())
+                    true_label_auc.extend(zero_labels.data.cpu().numpy())
 
-                        class_loss += bce_loss(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
-                        metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
+                    class_loss += bce_loss(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
 
-                        if loss_fn is not None:
-                            if args.loss == 'trpl_local':
-                                ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
-                            elif args.loss == 'contrv_mlp':
-                                ext_batch_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
-                            else:
-                                ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
-
-                            if neg_iter == 0:
-                                ext_loss = ext_batch_loss
-                            else:
-                                ext_loss += ext_batch_loss
-
-                    class_loss /= (self.no_negative + 1)
                     if loss_fn is not None:
-                        ext_loss /= self.no_negative
+                        if args.loss == 'trpl_local':
+                            ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
+                        elif args.loss == 'contrv_mlp':
+                            ext_batch_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
+                        else:
+                            ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+
+
+                        ext_loss = ext_batch_loss
+
+
+                    # class_loss /= (self.no_negative + 1)
+
+                    if loss_fn is not None:
+                        # ext_loss /= self.no_negative
                         test_triplet_loss += ext_loss.item()
                         if args.loss == 'contrv_mlp':
                             loss = ext_loss
@@ -2655,12 +2652,15 @@ class ModelMethods:
 
         return acc, loss, right, error, all_predictions
 
-    def get_loss_value(self, args, loss_fn, anch_feat, pos_feat, neg_feat):
+    def get_loss_value(self, args, loss_fn, anch_feat, pos_feat, neg_feat, pos_dist=None, neg_dist=None):
 
-        pos_dist = torch.pow((anch_feat - pos_feat), 2)
-        neg_dist = torch.pow((anch_feat - neg_feat), 2)
+        if pos_dist is None:
+            pos_dist = torch.pow((anch_feat - pos_feat), 2)
 
-        if args.loss == 'trpl':
+        if neg_dist is None:
+            neg_dist = torch.pow((anch_feat - neg_feat), 2)
+
+        if args.loss == 'trpl' or args.loss == 'contrv_mlp':
             loss = loss_fn(pos_dist, neg_dist)
             parts = []
         elif args.loss == 'maxmargin':
@@ -2853,15 +2853,12 @@ class ModelMethods:
             metric_ACC.update_acc(pos_predictions[0].squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_predictions[1].squeeze(), one_labels.squeeze())
 
-            all_neg_loss = 0
-            for neg_iter in range(self.no_negative):
-                loss_neg, neg_predictions = self.__get_loss_stopgrad(net, anch, neg[:, neg_iter, :, :, :], bce_loss,
-                                                                     zero_labels)
-                metric_ACC.update_acc(neg_predictions[0].squeeze(), zero_labels.squeeze())
-                metric_ACC.update_acc(neg_predictions[1].squeeze(), zero_labels.squeeze())
-                all_neg_loss += loss_neg
 
-            loss = loss_pos + all_neg_loss
+            loss_neg, neg_predictions = self.__get_loss_stopgrad(net, anch, neg, bce_loss, zero_labels)
+            metric_ACC.update_acc(neg_predictions[0].squeeze(), zero_labels.squeeze())
+            metric_ACC.update_acc(neg_predictions[1].squeeze(), zero_labels.squeeze())
+
+            loss = loss_pos + loss_neg
 
             train_loss += loss.item()
             train_bce_loss += loss.item()
@@ -2944,45 +2941,38 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
-            for neg_iter in range(self.no_negative):
-                forward_start = time.time()
-                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                              feats=True)
 
-                if neg_all_merged_vectors is None:
-                    neg_all_merged_vectors = neg_dist.data.cpu()
-                else:
-                    neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+            forward_start = time.time()
+            neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)
 
-                forward_end = time.time()
-                if utils.MY_DEC.enabled:
-                    self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-                # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
-                # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+            if neg_all_merged_vectors is None:
+                neg_all_merged_vectors = neg_dist.data.cpu()
+            else:
+                neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
 
-                # if args.verbose:
-                #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+            forward_end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+            # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+            # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
 
-                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+            # if args.verbose:
+            #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
 
-                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-                if loss_fn is not None:
-                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+            metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
 
-                    if neg_iter == 0:
-                        ext_loss = ext_batch_loss
-                    else:
-                        ext_loss += ext_batch_loss
+            class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-                    if args.loss == 'maxmargin':
-                        if neg_iter == 0:
-                            pos_parts.extend(parts[0].tolist())
-                        neg_parts.extend(parts[1].tolist())
 
-            class_loss /= (self.no_negative + 1)
+                # if args.loss == 'maxmargin':
+                #     if neg_iter == 0:
+                #         pos_parts.extend(parts[0].tolist())
+                #     neg_parts.extend(parts[1].tolist())
+
 
             if loss_fn is not None:
-                ext_loss /= self.no_negative
+                # ext_loss /= self.no_negative
+                ext_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
                 loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
                 train_triplet_loss += ext_loss.item()
 
@@ -3173,41 +3163,35 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
-            for neg_iter in range(self.no_negative):
-                forward_start = time.time()
-                neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                              feats=True)
 
-                if neg_all_merged_vectors is None:
-                    neg_all_merged_vectors = neg_dist.data.cpu()
-                else:
-                    neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+            forward_start = time.time()
+            neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)
 
-                forward_end = time.time()
-                if utils.MY_DEC.enabled:
-                    self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-                # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
-                # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+            if neg_all_merged_vectors is None:
+                neg_all_merged_vectors = neg_dist.data.cpu()
+            else:
+                neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
 
-                # if args.verbose:
-                #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+            forward_end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+            # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+            # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
 
-                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+            # if args.verbose:
+            #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
 
-                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+            metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
 
-                ext_batch_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
+            class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-                if neg_iter == 0:
-                    ext_loss = ext_batch_loss
-                else:
-                    ext_loss += ext_batch_loss
+            ext_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
 
 
-            class_loss /= (self.no_negative + 1)
+            # class_loss /= (self.no_negative + 1)
 
 
-            ext_loss /= self.no_negative
+            # ext_loss /= self.no_negative
             loss = ext_loss
             train_triplet_loss += ext_loss.item()
 
@@ -3705,39 +3689,35 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
-            for neg_iter in range(self.no_negative):
-                forward_start = time.time()
-                neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg[:, neg_iter, :, :, :].squeeze(dim=1),
-                                                                         feats=True)
 
-                if neg_all_merged_vectors is None:
-                    neg_all_merged_vectors = neg_dist.data.cpu()
-                else:
-                    neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
+            forward_start = time.time()
+            neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg, feats=True)
 
-                forward_end = time.time()
-                if utils.MY_DEC.enabled:
-                    self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-                # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
-                # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
+            if neg_all_merged_vectors is None:
+                neg_all_merged_vectors = neg_dist.data.cpu()
+            else:
+                neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
 
-                # if args.verbose:
-                #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
+            forward_end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
+            # neg_dist.register_hook(lambda x: self.logger.info(f'neg_dist grad:{x}'))
+            # neg_pred.register_hook(lambda x: self.logger.info(f'neg_pred grad:{x}'))
 
-                metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+            # if args.verbose:
+            #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
 
-                class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+            metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
 
-                ext_batch_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
+            class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-                if neg_iter == 0:
-                    ext_loss = ext_batch_loss
-                else:
-                    ext_loss += ext_batch_loss
+            ext_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
 
-            class_loss /= (self.no_negative + 1)
 
-            ext_loss /= self.no_negative
+
+            # class_loss /= (self.no_negative + 1)
+
+            # ext_loss /= self.no_negative
             loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
             train_local_triplet_loss += ext_loss.item()
 
