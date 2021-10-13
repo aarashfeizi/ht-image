@@ -39,6 +39,7 @@ class Metric_Dataset_Train(Dataset):
         self.pos = (None, None)  # transformed_img, anch_lbl
         self.roc_num = args.roc_num
         self.same_pic_prob = args.same_pic_prob
+        self.exact_pic_and_aug = args.exact_pic_and_aug
         self.name = mode if not mode.endswith('.csv') else mode[:-4]
 
         self.allow_same_chain_negative = allow_same_chain_negative
@@ -167,7 +168,8 @@ class Metric_Dataset_Train(Dataset):
             anch = Image.open(random_anch_path)
 
             # get pos image from same class
-            if random.random() < self.same_pic_prob and self.is_train:
+            random_number_for_same_pic = random.random()
+            if random_number_for_same_pic < self.same_pic_prob and self.is_train:
                 random_path = random_anch_path
             else:
                 random_path = random.choice(self.datas[anch_class])
@@ -252,10 +254,15 @@ class Metric_Dataset_Train(Dataset):
                 anch = self.do_transform(anch)
                 pos = self.do_transform(pos, second=True)
 
+                if random_number_for_same_pic < self.same_pic_prob and (random.random() <= self.exact_pic_and_aug):
+                    pos = anch # literally same images for anch and pos (even augmentations)
+
                 self.anch = (anch, anch_class)
                 self.pos = (pos, anch_class)
 
             neg = self.do_transform(neg, second=True)
+
+
 
             end = time.time()
             if utils.MY_DEC.enabled:

@@ -366,6 +366,8 @@ def get_args():
     parser.add_argument('-spp', '--same_pic_prob', default=0.0, type=float, help="Probability of choosing the same "
                                                                                  "image for positive pair")
 
+    parser.add_argument('-epaa', '--exact_pic_and_aug', default=0.0, type=float, help="Exact pic and augmentation prob")
+
     parser.add_argument('-aet', '--att_extra_layer', default=2, type=int, help="number of ")
 
     parser.add_argument('-smds', '--softmax_diff_sim', default=False, action='store_true')
@@ -2466,6 +2468,7 @@ def get_logname(args):
                          'spatial_projection': 'spatial_projection',
                          'attention': 'att',
                          'same_pic_prob': 'spp',
+                         'exact_pic_and_aug': 'epaa',
                          'query_index': 'qi',
                          'test_query_index': 'tqi',
                          'classes_in_query': 'ciq',
@@ -2509,6 +2512,7 @@ def get_logname(args):
                       'spatial_projection',
                       'attention',
                       'same_pic_prob',
+                      'exact_pic_and_aug',
                       'query_index',
                       'test_query_index',
                       'classes_in_query',
@@ -2540,6 +2544,7 @@ def get_logname(args):
                              'gamma',
                              'dim_reduction',
                              'same_pic_prob',
+                             'exact_pic_and_aug',
                              'random_erase']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':

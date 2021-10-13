@@ -1278,7 +1278,7 @@ class TopModel(nn.Module):
 
                     if self.loss == 'trpl_local':
                         pred, pdist, out1, out2 = ret
-                        if attended_x1_global:
+                        if attended_x1_global is not None:
                             ret = (pred, pdist, attended_x1_global, attended_x2_global)
                         else:
                             ret = (pred, pdist, x1_local[-1], x2_local[-1])
