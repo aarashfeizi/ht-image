@@ -200,7 +200,7 @@ def softtriple_load_model_resnet50(save_path, args):
 
     net = st.bninception(args.sz_embedding)
 
-    net.load_state_dict(checkpoint['model_state_dict'])
+    net.load_state_dict(checkpoint)
 
     if args.cuda:
         net = net.cuda()
@@ -216,7 +216,7 @@ def softtriple_load_model_inception(save_path, args):
 
     net = timm.create_model('resnet50', num_classes=args.sz_embedding)
 
-    net.load_state_dict(checkpoint['model_state_dict'])
+    net.load_state_dict(checkpoint)
 
     if args.cuda:
         net = net.cuda()
