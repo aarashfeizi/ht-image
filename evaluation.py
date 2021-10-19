@@ -198,7 +198,7 @@ def softtriple_load_model_resnet50(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
-    net = st.bninception(args.sz_embedding)
+    net = timm.create_model('resnet50', num_classes=args.sz_embedding)
 
     net.load_state_dict(checkpoint)
 
@@ -214,7 +214,7 @@ def softtriple_load_model_inception(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
-    net = timm.create_model('resnet50', num_classes=args.sz_embedding)
+    net = st.bninception(args.sz_embedding)
 
     net.load_state_dict(checkpoint)
 
