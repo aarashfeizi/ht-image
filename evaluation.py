@@ -152,17 +152,20 @@ def get_features_and_labels(args, model, loader):
     features = []
     labels = []
 
-    for idx, batch in enumerate(loader):
-        img, lbl = batch
-        if args.cuda:
-            f = model(img.cuda())
-        else:
-            f = model(img)
+    with tqdm(total=len(loader), desc='Getting features...') as t:
+        for idx, batch in enumerate(loader):
+            img, lbl = batch
+            if args.cuda:
+                f = model(img.cuda())
+            else:
+                f = model(img)
 
-        features.append(f.cpu().detach().numpy())
-        labels.append(lbl)
+            features.append(f.cpu().detach().numpy())
+            labels.append(lbl)
 
-    return features, labels
+            t.update()
+
+    return np.concatenate(features, axis=0), np.concatenate(labels, axis=0)
 
 def load_model_resnet50(save_path, args):
     if args.cuda:
