@@ -193,6 +193,9 @@ def main():
     parser.add_argument('-Y', '--Y', default=None, type=str)  # 'labels.pkl'
 
     parser.add_argument('-emb', '--sz_embedding', default=512, type=int)
+    parser.add_argument('-b', '--sz_batch', default=32, type=int)
+    parser.add_argument('-w', '--nb_workers', default=4, type=int)
+
     parser.add_argument('-d', '--dataset', default='hotels', choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
@@ -208,10 +211,10 @@ def main():
         if args.gpu_ids != '':
             os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
 
-        eval_ldrs = []
+        eval_datasets = []
         if args.dataset == 'hotels':
             for i in range(1, 5):
-                eval_ldrs.append(dataset_loaders.load(
+                eval_datasets.append(dataset_loaders.load(
                 name=args.dataset,
                 root=args.data_root,
                 transform=dataset_loaders.utils.make_transform(
@@ -219,7 +222,7 @@ def main():
                     ),
                 valset=i))
         else:
-            eval_ldrs = [dataset_loaders.load(
+            eval_datasets = [dataset_loaders.load(
                 name=args.dataset,
                 root=args.data_root,
                 transform=dataset_loaders.utils.make_transform(
@@ -227,6 +230,19 @@ def main():
                     ))]
 
         net = load_model_resnet50(args.checkpoint, args)
+
+        eval_ldrs = []
+        for dtset in eval_datasets:
+            eval_ldrs.append(torch.utils.data.DataLoader(
+                dtset,
+                batch_size=args.sz_batch,
+                shuffle=True,
+                num_workers=args.nb_workers,
+                drop_last=True,
+                pin_memory=True
+            ))
+
+
         for ldr in eval_ldrs:
             features, labels = get_features_and_labels(args, net, ldr)
             all_data.append((features, labels))
