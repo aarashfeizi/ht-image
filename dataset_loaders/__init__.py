@@ -13,9 +13,9 @@ _type = {
     'hotels': Hotels
 }
 
-def load(name, root, mode, transform = None, valset=1):
+def load(name, root, transform = None, valset=1):
     if name != 'hotels':
-        return _type[name](root = root, mode = mode, transform = transform)
+        return _type[name](root = root, mode = 'eval', transform = transform)
     else:
-        return _type[name](root = root, mode = mode, transform = transform, valset = valset)
-    
+        return _type[name](root = root, mode = 'eval', transform = transform, valset = valset)
+
