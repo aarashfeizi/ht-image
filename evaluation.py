@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import time
+import timm
 import faiss
 import torchvision.models
 from sklearn.metrics.pairwise import cosine_similarity
@@ -11,6 +12,7 @@ import argparse
 import pickle
 import torch
 import proxy_anchor_models as pa
+import torch.nn.functional as F
 
 import dataset_loaders
 
@@ -160,6 +162,9 @@ def get_features_and_labels(args, model, loader):
             else:
                 f = model(img)
 
+            if args.baseline == 'softtriple':
+                f = F.normalize(f, p=2, dim=1)
+
             features.append(f.cpu().detach().numpy())
             labels.append(lbl)
 
@@ -167,7 +172,7 @@ def get_features_and_labels(args, model, loader):
 
     return np.concatenate(features, axis=0), np.concatenate(labels, axis=0)
 
-def load_model_resnet50(save_path, args):
+def proxyanchor_load_model_resnet50(save_path, args):
     if args.cuda:
         checkpoint = torch.load(save_path)
     else:
@@ -178,6 +183,21 @@ def load_model_resnet50(save_path, args):
                                       is_norm=1,
                                       bn_freeze=1)
 
+
+    net.load_state_dict(checkpoint['model_state_dict'])
+
+    if args.cuda:
+        net = net.cuda()
+
+    return net
+
+def softtriple_load_model_resnet50(save_path, args):
+    if args.cuda:
+        checkpoint = torch.load(save_path)
+    else:
+        checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
+
+    net = timm.create_model('resnet50', num_classes=args.sz_embedding)
 
     net.load_state_dict(checkpoint['model_state_dict'])
 
@@ -201,6 +221,7 @@ def main():
 
     parser.add_argument('-d', '--dataset', default='hotels', choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
+    parser.add_argument('--baseline', default='proxy-anchor', choices=['mine', 'softtriple', 'proxy-anchor'])
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
     parser.add_argument('--kset', nargs='+', default=[1, 2, 4, 8])
     parser.add_argument('--roc_n', default=0, type=int)
@@ -240,7 +261,10 @@ def main():
                     is_train=False,
                     ))]
 
-        net = load_model_resnet50(args.checkpoint, args)
+        if args.baseline == 'proxy-anchor':
+            net = proxyanchor_load_model_resnet50(args.checkpoint, args)
+        elif args.baseline == 'softtriple':
+            net = softtriple_load_model_resnet50(args.checkpoint, args)
 
         eval_ldrs = []
         for dtset in eval_datasets:
