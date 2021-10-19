@@ -12,6 +12,7 @@ import argparse
 import pickle
 import torch
 import proxy_anchor_models as pa
+import softtriple_models as st
 import torch.nn.functional as F
 
 import dataset_loaders
@@ -197,6 +198,22 @@ def softtriple_load_model_resnet50(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
+    net = st.bninception(args.sz_embedding)
+
+    net.load_state_dict(checkpoint['model_state_dict'])
+
+    if args.cuda:
+        net = net.cuda()
+
+    return net
+
+
+def softtriple_load_model_inception(save_path, args):
+    if args.cuda:
+        checkpoint = torch.load(save_path)
+    else:
+        checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
+
     net = timm.create_model('resnet50', num_classes=args.sz_embedding)
 
     net.load_state_dict(checkpoint['model_state_dict'])
@@ -205,6 +222,7 @@ def softtriple_load_model_resnet50(save_path, args):
         net = net.cuda()
 
     return net
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -222,6 +240,8 @@ def main():
     parser.add_argument('-d', '--dataset', default='hotels', choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
     parser.add_argument('--baseline', default='proxy-anchor', choices=['mine', 'softtriple', 'proxy-anchor'])
+    parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
+
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
     parser.add_argument('--kset', nargs='+', default=[1, 2, 4, 8])
     parser.add_argument('--roc_n', default=0, type=int)
@@ -264,7 +284,10 @@ def main():
         if args.baseline == 'proxy-anchor':
             net = proxyanchor_load_model_resnet50(args.checkpoint, args)
         elif args.baseline == 'softtriple':
-            net = softtriple_load_model_resnet50(args.checkpoint, args)
+            if args.model_type == 'resnet50':
+                net = softtriple_load_model_resnet50(args.checkpoint, args)
+            elif args.model_type == 'bninception':
+                net = softtriple_load_model_inception(args.checkpoint, args)
 
         eval_ldrs = []
         for dtset in eval_datasets:
