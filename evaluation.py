@@ -175,7 +175,7 @@ def get_features_and_labels(args, model, loader):
 
 def proxyanchor_load_model_resnet50(save_path, args):
     if args.cuda:
-        checkpoint = torch.load(save_path)
+        checkpoint = torch.load(save_path, map_location=torch.device(0))
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
@@ -194,7 +194,7 @@ def proxyanchor_load_model_resnet50(save_path, args):
 
 def softtriple_load_model_resnet50(save_path, args):
     if args.cuda:
-        checkpoint = torch.load(save_path)
+        checkpoint = torch.load(save_path, map_location=torch.device(0))
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
@@ -210,7 +210,7 @@ def softtriple_load_model_resnet50(save_path, args):
 
 def softtriple_load_model_inception(save_path, args):
     if args.cuda:
-        checkpoint = torch.load(save_path)
+        checkpoint = torch.load(save_path, map_location=torch.device(0))
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
