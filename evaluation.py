@@ -171,7 +171,7 @@ def load_model_resnet50(save_path, args):
 
     net = torchvision.models.resnet50(False)
 
-    net.load_state_dict(checkpoint)
+    net.load_state_dict(checkpoint['model_state_dict'])
 
     if args.cuda:
         net = net.cuda()
