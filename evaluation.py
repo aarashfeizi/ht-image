@@ -182,6 +182,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-cuda', '--cuda', default=False, action='store_true')
+    parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
     parser.add_argument('-X', '--X', default=None, type=str)  # 'features.pkl'
     parser.add_argument('-Y', '--Y', default=None, type=str)  # 'labels.pkl'
     parser.add_argument('-d', '--dataset', default='hotels', choices=dataset_choices)
