@@ -204,11 +204,19 @@ def main():
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
     parser.add_argument('--kset', nargs='+', default=[1, 2, 4, 8])
     parser.add_argument('--roc_n', default=0, type=int)
+
+    parser.add_argument('-elp', '--eval_log_path', default='./eval_logs')
+    parser.add_argument('-name', '--name', default=None, type=str)
+
     parser.add_argument('--metric', default='cosine', choices=['cosine', 'euclidean'])
 
     args = parser.parse_args()
 
     all_data = []
+
+    if args.name is None:
+        raise Exception('Provide --name')
+
     if args.dataset is not None:
 
         if args.gpu_ids != '':
@@ -262,16 +270,23 @@ def main():
                 labels = labels.cpu().numpy()
         all_data.append((features, labels))
 
+    results = f'{args.dataset}\n'
     for idx, (features, labels) in enumerate(all_data, 1):
         print(f'{idx}: Calc Recall at {args.kset}')
         rec = evaluate_recall_at_k(features, labels, Kset=args.kset, metric=args.metric)
         print(args.kset)
         print(rec)
+        results += f'{idx}: Calc Recall at {args.kset}' + '\n' + str(args.kset) + '\n' + str(rec) + '\n'
 
         print('*' * 10)
         print(f'{idx}: Calc AUC_ROC')
         auc = evaluate_roc(features, labels, n=args.roc_n)
         print(f'{idx}: AUC_ROC:', auc)
+        results += f'\n\n{idx}: AUC_ROC: {auc}\n\n'
+        results += '*' * 20
+
+    with open(os.path.join(args.eval_log_path, args.name + ".txt"), 'w') as f:
+        f.write(results)
 
 if __name__ == '__main__':
     main()
