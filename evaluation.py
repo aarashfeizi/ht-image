@@ -173,6 +173,9 @@ def load_model_resnet50(save_path, args):
 
     net.load_state_dict(checkpoint)
 
+    if args.cuda:
+        net = net.cuda()
+
     return net
 
 def main():
@@ -189,8 +192,13 @@ def main():
     parser.add_argument('--metric', default='cosine', choices=['cosine', 'euclidean'])
 
     args = parser.parse_args()
+
     all_data = []
     if args.dataset is not None:
+
+        if args.gpu_ids != '':
+            os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
+
         eval_ldrs = []
         if args.dataset == 'hotels':
             for i in range(1, 5):
