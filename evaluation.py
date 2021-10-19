@@ -10,6 +10,7 @@ from tqdm import tqdm
 import argparse
 import pickle
 import torch
+import proxy_anchor_models as pa
 
 import dataset_loaders
 
@@ -169,7 +170,7 @@ def load_model_resnet50(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
-    net = torchvision.models.resnet50(embedding_size=args.sz_embedding,
+    net = pa.Resnet50(embedding_size=args.sz_embedding,
                                       pretrained=True,
                                       is_norm=1,
                                       bn_freeze=1)
