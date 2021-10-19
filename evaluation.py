@@ -169,7 +169,11 @@ def load_model_resnet50(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
-    net = torchvision.models.resnet50(False)
+    net = torchvision.models.resnet50(embedding_size=args.sz_embedding,
+                                      pretrained=True,
+                                      is_norm=1,
+                                      bn_freeze=1)
+
 
     net.load_state_dict(checkpoint['model_state_dict'])
 
@@ -183,8 +187,11 @@ def main():
 
     parser.add_argument('-cuda', '--cuda', default=False, action='store_true')
     parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
+
     parser.add_argument('-X', '--X', default=None, type=str)  # 'features.pkl'
     parser.add_argument('-Y', '--Y', default=None, type=str)  # 'labels.pkl'
+
+    parser.add_argument('-emb', '--sz_embedding', default=512, type=int)
     parser.add_argument('-d', '--dataset', default='hotels', choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
