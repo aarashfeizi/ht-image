@@ -779,7 +779,7 @@ class ModelMethods:
             result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
 
             if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
-            not args.att_mode_sc.startswith('dot-product')):
+                    not args.att_mode_sc.startswith('dot-product')):
                 ks = list(map(lambda x: int(x), args.k_best_maps))
 
                 value = ''
@@ -982,7 +982,7 @@ class ModelMethods:
                                                   writer=self.writer)
 
             if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
-            not args.att_mode_sc.startswith('dot-product')):
+                    not args.att_mode_sc.startswith('dot-product')):
                 if loss_fn is not None:
                     ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
                     ext_loss = ext_batch_loss
@@ -1216,10 +1216,15 @@ class ModelMethods:
                                                                                 grad_save_path, drew_graph)
 
                 elif args.loss == 'contrv_mlp':
-                    t, (train_loss, train_bce_loss, train_triplet_loss), _ = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt, bce_loss,
-                                                                                metric_ACC,
-                                                                                loss_fn, train_loader, epoch,
-                                                                                grad_save_path, drew_graph)
+                    t, (train_loss, train_bce_loss,
+                        train_triplet_loss), _ = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt,
+                                                                                                     bce_loss,
+                                                                                                     metric_ACC,
+                                                                                                     loss_fn,
+                                                                                                     train_loader,
+                                                                                                     epoch,
+                                                                                                     grad_save_path,
+                                                                                                     drew_graph)
 
                 elif args.loss == 'batchallgen':
                     t, train_loss = self.train_metriclearning_one_epoch_batchallgen(args, t, net, opt, bce_loss,
@@ -1240,12 +1245,13 @@ class ModelMethods:
                                                                                                    drew_graph)
                 elif args.loss == 'trpl_local':
                     t, (train_loss, train_bce_loss, train_triplet_loss), (
-                    pos_parts, neg_parts) = self.train_metriclearning_one_epoch_localtriplet(args, t, net, opt,
-                                                                                             bce_loss,
-                                                                                             metric_ACC,
-                                                                                             loss_fn, train_loader,
-                                                                                             epoch,
-                                                                                             grad_save_path, drew_graph)
+                        pos_parts, neg_parts) = self.train_metriclearning_one_epoch_localtriplet(args, t, net, opt,
+                                                                                                 bce_loss,
+                                                                                                 metric_ACC,
+                                                                                                 loss_fn, train_loader,
+                                                                                                 epoch,
+                                                                                                 grad_save_path,
+                                                                                                 drew_graph)
 
                 else:
                     t, (train_loss, train_bce_loss, train_triplet_loss), (
@@ -1640,7 +1646,6 @@ class ModelMethods:
 
                     loss = loss_fn(anch_pred, pos_pred, anch_rep, pos_pred)
 
-
                     # self.logger.info(anch.shape)
                     # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
                     anch_rep, neg_rep, anch_pred, neg_pred = net.forward(anch, neg)
@@ -1695,9 +1700,7 @@ class ModelMethods:
                         else:
                             ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
 
-
                         ext_loss = ext_batch_loss
-
 
                     # class_loss /= (self.no_negative + 1)
 
@@ -2853,7 +2856,6 @@ class ModelMethods:
             metric_ACC.update_acc(pos_predictions[0].squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_predictions[1].squeeze(), one_labels.squeeze())
 
-
             loss_neg, neg_predictions = self.__get_loss_stopgrad(net, anch, neg, bce_loss, zero_labels)
             metric_ACC.update_acc(neg_predictions[0].squeeze(), zero_labels.squeeze())
             metric_ACC.update_acc(neg_predictions[1].squeeze(), zero_labels.squeeze())
@@ -2941,7 +2943,6 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
-
             forward_start = time.time()
             neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)
 
@@ -2963,12 +2964,10 @@ class ModelMethods:
 
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-
-                # if args.loss == 'maxmargin':
-                #     if neg_iter == 0:
-                #         pos_parts.extend(parts[0].tolist())
-                #     neg_parts.extend(parts[1].tolist())
-
+            # if args.loss == 'maxmargin':
+            #     if neg_iter == 0:
+            #         pos_parts.extend(parts[0].tolist())
+            #     neg_parts.extend(parts[1].tolist())
 
             if loss_fn is not None:
                 # ext_loss /= self.no_negative
@@ -3097,8 +3096,9 @@ class ModelMethods:
 
         return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
 
-    def train_metriclearning_one_epoch_mlp_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
-                                       grad_save_path, drew_graph):
+    def train_metriclearning_one_epoch_mlp_contrastive(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn,
+                                                       train_loader, epoch,
+                                                       grad_save_path, drew_graph):
         train_loss = 0
         train_bce_loss = 0
         train_triplet_loss = 0
@@ -3163,7 +3163,6 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
-
             forward_start = time.time()
             neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)
 
@@ -3187,9 +3186,7 @@ class ModelMethods:
 
             ext_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
 
-
             # class_loss /= (self.no_negative + 1)
-
 
             # ext_loss /= self.no_negative
             loss = ext_loss
@@ -3217,9 +3214,8 @@ class ModelMethods:
 
                 self.logger.info('got triplet loss grads')
 
-                    # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
-                    #                           grad_save_path)
-
+                # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                #                           grad_save_path)
 
             train_loss += loss.item()
             train_bce_loss += class_loss.item()
@@ -3234,13 +3230,11 @@ class ModelMethods:
 
             opt.step()
 
-
             t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
                           bce_loss=f'{train_bce_loss / batch_id:.4f}',
                           triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
                           train_acc=f'{metric_ACC.get_acc():.4f}'
                           )
-
 
             t.update()
             end = time.time()
@@ -3252,7 +3246,6 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_bce_loss, train_triplet_loss), None
-
 
     def train_metriclearning_one_epoch_batchhard(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
                                                  epoch,
@@ -3689,7 +3682,6 @@ class ModelMethods:
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
-
             forward_start = time.time()
             neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg, feats=True)
 
@@ -3712,8 +3704,6 @@ class ModelMethods:
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
             ext_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
-
-
 
             # class_loss /= (self.no_negative + 1)
 

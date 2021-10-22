@@ -14,6 +14,7 @@ import torch
 import proxy_anchor_models as pa
 import softtriple_models as st
 import torch.nn.functional as F
+import h5py
 
 import dataset_loaders
 
@@ -230,8 +231,18 @@ def main():
     parser.add_argument('-cuda', '--cuda', default=False, action='store_true')
     parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
 
-    parser.add_argument('-X', '--X', default=None, type=str)  # 'features.pkl'
-    parser.add_argument('-Y', '--Y', default=None, type=str)  # 'labels.pkl'
+
+    parser.add_argument('-X', '--X', nargs='+', default=[],
+                        help="Different features for datasets (order important)")
+    parser.add_argument('-X_desc', '--X_desc', nargs='+', default=[],
+                        help="Different features desc for datasets (order important)") # for h5 or npz files
+
+    parser.add_argument('-Y', '--Y', nargs='+', default=[],
+                        help="Different labels for datasets (order important)")
+    parser.add_argument('-Y_desc', '--Y_desc', nargs='+', default=[],
+                        help="Different labels desc for datasets (order important)")  # for h5 or npz files
+
+
 
     parser.add_argument('-emb', '--sz_embedding', default=512, type=int)
     parser.add_argument('-b', '--sz_batch', default=32, type=int)
@@ -306,16 +317,36 @@ def main():
             all_data.append((features, labels))
 
     else: # X and Y should be provided
-        with open(args.X, 'rb') as f:
-            features = pickle.load(f)
+        for idx, (x, y) in enumerate(zip(args.X, args.Y)):
+            if x.endswith('.pkl'):
+                with open(x, 'rb') as f:
+                    features = pickle.load(f)
+            elif x.endswith('.npz'):  # tood
+                features = np.load(x)
+            elif x.endswith('.h5'):
+                with h5py.File(x, 'r') as hf:
+                    features = hf[args.X_desc[idx]][:]
+            else:
+                raise Exception(f'{x} data format not supported')
+
+            if y.endswith('.pkl'):
+                with open(y, 'rb') as f:
+                    labels = pickle.load(f)
+            elif y.endswith('.npz'): # tood
+                labels = np.load(y)
+            elif y.endswith('.h5'):
+                with h5py.File(y, 'r') as hf:
+                    labels = hf[args.Y_desc[idx]][:]
+            else:
+                raise Exception(f'{y} data format not supported')
+
             if torch.is_tensor(features):
                 features = features.cpu().numpy()
 
-        with open(args.Y, 'rb') as f:
-            labels = pickle.load(f)
             if torch.is_tensor(labels):
                 labels = labels.cpu().numpy()
-        all_data.append((features, labels))
+
+            all_data.append((features, labels))
 
     results = f'{args.dataset}\n'
     for idx, (features, labels) in enumerate(all_data, 1):
