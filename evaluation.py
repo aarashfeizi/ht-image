@@ -280,6 +280,8 @@ def main():
 
     all_data = []
 
+    kset = [int(k) for k in args.kset]
+
     if args.name is None:
         raise Exception('Provide --name')
 
@@ -366,11 +368,11 @@ def main():
 
     results = f'{args.dataset}\n'
     for idx, (features, labels) in enumerate(all_data, 1):
-        print(f'{idx}: Calc Recall at {args.kset}')
-        rec = evaluate_recall_at_k(features, labels, Kset=args.kset, metric=args.metric)
-        print(args.kset)
+        print(f'{idx}: Calc Recall at {kset}')
+        rec = evaluate_recall_at_k(features, labels, Kset=kset, metric=args.metric)
+        print(kset)
         print(rec)
-        results += f'{idx}: Calc Recall at {args.kset}' + '\n' + str(args.kset) + '\n' + str(rec) + '\n'
+        results += f'{idx}: Calc Recall at {kset}' + '\n' + str(kset) + '\n' + str(rec) + '\n'
 
         print('*' * 10)
         print(f'{idx}: Calc AUC_ROC')
