@@ -2005,8 +2005,9 @@ class ModelMethods:
 
                     img = Variable(img)
 
-                    output = net.forward(img, None, single=True)
+                    output, local_feat = net.forward(img, None, single=True)
                     output = output.data.cpu().numpy()
+                    local_feat = local_feat.data.cpu().numpy()
 
                     test_feats[idx * batch_size:end, :] = output
                     test_classes[idx * batch_size:end] = lbl
@@ -2215,19 +2216,27 @@ class ModelMethods:
 
         if args.feat_extractor == 'resnet50':
             test_feats = np.zeros((len(data_loader.dataset), 2048 * coeff))
+            test_local_feats = np.zeros((len(data_loader.dataset), 2048 * coeff, 7, 7), dtype=np.float32)
         elif args.feat_extractor == 'resnet18':
             test_feats = np.zeros((len(data_loader.dataset), 512 * coeff))
+            test_local_feats = np.zeros((len(data_loader.dataset), 512 * coeff, 7, 7), dtype=np.float32)
         elif args.feat_extractor == 'vgg16':
             test_feats = np.zeros((len(data_loader.dataset), 4096 * coeff))
+            test_local_feats = np.zeros((len(data_loader.dataset), 4096 * coeff, 7, 7), dtype=np.float32) # 7,7 is wrong
         elif args.feat_extractor == 'deit16_224':
             test_feats = np.zeros((len(data_loader.dataset), 768 * coeff))
+            test_local_feats = np.zeros((len(data_loader.dataset), 768 * coeff, 7, 7),
+                                        dtype=np.float32)  # 7,7 is wrong
         elif args.feat_extractor == 'deit16_small_224':
             test_feats = np.zeros((len(data_loader.dataset), 384 * coeff))
+            test_local_feats = np.zeros((len(data_loader.dataset), 384 * coeff, 7, 7),
+                                        dtype=np.float32)  # 7,7 is wrong
         else:
             raise Exception('Not handled feature extractor')
 
         if args.dim_reduction != 0:
             test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff), dtype=np.float32)
+            test_local_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff, 7, 7), dtype=np.float32)
 
         with tqdm(total=len(data_loader), desc=f'Getting embeddings for {mode}') as t:
             for idx, tpl in enumerate(data_loader):
@@ -2244,9 +2253,11 @@ class ModelMethods:
 
                 img = Variable(img)
 
-                output = net.forward(img, None, single=True)
+                output, local_feat = net.forward(img, None, single=True)
                 output = output.data.cpu().numpy()
+                local_feat = local_feat.data.cpu().numpy()
 
+                # test_local_feats[idx * batch_size:end, :] = local_feat
                 test_feats[idx * batch_size:end, :] = output
                 test_classes[idx * batch_size:end] = lbl
                 test_paths[idx * batch_size:end] = path
@@ -2274,6 +2285,8 @@ class ModelMethods:
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
                 utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+                # utils.save_h5(f'{args.dataset_name}_{mode}_locfeats', test_local_feats, 'f',
+                #               os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
                 if return_bg and mode != 'train':
                     utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
@@ -2282,6 +2295,8 @@ class ModelMethods:
             test_seen = np.zeros(((len(data_loader.dataset))))
             test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
+            # test_local_feats = utils.load_h5(f'{args.dataset_name}_{mode}_locfeats',
+            #                            os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
             test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
             test_paths = utils.load_h5(f'{args.dataset_name}_{mode}_ids',
@@ -2368,6 +2383,11 @@ class ModelMethods:
 
         # import pdb
         # pdb.set_trace()
+        # if args.my_dist:
+        #     sim_matrix = net.get_sim_matrix(test_local_feats, bs=args.batch_size)
+        # else:
+        #     sim_matrix = None
+
         if k_at_n:
             kavg, unsampled_total = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen,
                                                            logger=self.logger,
@@ -2378,7 +2398,8 @@ class ModelMethods:
                                                            even_sampled=False,
                                                            per_class=eval_per_class,
                                                            mode=mode,
-                                                           metric=self.metric)
+                                                           metric=self.metric,
+                                                           sim_matrix=sim_matrix)
 
             # ,
             # dists = dists[test_seen == 1, :][:, test_seen == 1]
@@ -2593,7 +2614,7 @@ class ModelMethods:
                 img = img.cuda()
             img = Variable(img)
 
-            features = net.forward(img, None, single=True)
+            features, _ = net.forward(img, None, single=True)
 
             # loss += loss_fn(pred_vector.reshape((-1,)), label.reshape((-1,))).item()
 
@@ -3446,7 +3467,7 @@ class ModelMethods:
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()
-            imgs_f = net(imgs, None, single=True)
+            imgs_f, _ = net(imgs, None, single=True)
             forward_end = time.time()
 
             imgs_f = imgs_f.view(imgs_f.size()[0], -1)
@@ -3528,7 +3549,7 @@ class ModelMethods:
             net.train()
             # device = f'cuda:{net.device_ids[0]}'
             forward_start = time.time()
-            imgs_f = net(imgs, None, single=True)
+            imgs_f, _ = net(imgs, None, single=True)
             forward_end = time.time()
 
             imgs_f = imgs_f.view(imgs_f.size()[0], -1)

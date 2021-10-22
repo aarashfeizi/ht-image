@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -123,9 +124,13 @@ class CrossDotProductAttentionBlock(nn.Module):
         query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
-        attended_local1_from2 = (self.op_v(pre_local_key).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(N, C, W, H)
+        attended_local1_from2 = (self.op_v(pre_local_key).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
+            N, C, W, H)
 
-        attended_local1_from1 = (attention_map.softmax(axis=2) @ self.op_v(pre_local_query).reshape(N, C, W * H).transpose(-2, -1)).reshape(N, C, W, H)
+        attended_local1_from1 = (
+                    attention_map.softmax(axis=2) @ self.op_v(pre_local_query).reshape(N, C, W * H).transpose(-2,
+                                                                                                              -1)).reshape(
+            N, C, W, H)
 
         attended_local1_asq = torch.mul(query_atts_map.expand_as(pre_local_query), pre_local_query)
         attended_local2_ask = torch.mul(key_atts_map.expand_as(pre_local_key), pre_local_key)
@@ -1107,195 +1112,27 @@ class TopModel(nn.Module):
 
     def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False, return_att=False):
         # print('model input:', x1[-1].size())
-        atts_1 = None
-        atts_2 = None
+
         if self.transformer:
             x1_global = self.ft_net(x1)
             x1_local = None
         else:
             x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
 
-        if hook:
-            anch_pass_act = [l.detach().clone() for l in x1_local]
-        else:
-            anch_pass_act = None
-        out1, out2 = None, None
-
         if single and feats:
             raise Exception('Both single and feats cannot be True')
 
         if not single:
+
             if self.transformer:
                 x2_global = self.ft_net(x2)
                 x2_local = None
             else:
                 x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
 
-            if hook:
-                other_pass_act = [l.detach().clone() for l in x2_local]
-            else:
-                other_pass_act = None
-
-            if self.merge_method.startswith('local'):
-                x1_input = []
-                x2_input = []
-
-                for i in self.fmaps_no:
-                    x1_input.append(x1_local[i - 1])
-                    x2_input.append(x2_local[i - 1])
-
-                ret, local_features, atts_1, atts_2, att_x1_local, att_x2_local = self.local_features(x1_local=x1_input,
-                                                                                                      x2_local=x2_input,
-                                                                                                      x1_global=x1_global,
-                                                                                                      x2_global=x2_global)
-
-                if self.merge_method.startswith('local-diff-sim'):  # TODO
-
-                    ret_global = utils.vector_merge_function(x1_global, x2_global, method='diff-sim',
-                                                             softmax=self.softmax).flatten(
-                        start_dim=1)  # todo should be 2048 for now
-                    ret_global = self.diffsim_fc_net(ret_global)
-
-                    if self.merge_method.startswith('local-diff-sim-concat'):
-                        final_vec = torch.cat([ret_global, ret], dim=1)
-
-                    elif self.merge_method.startswith('local-diff-sim-add'):
-                        final_vec = ret_global + ret
-
-                    elif self.merge_method.startswith('local-diff-sim-mult'):
-                        final_vec = ret_global * ret
-
-                    else:
-                        raise Exception(f"Local merge method not supported! {self.merge_method}")
-
-                    pred = self.classifier(final_vec)
-
-
-                else:
-                    pred = ret
-
-                att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
-                att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
-
-                if feats:
-                    if hook:
-                        if return_att:
-                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act,
-                                                                                      other_pass_act], atts_1, atts_2
-                        else:
-                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act, other_pass_act]
-                    else:
-                        return pred, local_features, att_x1_local, att_x2_local
-                else:
-                    return pred, local_features
-            elif self.merge_method.startswith('channel-attention'):
-                x1_input = []
-                x2_input = []
-
-                for i in self.fmaps_no:
-                    x1_input.append(x1_local[i - 1])
-                    x2_input.append(x2_local[i - 1])
-
-                ret, local_features, atts_1, atts_2, att_x1_local, att_x2_local = self.channel_attention(
-                    x1_local=x1_input,
-                    x2_local=x2_input)
-
-                pred = ret
-
-                att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
-                att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
-
-                if feats:
-                    if hook:
-                        if return_att:
-                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act,
-                                                                                      other_pass_act], atts_1, atts_2
-                        else:
-                            return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act, other_pass_act]
-                    else:
-                        return pred, local_features, att_x1_local, att_x2_local
-                else:
-                    return pred, local_features
-
-            else:  # diff, sim, or diff-sim
-                if self.loss == 'stopgrad':
-                    x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global)
-
-                    # NOT NORMALIZED
-                    # att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
-                    # att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
-
-                    return x1, x2, x1_pred, x2_pred
-
-                else:
-                    attended_x1_global = None
-                    attended_x2_global = None
-
-                    if self.global_attention:
-                        x1_input = []
-                        x2_input = []
-
-                        for i in self.fmaps_no:
-                            x1_input.append(x1_local[i - 1])
-                            x2_input.append(x2_local[i - 1])
-
-                        x1_global, x2_global = self.attention_module(x1_input, x1_global, x2_input, x2_global)
-
-                    if self.att_type == 'channel_spatial':
-                        # print('Using glb_atn! *********')
-                        _, attended_x1_global = self.glb_atn(x1_local[-1], x2_global)
-                        _, attended_x2_global = self.glb_atn(x2_local[-1], x1_global)
-
-                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
-                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
-                    elif self.att_type == 'unet':
-                        [_, attended_x1_global], [_, attended_x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
-                        x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
-                        x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
-                    elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
-                        N, C, H, W = x1_local[-1].size()
-                        attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1],
-                                                                                                x2_local[-1])
-                        # utils.save_representation_hists(attended_x1_global, savepath='attentions.npy')
-                        # utils.save_representation_hists(attended_x2_global, savepath='attentions.npy')
-                        # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
-                        # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
-                        # x1_global = F.normalize(x1_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
-                        #             + F.normalize(attended_x1_global, p=2, dim=1)
-                        #
-                        # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
-                        #             + F.normalize(attended_x2_global, p=2, dim=1)
-
-                        x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
-                        if anch_pass_act:
-                            anch_pass_act.append(attended_x1_global.detach().clone())
-
-                        x2_global = attended_x2_global.reshape(N, C, -1).mean(axis=2)
-                        if other_pass_act:
-                            other_pass_act.append(attended_x2_global.detach().clone())
-
-                    ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
-
-                    if self.loss == 'trpl_local':
-                        pred, pdist, out1, out2 = ret
-                        if attended_x1_global is not None:
-                            ret = (pred, pdist, attended_x1_global, attended_x2_global)
-                        else:
-                            ret = (pred, pdist, x1_local[-1], x2_local[-1])
-
-
-                    if feats:
-                        pred, pdist, out1, out2 = ret
-                        if hook:
-                            if return_att:
-                                return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
-                            else:
-                                return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
-                        else:
-                            return pred, pdist, out1, out2
-                    else:
-                        pred, pdist = ret
-                        return pred, pdist
+            results = self.classify(globals=[x1_global, x2_global], locals=[x1_local, x2_local],
+                                    feats=feats, hook=hook, return_att=return_att)
+            return results
         else:  # single
 
             if self.merge_method.startswith('local'):
@@ -1349,7 +1186,177 @@ class TopModel(nn.Module):
 
                 output = self.sm_net(x1_global, None, single)  # single is true
 
-            return output
+            return output, x1_local[-1]
+
+    def classify(self, globals, locals, feats=True, hook=False, return_att=False):
+
+        x1_global, x2_global = globals
+        x1_local, x2_local = locals
+        atts_1 = None
+        atts_2 = None
+        if hook:
+            anch_pass_act = [l.detach().clone() for l in x1_local]
+        else:
+            anch_pass_act = None
+        out1, out2 = None, None
+        if hook:
+            other_pass_act = [l.detach().clone() for l in x2_local]
+        else:
+            other_pass_act = None
+
+        if self.merge_method.startswith('local'):
+            x1_input = []
+            x2_input = []
+
+            for i in self.fmaps_no:
+                x1_input.append(x1_local[i - 1])
+                x2_input.append(x2_local[i - 1])
+
+            ret, local_features, atts_1, atts_2, att_x1_local, att_x2_local = self.local_features(x1_local=x1_input,
+                                                                                                  x2_local=x2_input,
+                                                                                                  x1_global=x1_global,
+                                                                                                  x2_global=x2_global)
+
+            if self.merge_method.startswith('local-diff-sim'):  # TODO
+
+                ret_global = utils.vector_merge_function(x1_global, x2_global, method='diff-sim',
+                                                         softmax=self.softmax).flatten(
+                    start_dim=1)  # todo should be 2048 for now
+                ret_global = self.diffsim_fc_net(ret_global)
+
+                if self.merge_method.startswith('local-diff-sim-concat'):
+                    final_vec = torch.cat([ret_global, ret], dim=1)
+
+                elif self.merge_method.startswith('local-diff-sim-add'):
+                    final_vec = ret_global + ret
+
+                elif self.merge_method.startswith('local-diff-sim-mult'):
+                    final_vec = ret_global * ret
+
+                else:
+                    raise Exception(f"Local merge method not supported! {self.merge_method}")
+
+                pred = self.classifier(final_vec)
+
+
+            else:
+                pred = ret
+
+            att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
+            att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
+
+            if feats:
+                if hook:
+                    if return_att:
+                        return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act,
+                                                                                  other_pass_act], atts_1, atts_2
+                    else:
+                        return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act, other_pass_act]
+                else:
+                    return pred, local_features, att_x1_local, att_x2_local
+            else:
+                return pred, local_features
+        elif self.merge_method.startswith('channel-attention'):
+            x1_input = []
+            x2_input = []
+
+            for i in self.fmaps_no:
+                x1_input.append(x1_local[i - 1])
+                x2_input.append(x2_local[i - 1])
+
+            ret, local_features, atts_1, atts_2, att_x1_local, att_x2_local = self.channel_attention(
+                x1_local=x1_input,
+                x2_local=x2_input)
+
+            pred = ret
+
+            att_x1_local = F.normalize(att_x1_local, p=2, dim=1)
+            att_x2_local = F.normalize(att_x2_local, p=2, dim=1)
+
+            if feats:
+                if hook:
+                    if return_att:
+                        return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act,
+                                                                                  other_pass_act], atts_1, atts_2
+                    else:
+                        return pred, local_features, att_x1_local, att_x2_local, [anch_pass_act, other_pass_act]
+                else:
+                    return pred, local_features, att_x1_local, att_x2_local
+            else:
+                return pred, local_features
+        else:  # diff, sim, or diff-sim
+            if self.loss == 'stopgrad':
+                x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global)
+
+                return x1, x2, x1_pred, x2_pred
+            else:
+                attended_x1_global = None
+                attended_x2_global = None
+
+                if self.global_attention:
+                    x1_input = []
+                    x2_input = []
+
+                    for i in self.fmaps_no:
+                        x1_input.append(x1_local[i - 1])
+                        x2_input.append(x2_local[i - 1])
+
+                    x1_global, x2_global = self.attention_module(x1_input, x1_global, x2_input, x2_global)
+
+                if self.att_type == 'channel_spatial':
+                    # print('Using glb_atn! *********')
+                    _, attended_x1_global = self.glb_atn(x1_local[-1], x2_global)
+                    _, attended_x2_global = self.glb_atn(x2_local[-1], x1_global)
+
+                    x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                    x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
+                elif self.att_type == 'unet':
+                    [_, attended_x1_global], [_, attended_x2_global] = self.glb_atn(x1_local[-1], x2_local[-1])
+                    x1_global = x1_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x1_global
+                    x2_global = x2_global.squeeze(dim=-1).squeeze(dim=-1) + attended_x2_global
+                elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
+                    N, C, H, W = x1_local[-1].size()
+                    attended_x1_global, attended_x2_global, (atts_1, atts_2) = self.glb_atn(x1_local[-1],
+                                                                                            x2_local[-1])
+                    # utils.save_representation_hists(attended_x1_global, savepath='attentions.npy')
+                    # utils.save_representation_hists(attended_x2_global, savepath='attentions.npy')
+                    # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
+                    # utils.save_representation_hists(x1_global.squeeze(dim=-1).squeeze(dim=-1), savepath='realglobals.npy')
+                    # x1_global = F.normalize(x1_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
+                    #             + F.normalize(attended_x1_global, p=2, dim=1)
+                    #
+                    # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
+                    #             + F.normalize(attended_x2_global, p=2, dim=1)
+
+                    x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
+                    if anch_pass_act:
+                        anch_pass_act.append(attended_x1_global.detach().clone())
+
+                    x2_global = attended_x2_global.reshape(N, C, -1).mean(axis=2)
+                    if other_pass_act:
+                        other_pass_act.append(attended_x2_global.detach().clone())
+
+                ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
+
+                if self.loss == 'trpl_local':
+                    pred, pdist, out1, out2 = ret
+                    if attended_x1_global is not None:
+                        ret = (pred, pdist, attended_x1_global, attended_x2_global)
+                    else:
+                        ret = (pred, pdist, x1_local[-1], x2_local[-1])
+
+                if feats:
+                    pred, pdist, out1, out2 = ret
+                    if hook:
+                        if return_att:
+                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
+                        else:
+                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
+                    else:
+                        return pred, pdist, out1, out2
+                else:
+                    pred, pdist = ret
+                    return pred, pdist
 
     def get_classifier_weights(self):
         if self.classifier:
@@ -1360,14 +1367,21 @@ class TopModel(nn.Module):
             return self.channel_attention.classifier[0].weight
         else:
             return self.sm_net.get_classifier_weights()
-        # print('features:', x2_f[-1].size())
-        # print('output:', output.size())
 
-        # if feats:
-        #     return output, out1, out2
-        # else:self.draw_activations
-        #     return output
+    def get_sim_matrix(self, globals, locals, bs=32):
+        no_samples = len(locals)
+        sim_matrix = np.zeros((no_samples, no_samples), dtype=np.float32)
+        pair_indicies = [np.array([i, j]) for i in range(no_samples) for j in range(no_samples)]
 
+        for idx in range(0, len(pair_indicies), bs):
+            batch_end = min(len(pair_indicies), idx + bs)
+            local_batch = locals[[pair_indicies[idx:batch_end]]]
+            global_batch = globals[[pair_indicies[idx:batch_end]]]
+            res, _ = self.classify(globals=torch.tensor(global_batch).cuda(),
+                                   locals=torch.tensor(local_batch).cuda(),
+                                   feats=False)
+
+        return sim_matrix
 
 def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False, fourth_dim=False):
     if trained_sm_net is None:
