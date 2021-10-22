@@ -7,6 +7,9 @@ from models.resnet import *
 from models.vgg import *
 from models.deit import *
 
+from torch.utils.data import DataLoader
+from my_datasets import Local_Feat_Dataset
+
 FEATURE_MAP_SIZES = {1: (256, 56, 56),
                      2: (512, 28, 28),
                      3: (1024, 14, 14),
@@ -1369,16 +1372,19 @@ class TopModel(nn.Module):
             return self.sm_net.get_classifier_weights()
 
     def get_sim_matrix(self, globals, locals, bs=32):
-        no_samples = len(locals)
-        sim_matrix = np.zeros((no_samples, no_samples), dtype=np.float32)
-        pair_indicies = [np.array([i, j]) for i in range(no_samples) for j in range(no_samples)]
+        sim_matrix = np.array((len(locals), len(locals)), dtype=np.float32)
 
-        for idx in range(0, len(pair_indicies), bs):
-            batch_end = min(len(pair_indicies), idx + bs)
-            local_batch = locals[[pair_indicies[idx:batch_end]]]
-            global_batch = globals[[pair_indicies[idx:batch_end]]]
-            res, _ = self.classify(globals=torch.tensor(global_batch).cuda(),
-                                   locals=torch.tensor(local_batch).cuda(),
+        loader = DataLoader(dataset=Local_Feat_Dataset(locals=locals, globals=globals),
+                            batch_size=bs,
+                            num_workers=4,
+                            pin_memory=True)
+
+
+        for idx, batch in enumerate(loader):
+            x1_local, x1_global, x2_local, x2_global = batch
+
+            res, _ = self.classify(globals=[x1_global, x2_global],
+                                   locals=[x1_local, x2_local],
                                    feats=False)
 
         return sim_matrix
