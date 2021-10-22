@@ -264,7 +264,7 @@ def main():
 
     parser.add_argument('-d', '--dataset', default=None, choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
-    parser.add_argument('--baseline', default='proxy-anchor', choices=['ours', 'softtriple', 'proxy-anchor'])
+    parser.add_argument('--baseline', default='proxy-anchor', choices=['ours', 'softtriple', 'proxy-anchor', 'resnet50'])
     parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
 
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
