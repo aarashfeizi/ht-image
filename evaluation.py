@@ -225,6 +225,20 @@ def softtriple_load_model_inception(save_path, args):
     return net
 
 
+def resnet_load_model(save_path, args):
+    # if args.cuda:
+    #     checkpoint = torch.load(save_path, map_location=torch.device(0))
+    # else:
+    #     checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
+
+    net = timm.create_model('resnet50', pretrained=True, num_classes=0)
+
+    if args.cuda:
+        net = net.cuda()
+
+    return net
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -299,6 +313,8 @@ def main():
                 net = softtriple_load_model_resnet50(args.checkpoint, args)
             elif args.model_type == 'bninception':
                 net = softtriple_load_model_inception(args.checkpoint, args)
+        elif args.baseline == 'resnet50':
+            net = resnet_load_model(args.checkpoint, args)
 
         eval_ldrs = []
         for dtset in eval_datasets:
