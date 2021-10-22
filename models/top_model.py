@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from models.MLP import *
 from models.resnet import *
@@ -1380,12 +1381,15 @@ class TopModel(nn.Module):
                             pin_memory=True)
 
 
-        for idx, batch in enumerate(loader):
-            x1_local, x1_global, x2_local, x2_global = batch
+        with tqdm(total=len(loader), desc='PLEASE WORK!!') as t:
+            for idx, batch in enumerate(loader):
+                x1_local, x1_global, x2_local, x2_global = batch
 
-            res, _ = self.classify(globals=[x1_global, x2_global],
-                                   locals=[x1_local, x2_local],
-                                   feats=False)
+                res, _ = self.classify(globals=[x1_global, x2_global],
+                                       locals=[x1_local, x2_local],
+                                       feats=False)
+
+                t.update()
 
         return sim_matrix
 
