@@ -1424,7 +1424,7 @@ class Local_Feat_Dataset(Dataset):
         local_pair = self.locals[self.pair_indicies[index]]
         global_pair = self.globals[self.pair_indicies[index]]
 
-        x1_local, x2_local = torch.tensor(local_pair[0]), torch.tensor(local_pair[1])
+        x1_local, x2_local = torch.tensor([local_pair[0]]), torch.tensor([local_pair[1]])
         x1_global, x2_global = torch.tensor(global_pair[0]), torch.tensor(global_pair[1])
 
         return x1_local, x1_global, x2_local, x2_global
