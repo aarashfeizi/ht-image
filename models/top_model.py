@@ -1412,3 +1412,4 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
             param.requires_grad = False
 
     return TopModel(args=args, ft_net=ft_net, sm_net=sm_net, aug_mask=(mask and fourth_dim), attention=args.attention)
+
