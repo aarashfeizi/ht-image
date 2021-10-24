@@ -2257,7 +2257,7 @@ class ModelMethods:
                 output = output.data.cpu().numpy()
                 local_feat = local_feat.data.cpu().numpy()
 
-                # test_local_feats[idx * batch_size:end, :] = local_feat
+                test_local_feats[idx * batch_size:end, :] = local_feat
                 test_feats[idx * batch_size:end, :] = output
                 test_classes[idx * batch_size:end] = lbl
                 test_paths[idx * batch_size:end] = path
@@ -2285,8 +2285,8 @@ class ModelMethods:
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
                 utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-                # utils.save_h5(f'{args.dataset_name}_{mode}_locfeats', test_local_feats, 'f',
-                #               os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
+                utils.save_h5(f'{args.dataset_name}_{mode}_locfeats', test_local_feats, 'f',
+                              os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
                 if return_bg and mode != 'train':
                     utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
@@ -2295,8 +2295,8 @@ class ModelMethods:
             test_seen = np.zeros(((len(data_loader.dataset))))
             test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
-            # test_local_feats = utils.load_h5(f'{args.dataset_name}_{mode}_locfeats',
-            #                            os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
+            test_local_feats = utils.load_h5(f'{args.dataset_name}_{mode}_locfeats',
+                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
             test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
             test_paths = utils.load_h5(f'{args.dataset_name}_{mode}_ids',
@@ -2387,6 +2387,7 @@ class ModelMethods:
         #     sim_matrix = net.get_sim_matrix(test_local_feats, bs=args.batch_size)
         # else:
         #     sim_matrix = None
+        sim_matrix = None
 
         if k_at_n:
             kavg, unsampled_total = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen,

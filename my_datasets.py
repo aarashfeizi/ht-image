@@ -254,7 +254,7 @@ class Metric_Dataset_Train(Dataset):
                 anch = self.do_transform(anch)
                 pos = self.do_transform(pos, second=True)
 
-                if random_number_for_same_pic < self.same_pic_prob and (random.random() <= self.exact_pic_and_aug) and self.is_train:
+                if (random.random() <= self.exact_pic_and_aug) and self.is_train:
                     pos = anch # literally same images for anch and pos (even augmentations)
 
                 self.anch = (anch, anch_class)
