@@ -2383,7 +2383,7 @@ class ModelMethods:
 
         # import pdb
         # pdb.set_trace()
-        _, indicies, _ = utils.get_faiss_knn(test_feats, k=int(100), gpu=args.gpu, metric=self.metric)
+        _, indicies, _ = utils.get_faiss_knn(test_feats, k=int(100), gpu=args.cuda, metric=self.metric)
         if args.my_dist:
             sim_matrix = net.get_sim_matrix(globals=test_feats,
                                             locals=test_local_feats,
