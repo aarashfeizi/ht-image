@@ -1373,7 +1373,7 @@ class TopModel(nn.Module):
             return self.sm_net.get_classifier_weights()
 
     def get_sim_matrix(self, globals, locals, indices, bs=32):
-        sim_matrix = np.array((len(locals), len(locals)), dtype=np.float32)
+        sim_matrix = -1 * np.ones((len(locals), len(locals)), dtype=np.float32)
 
         loader = DataLoader(dataset=Local_Feat_Dataset(locals=locals, globals=globals, indices=indices),
                             batch_size=bs,
@@ -1386,8 +1386,10 @@ class TopModel(nn.Module):
                 x1_local, x1_global, x2_local, x2_global, idx_pairs = batch
 
                 res, _ = self.classify(globals=[x1_global.cuda(), x2_global.cuda()],
-                                       locals=[x1_local.cuda(), x2_local.cuda()],
+                                       locals=[[x1_local.cuda()], [x2_local.cuda()]],
                                        feats=False)
+
+                sim_matrix[idx_pairs[:, 0], idx_pairs[:, 1]] = res
 
                 t.update()
 
