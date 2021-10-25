@@ -1383,7 +1383,7 @@ class TopModel(nn.Module):
 
         with tqdm(total=len(loader), desc='PLEASE WORK!!') as t:
             for idx, batch in enumerate(loader):
-                x1_local, x1_global, x2_local, x2_global = batch
+                x1_local, x1_global, x2_local, x2_global, idx_pairs = batch
 
                 res, _ = self.classify(globals=[x1_global.cuda(), x2_global.cuda()],
                                        locals=[x1_local.cuda(), x2_local.cuda()],

@@ -1414,8 +1414,7 @@ class Local_Feat_Dataset(Dataset):
         self.locals = locals
         self.globals = globals
 
-        self.no_samples = len(locals)
-        self.pair_indicies = [np.array([i, j]) for i in range(self.no_samples) for j in range(self.no_samples)]
+        self.pair_indicies = [np.array([i, j]) for i in range(len(indices)) for j in indices[i, :]]
 
     def __len__(self):
         return len(self.pair_indicies)
@@ -1427,5 +1426,5 @@ class Local_Feat_Dataset(Dataset):
         x1_local, x2_local = torch.tensor([local_pair[0]]), torch.tensor([local_pair[1]])
         x1_global, x2_global = torch.tensor(global_pair[0]), torch.tensor(global_pair[1])
 
-        return x1_local, x1_global, x2_local, x2_global
+        return x1_local, x1_global, x2_local, x2_global, self.pair_indicies[index]
 
