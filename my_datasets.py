@@ -1410,7 +1410,7 @@ class Metric_Dataset_Train_New(Dataset):
 
 
 class Local_Feat_Dataset(Dataset):
-    def __init__(self, locals, globals):
+    def __init__(self, locals, globals, indices):
         self.locals = locals
         self.globals = globals
 

@@ -2383,11 +2383,15 @@ class ModelMethods:
 
         # import pdb
         # pdb.set_trace()
-        # if args.my_dist:
-        #     sim_matrix = net.get_sim_matrix(test_local_feats, bs=args.batch_size)
-        # else:
-        #     sim_matrix = None
-        sim_matrix = None
+        _, indicies, _ = utils.get_faiss_knn(test_feats, k=int(100), gpu=args.gpu, metric=self.metric)
+        if args.my_dist:
+            sim_matrix = net.get_sim_matrix(globals=test_feats,
+                                            locals=test_local_feats,
+                                            bs=args.batch_size,
+                                            indices=indicies)
+        else:
+            sim_matrix = None
+        # sim_matrix = None
 
         if k_at_n:
             kavg, unsampled_total = utils.calculate_k_at_n(args, test_feats, test_classes, test_seen,
