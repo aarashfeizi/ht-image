@@ -237,18 +237,18 @@ def main():
     if args.query_index:
         for q_split, i_split in zip(args.queries, args.indices):
             query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
-                                      return_pairs=args.my_dist)
+                                      return_pairs=False)
 
 
             index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
-                                    return_pairs=args.my_dist)
+                                    return_pairs=False)
 
             val_db_sets.append([query_db_set, index_db_set])
 
     else:
         for v_split in args.valsets:
             val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=v_split,
-                                      return_pairs=args.my_dist)
+                                      return_pairs=False)
 
             val_db_sets.append(val_db_set)
 
@@ -257,10 +257,10 @@ def main():
         if args.test_query_index:
             for q_split, i_split in zip(args.t_queries, args.t_indices):
                 test_query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
-                                 return_pairs=args.my_dist)
+                                 return_pairs=False)
 
                 test_index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
-                                               return_pairs=args.my_dist)
+                                               return_pairs=False)
 
                 test_db_sets.append([test_query_db_set, test_index_db_set])
 
@@ -268,7 +268,7 @@ def main():
         else:
             for t_split in args.testsets:
                 test_db_set = DB_Dataset(args, transform=data_transforms_val, mode=t_split,
-                                         return_pairs=args.my_dist)
+                                         return_pairs=False)
                 test_db_sets.append(test_db_set)
     # db_set_train = db_dataset(args, transform=data_transforms_val, mode='train_seen')  # 4 images per class
 
