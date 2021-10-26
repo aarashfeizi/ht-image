@@ -1373,7 +1373,8 @@ class TopModel(nn.Module):
             return self.sm_net.get_classifier_weights()
 
     def get_sim_matrix(self, globals, locals, indices, bs=32):
-        sim_matrix = -1 * np.ones((len(locals), len(locals)), dtype=np.float32)
+        sim_matrix = np.zeros((len(locals), len(locals)), dtype=np.float32)
+        min_dist_mask = np.ones((len(locals), len(locals)), dtype=bool)
 
         loader = DataLoader(dataset=Local_Feat_Dataset(locals=locals, globals=globals, indices=indices),
                             batch_size=bs,
@@ -1390,8 +1391,11 @@ class TopModel(nn.Module):
                                        feats=False)
 
                 sim_matrix[idx_pairs[:, 0], idx_pairs[:, 1]] = res.detach().cpu().numpy().flatten()
-
+                min_dist_mask[idx_pairs[:, 0], idx_pairs[:, 1]] = False
                 t.update()
+
+        min_similarity = sim_matrix.min() - 1
+        sim_matrix[min_dist_mask] = min_similarity
 
         return sim_matrix
 
