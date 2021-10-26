@@ -1389,7 +1389,7 @@ class TopModel(nn.Module):
                                        locals=[[x1_local.cuda()], [x2_local.cuda()]],
                                        feats=False)
 
-                sim_matrix[idx_pairs[:, 0], idx_pairs[:, 1]] = res
+                sim_matrix[idx_pairs[:, 0], idx_pairs[:, 1]] = res.detach().cpu().numpy().flatten()
 
                 t.update()
 
