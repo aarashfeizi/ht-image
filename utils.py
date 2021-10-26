@@ -2476,7 +2476,8 @@ def get_logname(args):
                          'warm': 'w',
                          'random_erase': 're',
                          'dot-product': 'dp',
-                         'dot-product-add': 'dpa'}
+                         'dot-product-add': 'dpa',
+                         'my_dist': 'MD'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2490,6 +2491,7 @@ def get_logname(args):
                       'number_of_runs',
                       'no_negative',
                       'loss',
+                      'my_dist'
                       'overfit_num',
                       'debug_grad',
                       'aug_mask',
@@ -2538,7 +2540,8 @@ def get_logname(args):
                     'query_index',
                     'test_query_index',
                     'small_and_big',
-                    'warm']
+                    'warm',
+                    'my_dist']
 
     args_shouldnt_be_zero = ['overfit_num',
                              'gamma',
