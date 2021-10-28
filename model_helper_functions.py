@@ -3560,45 +3560,6 @@ class ModelMethods:
             imgs_f = imgs_f.view(imgs_f.size()[0], -1)
 
             ext_loss, cont_loss, reg = loss_fn(imgs_f, labels[:imgs_f.shape[0]])
-
-            # pos_pred, pos_dist = net.sm_net(imgs_f, pos_f)
-            #
-            # neg_pred, neg_dist = net.sm_net(imgs_f, neg_f)
-
-            # if pos_all_merged_vectors is None:
-            #     pos_all_merged_vectors = pos_dist.data.cpu()
-            # else:
-            #     pos_all_merged_vectors = torch.cat([pos_all_merged_vectors, pos_dist.data.cpu()], dim=0)
-            #
-            # if utils.MY_DEC.enabled:
-            #     self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
-            #
-            # # if args.verbose:
-            # #     self.logger.info(f'norm pos: {pos_dist}')
-            # class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
-            # metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
-            #
-            # if neg_all_merged_vectors is None:
-            #     neg_all_merged_vectors = neg_dist.data.cpu()
-            # else:
-            #     neg_all_merged_vectors = torch.cat([neg_all_merged_vectors, neg_dist.data.cpu()], dim=0)
-            #
-            # forward_end = time.time()
-            # if utils.MY_DEC.enabled:
-            #     self.logger.info(f'########### anch-neg forward time: {forward_end - forward_start}')
-            #
-            # metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
-            #
-            # class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-
-            # if loss_fn is not None:
-            #
-            #     loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
-            #     train_contrastive_loss += ext_loss.item()
-            #
-            # else:
-            #     loss = self.bce_weight * class_loss
-            #
             loss = ext_loss
 
             train_loss += loss.item()
@@ -3618,8 +3579,6 @@ class ModelMethods:
             t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
                           reg=f'{train_reg / (batch_id) :.4f}',
                           contrastive=f'{train_contrastive_loss / batch_id:.4f}',
-                          # bce_loss=f'{train_bce_loss / batch_id:.4f}',
-                          # train_acc=f'{metric_ACC.get_acc():.4f}'
                           )
             # else:
             #     t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',

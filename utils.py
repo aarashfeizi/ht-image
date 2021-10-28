@@ -2419,8 +2419,8 @@ def get_logname(args):
     name = f'model-bs{args.batch_size}'
 
     if args.cuda and args.gpu_ids != '':
-        gpus_num = len(args.gpu_ids.split(','))
-        gpu_info = f'-{gpus_num}gpus'
+        gpus = args.gpu_ids.replace(',', '')
+        gpu_info = f'-gpu{gpus}'
     else:
         gpu_info = f'-cpu'
 
