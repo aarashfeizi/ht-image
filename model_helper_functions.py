@@ -1038,14 +1038,16 @@ class ModelMethods:
             print('current_device: ', torch.cuda.current_device())
 
         if 'deit' in args.feat_extractor:
-            learnable_params = [{'params': netmod.sm_net.parameters(), 'new': True},
-                                {'params': netmod.ft_net.parameters(), 'lr': args.lr_resnet, 'new': False}]
+            learnable_params = [{'params': netmod.ft_net.parameters(), 'lr': args.lr_resnet, 'new': False}]
+
+            if netmod.sm_net:
+                learnable_params += [{'params': netmod.sm_net.parameters(),
+                                      'lr': args.lr_new,
+                                      'new': True}]
         else:
 
             if netmod.aug_mask:
-                learnable_params = [{'params': netmod.sm_net.parameters(),
-                                     'new': True},
-                                    {'params': netmod.ft_net.rest.parameters(),
+                learnable_params = [{'params': netmod.ft_net.rest.parameters(),
                                      'lr': args.lr_resnet,
                                      'weight_decay': args.weight_decay,
                                      'new': False},
@@ -1054,9 +1056,7 @@ class ModelMethods:
                                      'weight_decay': args.weight_decay,
                                      'new': True}]
             else:
-                learnable_params = [{'params': netmod.sm_net.parameters(),
-                                     'new': True},
-                                    {'params': netmod.ft_net.rest.parameters(),
+                learnable_params = [{'params': netmod.ft_net.rest.parameters(),
                                      'lr': args.lr_resnet,
                                      'weight_decay': args.weight_decay,
                                      'new': False},
@@ -1065,6 +1065,11 @@ class ModelMethods:
                                      'weight_decay': args.weight_decay,
                                      'new': True}]
 
+            if netmod.sm_net:
+                learnable_params += [{'params': netmod.sm_net.parameters(),
+                                      'lr': args.lr_new,
+                                      'weight_decay': args.weight_decay,
+                                      'new': True}]
             if netmod.local_features:
                 learnable_params += [{'params': netmod.local_features.parameters(),
                                       'lr': args.lr_new,
