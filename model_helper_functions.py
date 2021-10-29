@@ -1679,12 +1679,12 @@ class ModelMethods:
 
                 else:
                     pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
-                    class_loss = bce_loss(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
+                    class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze(axis=1))
 
                     pred_label_auc.extend(pos_pred.data.cpu().numpy())
                     true_label_auc.extend(one_labels.data.cpu().numpy())
                     all_pos_predictions.extend(pos_pred.data.cpu().numpy())
-                    metric_ACC.update_acc(pos_pred.squeeze(axis=1), one_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze(axis=1))
 
                     # self.logger.info(anch.shape)
                     # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
@@ -1694,8 +1694,8 @@ class ModelMethods:
                     pred_label_auc.extend(neg_pred.data.cpu().numpy())
                     true_label_auc.extend(zero_labels.data.cpu().numpy())
 
-                    class_loss += bce_loss(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
-                    metric_ACC.update_acc(neg_pred.squeeze(axis=1), zero_labels.squeeze(axis=1))
+                    class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
 
                     if loss_fn is not None:
                         if args.loss == 'trpl_local':
