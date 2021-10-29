@@ -277,7 +277,7 @@ def get_args():
     parser.add_argument('-merge_global', '--merge_global', default=False, action='store_true')
     parser.add_argument('-no_global', '--no_global', default=False, action='store_true')
 
-    parser.add_argument('-no_final_network', '--no_final_network', default=True, action='store_false')
+    parser.add_argument('-no_final_network', '--no_final_network', default=False, action='store_true')
 
 
     parser.add_argument('-my_dist', '--my_dist', default=False, action='store_true')
