@@ -1351,7 +1351,7 @@ class TopModel(nn.Module):
                     x1_global = F.normalize(x1_global, p=2, dim=1)
                     x2_global = F.normalize(x2_global, p=2, dim=1)
                     cos_sim = (x1_global * x2_global).sum(axis=1)
-                    pred = (cos_sim + 1) / 2  # to get the predictions between 0 and 1
+                    pred = (x1_global * x2_global)
                     ret = (pred, cos_sim, x1_global, x2_global)
                 else:
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
