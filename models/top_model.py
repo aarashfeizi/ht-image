@@ -1033,6 +1033,7 @@ class TopModel(nn.Module):
         self.channel_attention = None
         self.local_features = None
         self.diffsim_fc_net = None
+        self.no_final_network = args.no_final_network
         self.classifier = None
         self.attention_module = None
         self.global_attention = args.attention
@@ -1188,7 +1189,13 @@ class TopModel(nn.Module):
                 elif self.att_type == 'unet':
                     pass  # shouldn't pass through attention
 
-                output = self.sm_net(x1_global, None, single)  # single is true
+                if self.no_final_network:
+                    x1_global = F.normalize(x1_global, p=2, dim=1)
+                    output = x1_global
+                else:
+                    output = self.sm_net(x1_global, None, single)  # single is true
+
+
 
             return output, x1_local[-1]
 
@@ -1290,7 +1297,7 @@ class TopModel(nn.Module):
                 return pred, local_features
         else:  # diff, sim, or diff-sim
             if self.loss == 'stopgrad':
-                x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global)
+                x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global) # todo doesn't support args.no_final_network
 
                 return x1, x2, x1_pred, x2_pred
             else:
@@ -1340,7 +1347,15 @@ class TopModel(nn.Module):
                     if other_pass_act:
                         other_pass_act.append(attended_x2_global.detach().clone())
 
-                ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
+                if self.no_final_network:
+                    x1_global = F.normalize(x1_global, p=2, dim=1)
+                    x2_global = F.normalize(x2_global, p=2, dim=1)
+
+                    cos_sim = ((x1_global * x2_global).sum(axis=1) + 1) / 2  # to get the predictions between 0 and 1
+                    ret = (cos_sim, None, x1_global, x2_global)
+                else:
+                    ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
+
 
                 if self.loss == 'trpl_local':
                     pred, pdist, out1, out2 = ret
@@ -1407,6 +1422,9 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
             sm_net = MLP(args)
     else:
         sm_net = trained_sm_net
+
+    if args.no_final_network:
+        sm_net = None
 
     model_dict = {
         'resnet18': resnet18,

@@ -277,6 +277,9 @@ def get_args():
     parser.add_argument('-merge_global', '--merge_global', default=False, action='store_true')
     parser.add_argument('-no_global', '--no_global', default=False, action='store_true')
 
+    parser.add_argument('-no_final_network', '--no_final_network', default=True, action='store_false')
+
+
     parser.add_argument('-my_dist', '--my_dist', default=False, action='store_true')
 
     parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
@@ -2485,8 +2488,6 @@ def get_logname(args):
                       'lr_resnet',
                       # 'early_stopping',
                       'feat_extractor',
-                      'classifier_layer',
-                      'projection_layer',
                       'normalize',
                       'number_of_runs',
                       'no_negative',
@@ -2499,7 +2500,6 @@ def get_logname(args):
                       'image_size',
                       'fourth_dim',
                       'pooling',
-                      'merge_method',
                       'colored_mask',
                       'softmargin',
                       'bn_before_classifier',
@@ -2521,6 +2521,11 @@ def get_logname(args):
                       'small_and_big',
                       'warm',
                       'random_erase']
+
+    if not args.no_final_network: # has final network and merging method
+        important_args += ['classifier_layer',
+                           'projection_layer'
+                      'merge_method',]
 
     arg_booleans = ['spatial_projection',
                     'attention',
