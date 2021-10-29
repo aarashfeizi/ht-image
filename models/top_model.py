@@ -1348,11 +1348,11 @@ class TopModel(nn.Module):
                         other_pass_act.append(attended_x2_global.detach().clone())
 
                 if self.no_final_network:
-                    pred = (x1_global * x2_global).sum(axis=1)
+                    pred = (x1_global * x2_global).sum(axis=1).squeeze(dim=2)
 
                     x1_global = F.normalize(x1_global, p=2, dim=1)
                     x2_global = F.normalize(x2_global, p=2, dim=1)
-                    cos_sim = (x1_global * x2_global).sum(axis=1)
+                    cos_sim = (x1_global * x2_global).sum(axis=1).squeeze(dim=2)
 
                     ret = (pred, cos_sim, x1_global, x2_global)
                 else:
