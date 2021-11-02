@@ -2686,13 +2686,41 @@ class ModelMethods:
 
         return acc, loss, right, error, all_predictions
 
+    def get_loss_value2(self, args, loss_fn, anch_feats, second_feats, distances=None):
+
+        if distances is None:
+            distances = torch.sqrt(torch.pow((anch_feats - second_feats), 2).sum(dim=1))
+
+        batch_size = anch_feats.shape[0] / (1 + self.no_negative)
+
+        pos_dist = distances[:batch_size]
+
+        neg_dists = distances[batch_size:].view(batch_size, -1)
+
+
+        if args.loss == 'trpl' or args.loss == 'contrv_mlp':
+            neg_dist = neg_dists.mean(dim=1)
+            loss = loss_fn(pos_dist, neg_dist)
+            parts = []
+        elif args.loss == 'maxmargin':
+            neg_dist = neg_dists.max(dim=1)
+            loss, parts = loss_fn(pos_dist, neg_dist)
+        # elif args.loss == 'batchhard':
+        #     loss_fn_trpl = TripletLoss(margin=args.margin, args=args, soft=args.softmargin)
+        #     loss = loss_fn_trpl(pos_dist, neg_dist)
+        #     parts = []
+        else:
+            raise Exception('Loss function not supported in get_loss_value() method')
+
+        return loss, parts
+
     def get_loss_value(self, args, loss_fn, anch_feat, pos_feat, neg_feat, pos_dist=None, neg_dist=None):
 
         if pos_dist is None:
-            pos_dist = torch.pow((anch_feat - pos_feat), 2)
+            pos_dist = torch.sqrt(torch.pow((anch_feat - pos_feat), 2).sum(dim=1))
 
         if neg_dist is None:
-            neg_dist = torch.pow((anch_feat - neg_feat), 2)
+            neg_dist = torch.sqrt(torch.pow((anch_feat - neg_feat), 2).sum(dim=1))
 
         if args.loss == 'trpl' or args.loss == 'contrv_mlp':
             loss = loss_fn(pos_dist, neg_dist)
@@ -2908,6 +2936,201 @@ class ModelMethods:
             t.update()
 
         return t, (train_loss, train_bce_loss)
+
+    def train_metriclearning_one_epoch2(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
+                                       grad_save_path, drew_graph):
+        train_loss = 0
+        train_bce_loss = 0
+        train_triplet_loss = 0
+        pos_parts = []
+        neg_parts = []
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+
+        all_merged_vectors = None
+
+        for batch_id, (anch, pos, negs) in enumerate(train_loader, 1):
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+            negs = negs.flatten(start_dim=0, end_dim=1)
+            anchs = torch.repeat_interleave(anch, torch.tensor([self.no_negative]), dim=0)
+
+            total_anchs = torch.cat([anch, anchs])
+            total_seconds = torch.cat([pos, negs])
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(self.no_negative * anch.shape[0])], dtype=float)
+            labels = torch.cat([one_labels, zero_labels])
+
+            if args.cuda:
+                total_anchs, total_seconds, labels = Variable(total_anchs.cuda()), \
+                                                          Variable(total_seconds.cuda()), \
+                                                          Variable(labels.cuda())
+            else:
+                total_anchs, total_seconds, labels = Variable(total_anchs), \
+                                                     Variable(total_seconds), \
+                                                     Variable(labels)
+
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (anch.detach(), pos.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
+
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+
+            # warm-up learning rate
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
+
+
+            forward_start = time.time()
+            predictions, distances, anch_feat, second_feats = net.forward(total_anchs, total_seconds, feats=True)
+            forward_end = time.time()
+
+            if all_merged_vectors is None:
+                all_merged_vectors = distances.data.cpu()
+            else:
+                all_merged_vectors = torch.cat([all_merged_vectors, distances.data.cpu()], dim=0)
+
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+
+            # if args.verbose:
+            #     self.logger.info(f'norm pos: {pos_dist}')
+            class_loss = bce_loss(predictions.squeeze(), labels.squeeze())
+            metric_ACC.update_acc(predictions.squeeze(), labels.squeeze())  # zero dist means similar
+
+            if loss_fn is not None:
+                # ext_loss /= self.no_negative
+                ext_loss, parts = self.get_loss_value2(args, loss_fn, anch_feat, second_feats)
+                loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                train_triplet_loss += ext_loss.item()
+
+                if debug_grad:
+                    ext_loss.backward(retain_graph=True)
+                    triplet_loss_named_parameters = net.named_parameters()
+
+                    trpl_ave_grads = []
+                    trpl_max_grads = []
+                    layers = []
+                    for n, p in net.named_parameters():
+                        if (p.requires_grad) and ("bias" not in n):
+                            if n == 'ft_net.fc.weight':
+                                continue
+                            if p.grad is None:
+                                trpl_ave_grads.append(torch.Tensor([0.0]))
+                                trpl_max_grads.append(torch.Tensor([0.0]))
+                            else:
+                                trpl_ave_grads.append(p.grad.abs().mean())
+                                trpl_max_grads.append(p.grad.abs().max())
+
+                            layers.append(n)
+
+                    self.logger.info('got triplet loss grads')
+
+                    # utils.line_plot_grad_flow(args, net.named_parameters(), 'TRIPLETLOSS', batch_id, epoch,
+                    #                           grad_save_path)
+
+            else:
+                loss = self.bce_weight * class_loss
+
+            train_loss += loss.item()
+            train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                lambda_class_loss = self.bce_weight * class_loss
+                lambda_class_loss.backward(retain_graph=True)
+
+                bce_named_parameters = net.named_parameters()
+                bce_named_parameters = {k: v for k, v in bce_named_parameters}
+
+                bce_ave_grads = []
+                bce_max_grads = []
+                for n, p in net.named_parameters():
+                    if (p.requires_grad) and ("bias" not in n):
+                        if n == 'ft_net.fc.weight':
+                            continue
+                        if p.grad is None:
+                            continue
+
+                        bce_ave_grads.append(p.grad.abs().mean())
+                        bce_max_grads.append(p.grad.abs().max())
+
+                # utils.bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers], 'TRIPLETLOSS', batch_id,
+                #                          epoch, grad_save_path)
+                #
+                # utils.bar_plot_grad_flow(args, [bce_ave_grads, bce_max_grads, layers], 'BCE', batch_id, epoch,
+                #                          grad_save_path)
+
+                self.logger.info('got bce grads')
+
+                if loss_fn is None:
+                    utils.bar_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                             grad_save_path)
+                    utils.line_plot_grad_flow(args, net.named_parameters(), 'BCE', batch_id, epoch,
+                                              grad_save_path)
+                else:
+                    # utils.bar_plot_grad_flow(args, triplet_loss_named_parameters,
+                    #                          'TRIPLET', batch_id, epoch, grad_save_path)
+                    # utils.bar_plot_grad_flow(args, bce_named_parameters,
+                    #                          'BCE', batch_id, epoch, grad_save_path)
+                    utils.two_line_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                  [bce_ave_grads, bce_max_grads, layers],
+                                                  'BOTH', batch_id, epoch, grad_save_path)
+                    # import pdb
+                    # pdb.set_trace()
+                    utils.two_bar_plot_grad_flow(args, [trpl_ave_grads, trpl_max_grads, layers],
+                                                 [bce_ave_grads, bce_max_grads, layers],
+                                                 'BOTH', batch_id, epoch, grad_save_path)
+
+            opt.zero_grad()
+            loss.backward()  # training with triplet loss
+
+            # if debug_grad:
+            #     utils.bar_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch, grad_save_path)
+            #     utils.line_plot_grad_flow(args, net.named_parameters(), 'total', batch_id, epoch,
+            #                               grad_save_path)
+
+            opt.step()
+
+            if loss_fn is not None:
+                t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                              bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                              triplet_loss=f'{train_triplet_loss / batch_id:.4f}',
+                              train_acc=f'{metric_ACC.get_acc():.4f}'
+                              )
+            else:
+                t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                              bce_loss=f'{train_bce_loss / batch_id:.4f}',
+                              train_acc=f'{metric_ACC.get_acc():.4f}'
+                              )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        # if self.merge_method == 'diff-sim':
+        #
+        #     merged_vectors['pos-diff'] = all_merged_vectors[:, :(all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['pos-sim'] = all_merged_vectors[:, (all_merged_vectors.shape[1] // 2):]
+        #
+        #     merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
+        # else:
+        #     merged_vectors[f'pos-{self.merge_method}'] = all_merged_vectors
+        #     merged_vectors[f'neg-{self.merge_method}'] = neg_all_merged_vectors
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
+
 
     def train_metriclearning_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
                                        grad_save_path, drew_graph):
@@ -3195,7 +3418,7 @@ class ModelMethods:
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
             forward_start = time.time()
-            neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)
+            neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True) # todo use anch features for dpa
 
             if neg_all_merged_vectors is None:
                 neg_all_merged_vectors = neg_dist.data.cpu()
@@ -3215,7 +3438,7 @@ class ModelMethods:
 
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-            ext_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
+            ext_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)  # todo
 
             # class_loss /= (self.no_negative + 1)
 
@@ -3224,7 +3447,7 @@ class ModelMethods:
             train_triplet_loss += ext_loss.item()
 
             if debug_grad:
-                ext_loss.backward(retain_graph=True)
+                ext_loss.backwardB(retain_graph=True)
                 triplet_loss_named_parameters = net.named_parameters()
 
                 trpl_ave_grads = []

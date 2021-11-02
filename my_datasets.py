@@ -138,6 +138,148 @@ class Metric_Dataset_Train(Dataset):
             return (self.lbl2chain[lbl1] != self.lbl2chain[lbl2]) or \
                    (lbl1 != lbl2 and np.random.random() < 0.001)
 
+    def __triplet_getitem2__(self, index):
+
+        paths = []
+        start = time.time()
+        # if self.overfit:
+        #     overfit_triplet = np.random.choice(self.overfit_samples, 1)[0]
+        #     paths.append(overfit_triplet['anch'])
+        #     anch = Image.open(overfit_triplet['anch'])
+        #     anch = anch.convert('RGB')
+        #
+        #     paths.append(overfit_triplet['pos'])
+        #     pos = Image.open(overfit_triplet['pos'])
+        #
+        #     negs = []
+        #     for neg_path in overfit_triplet['neg']:
+        #         paths.append(neg_path)
+        #         neg = Image.open(neg_path)
+        #         neg = neg.convert('RGB')
+        #
+        #         negs.append(neg)
+        #
+        # else:  # not overfitting
+
+        anch_idx = random.randint(0, self.num_classes - 1)
+        anch_class = self.labels[anch_idx]
+        random_anch_path = random.choice(self.datas[anch_class])
+        paths.append(random_anch_path)
+        anch = Image.open(random_anch_path)
+
+        # get pos image from same class
+        random_number_for_same_pic = random.random()
+        if random_number_for_same_pic < self.same_pic_prob and self.is_train:
+            random_path = random_anch_path
+        else:
+            random_path = random.choice(self.datas[anch_class])
+
+        paths.append(random_path)
+        pos = Image.open(random_path)
+
+        anch = anch.convert('RGB')
+        pos = pos.convert('RGB')
+
+        negs = []
+        neg_classes = []
+        for i in range(self.no_negative):
+            neg_idx = random.randint(0, self.num_classes - 1)
+            neg_class = self.labels[neg_idx]
+
+            while not self.legal_class_condition(anch_class, neg_class):
+                neg_idx = random.randint(0, self.num_classes - 1)
+                neg_class = self.labels[neg_idx]
+
+            random_path = random.choice(self.datas[neg_class])
+            paths.append(random_path)
+            neg = Image.open(random_path)
+            neg = neg.convert('RGB')
+
+            neg_classes.append(neg_class)
+            negs.append(neg)
+
+        save = False
+        end = time.time()
+        if utils.MY_DEC.enabled:
+            print(f'HotelTrain_Metric Dataloader, choose images time: {end - start}')
+
+        if self.transform:
+            start = time.time()
+            # if self.save_pictures and random.random() < 0.0001:
+            #     save = True
+            #     img1_random = random.randint(0, 1000)
+            #     img2_random = random.randint(0, 1000)
+            #     anch.save(f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_before.png')
+            #     negs.save(f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_before.png')
+
+            if self.aug_mask:
+
+
+                anch_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                pos_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+
+                anch, masked_anch, anch_mask, _ = utils.add_mask(anch, anch_mask, colored=self.colored_mask)
+                pos, masked_pos, pos_mask, _ = utils.add_mask(pos, pos_mask, colored=self.colored_mask)
+
+                if not self.fourth_dim:
+                    anch = masked_anch
+                    pos = masked_pos
+
+                new_negs = []
+                neg_masks = []
+                masked_negs = []
+                for neg in negs:
+                    neg_mask = Image.open(self.masks[np.random.randint(len(self.masks))])
+                    neg, masked_neg, neg_mask, _ = utils.add_mask(neg, neg_mask, colored=self.colored_mask)
+                    neg_masks.append(neg_mask)
+                    masked_negs.append(masked_neg)
+
+                    if not self.fourth_dim:
+                        neg = masked_neg
+
+                    new_negs.append(neg)
+
+                negs = new_negs
+
+
+
+                # if random.random() < 0.00001:
+                # rand = random.random()
+                # masked_anch.save(f'train_anch_{rand}_masked.png')
+                # masked_pos.save(f'train_pos_{rand}_masked.png')
+                # masked_neg.save(f'train_neg_{rand}_masked.png')
+
+            # import pdb
+            # pdb.set_trace()
+
+
+            anch = self.do_transform(anch)
+            pos = self.do_transform(pos, second=True)
+
+            if (random.random() <= self.exact_pic_and_aug) and self.is_train:
+                pos = anch # literally same images for anch and pos (even augmentations)
+
+            new_negs = []
+            for neg in negs:
+                neg = self.do_transform(neg, second=True)
+                new_negs.append(neg)
+
+            negs = torch.stack(new_negs)
+
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                print(f'HotelTrain_Metric Dataloader, transform images time: {end - start}')
+
+            # if save:
+            #     save_image(anch, f'hotel_imagesamples/train/train_{anch_class}_{img1_random}_after.png')
+            #     save_image(negs[0], f'hotel_imagesamples/train/train_{neg_class}_{img2_random}_after.png')
+
+        if self.return_paths:
+            return anch, pos, negs, paths # (B, C, H, W), (B, C, H, W), (B, NN, C, H, W), [anch_path, pos_path, neg1_path, ...]
+        else:
+            return anch, pos, negs
+
     def __triplet_getitem__(self, index):
 
         paths = []
