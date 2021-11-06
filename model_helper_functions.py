@@ -1260,7 +1260,7 @@ class ModelMethods:
 
                 else:
                     t, (train_loss, train_bce_loss, train_triplet_loss), (
-                        pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss,
+                        pos_parts, neg_parts) = self.train_metriclearning_one_epoch2(args, t, net, opt, bce_loss,
                                                                                     metric_ACC,
                                                                                     loss_fn, train_loader, epoch,
                                                                                     grad_save_path, drew_graph)
@@ -1322,7 +1322,7 @@ class ModelMethods:
 
                             utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
 
-                            val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
+                            val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric2(
                                 args, net, loader,
                                 loss_fn, bce_loss, val=True,
                                 epoch=epoch, comment=comm)
@@ -1589,6 +1589,138 @@ class ModelMethods:
         self.writer.flush()
 
         return tests_right, tests_error, test_acc
+
+    def test_metric2(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment='',
+                    roc_specific=False):
+        net.eval()
+        # device = f'cuda:{net.device_ids[0]}'
+        if val:
+            prompt_text = comment + f' VAL METRIC LEARNING epoch {epoch}:\tcorrect:\t%d\terror:\t%d\tval_acc:%f\tval_loss:%f\t'
+            prompt_text_tb = comment + '_Val'
+        else:
+            prompt_text = comment + ' TEST METRIC LEARNING:\tcorrect:\t%d\terror:\t%d\ttest_acc:%f\ttest_loss:%f\t'
+            prompt_text_tb = comment + '_Test'
+
+        if roc_specific:
+            prompt_text_tb += '_ROC_SPECIFIC'
+        tests_right, tests_error = 0, 0
+
+        metric_ACC = metrics.Metric_Accuracy()
+
+        metric_ACC.reset_acc()
+
+        test_loss = 0
+        test_bce_loss = 0
+        test_triplet_loss = 0
+        loss = 0
+        true_label_auc = []
+        pred_label_auc = []
+        all_pos_predictions = []
+        all_neg_predictions = []
+        with tqdm(total=len(data_loader), desc=f'{prompt_text_tb}') as t:
+            for _, (anch, pos, negs) in enumerate(data_loader, 1):
+
+                negs = negs.flatten(start_dim=0, end_dim=1)
+                anchs = torch.repeat_interleave(anch, torch.tensor([self.no_negative]), dim=0)
+
+                total_anchs = torch.cat([anch, anchs])
+                total_seconds = torch.cat([pos, negs])
+
+                one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
+                zero_labels = torch.tensor([0 for _ in range(self.no_negative * anch.shape[0])], dtype=float)
+                labels = torch.cat([one_labels, zero_labels])
+
+                if args.cuda:
+                    total_anchs, total_seconds, labels = Variable(total_anchs.cuda()), \
+                                                              Variable(total_seconds.cuda()), \
+                                                              Variable(labels.cuda())
+                else:
+                    total_anchs, total_seconds, labels = Variable(total_anchs), \
+                                                         Variable(total_seconds), \
+                                                         Variable(labels)
+
+
+                forward_start = time.time()
+                predictions, distances, anch_feat, second_feats = net.forward(total_anchs, total_seconds, feats=True)
+                forward_end = time.time()
+
+                pred_label_auc.extend(predictions.data.cpu().numpy())
+                true_label_auc.extend(labels.data.cpu().numpy())
+
+                pos_pred = predictions[:len(pos)]
+                neg_pred = predictions[len(pos):]
+
+                all_pos_predictions.extend(pos_pred.data.cpu().numpy())
+                all_neg_predictions.extend(neg_pred.data.cpu().numpy())
+
+                if utils.MY_DEC.enabled:
+                    self.logger.info(f'########### anch pos forward time: {forward_end - forward_start}')
+
+                class_loss = bce_loss(predictions.squeeze(), labels.squeeze())
+                metric_ACC.update_acc(predictions.squeeze(), labels.squeeze())  # zero dist means similar
+
+                if loss_fn is not None:
+                    # ext_loss /= self.no_negative
+                    # if args.loss == 'trpl_local':
+                    #     ext_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
+                    # elif args.loss == 'contrv_mlp':
+                    #     ext_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)
+                    # else:
+                    ext_loss, parts = self.get_loss_value2(args, loss_fn, anch_feat, second_feats)
+
+                    # ext_loss, parts = self.get_loss_value2(args, loss_fn, anch_feat, second_feats)
+                    # loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                    test_triplet_loss += ext_loss.item()
+
+
+                if loss_fn is not None:
+                    # ext_loss /= self.no_negative
+                    # test_triplet_loss += ext_loss.item()
+                    if args.loss == 'contrv_mlp':
+                        loss = ext_loss
+                    else:
+                        loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+                else:
+                    loss = self.bce_weight * class_loss
+
+                test_loss += loss.item()
+
+                test_bce_loss += class_loss.item()
+
+                t.update()
+
+        self.logger.info(f'Length of true_label_auc for calculating is: {len(true_label_auc)}')
+        print(f'Length of true_label_auc for calculating is: {len(true_label_auc)}')
+        roc_auc = roc_auc_score(true_label_auc, utils.sigmoid(np.array(pred_label_auc)))
+
+        self.logger.info('$' * 70)
+
+        # self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
+        self.logger.error(f'{prompt_text_tb}/Loss:  {test_loss / len(data_loader)}, epoch: {epoch}')
+        self.writer.add_scalar(f'{prompt_text_tb}/Loss', test_loss / len(data_loader), epoch)
+        if loss_fn is not None:
+            self.logger.error(f'{prompt_text_tb}/Triplet_Loss: {test_triplet_loss / len(data_loader)}, epoch: {epoch}')
+            self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_triplet_loss / len(data_loader), epoch)
+        self.logger.error(f'{prompt_text_tb}/BCE_Loss: {test_bce_loss / len(data_loader)}, epoch: {epoch}')
+        self.writer.add_scalar(f'{prompt_text_tb}/BCE_Loss', test_bce_loss / len(data_loader), epoch)
+
+        self.logger.error(f'{prompt_text_tb}/ROC_AUC: {roc_auc}, epoch: {epoch}')
+        print(f'&& {prompt_text_tb}/ROC_AUC: {roc_auc}, epoch: {epoch}')
+        self.writer.add_scalar(f'{prompt_text_tb}/ROC_AUC', roc_auc, epoch)
+
+        self.logger.error(f'{prompt_text_tb}/Acc: {metric_ACC.get_acc()} epoch: {epoch}')
+        if args.hparams:
+            self.hparams_metric[f'{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
+        else:
+            self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
+
+        # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
+        self.writer.flush()
+
+        return roc_auc, metric_ACC.get_acc(), metric_ACC.get_right_wrong(), {'pos': all_pos_predictions,
+                                                                             'neg': all_neg_predictions}, (
+                       test_loss / len(data_loader))
+
 
     def test_metric(self, args, net, data_loader, loss_fn, bce_loss, val=False, epoch=0, comment='',
                     roc_specific=False):
@@ -3438,6 +3570,7 @@ class ModelMethods:
 
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
+            # ext_loss = loss_fn(1 - torch.sigmoid(pos_pred), 1 - torch.sigmoid(neg_pred))
             ext_loss = loss_fn(-1 * pos_pred, -1 * neg_pred)  # todo
 
             # class_loss /= (self.no_negative + 1)

@@ -493,7 +493,7 @@ class Metric_Dataset_Train(Dataset):
         if self.batchhard:
             return self.__batchhard_getitem__(index)
         else:
-            return self.__triplet_getitem__(index)
+            return self.__triplet_getitem2__(index)
 
     def do_transform(self, img, second=False):
         if second:
