@@ -66,8 +66,8 @@ def evaluate_roc(X, Y, n=0):
 
     pred_matrix = (cosine_similarity(X) + 1) / 2
 
-    assert np.max(pred_matrix) <= 1
-    assert np.min(pred_matrix) >= 0
+    assert np.max(pred_matrix) <= (1 + 1e-5)
+    assert np.min(pred_matrix) >= (0 - 1e-5)
 
     labels, counts = np.unique(Y, return_counts=True)
     labels = labels[counts > 1]
