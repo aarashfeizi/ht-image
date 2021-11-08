@@ -64,7 +64,11 @@ def evaluate_roc(X, Y, n=0):
     if n == 0:
         n = X.shape[0]
 
-    sim_matrix = cosine_similarity(X)
+    pred_matrix = (cosine_similarity(X) + 1) / 2
+
+    assert np.max(pred_matrix) <= 1
+    assert np.min(pred_matrix) >= 0
+
     labels, counts = np.unique(Y, return_counts=True)
     labels = labels[counts > 1]
 
@@ -86,10 +90,10 @@ def evaluate_roc(X, Y, n=0):
             neg_idx = np.random.choice(idxs[Y != anch_lbl], size=1)
 
             true_labels.append(1)
-            pred_values.append(sim_matrix[anch_idx, pos_idx])
+            pred_values.append(pred_matrix[anch_idx, pos_idx])
 
             true_labels.append(0)
-            pred_values.append(sim_matrix[anch_idx, neg_idx])
+            pred_values.append(pred_matrix[anch_idx, neg_idx])
 
             t.update()
 
