@@ -129,7 +129,7 @@ class CrossDotProductAttentionBlock(nn.Module):
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
         attended_local1_from2 = (self.op_v(pre_local_key).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
-            N, C, W, H)
+            N, C, W, H)  # todo not sure if key should be multiplied or query
 
         attended_local1_from1 = (
                     attention_map.softmax(axis=2) @ self.op_v(pre_local_query).reshape(N, C, W * H).transpose(-2,
@@ -144,7 +144,7 @@ class CrossDotProductAttentionBlock(nn.Module):
 
         attended_local1 = (pre_local_query +
                            attended_local1_from1 +
-                           attended_local1_from2)
+                           attended_local1_from2) # todo works because 2 additions
 
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
