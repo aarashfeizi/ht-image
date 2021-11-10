@@ -1120,7 +1120,7 @@ class TopModel(nn.Module):
 
         if self.transformer:
             x1_global = self.ft_net(x1)
-            x1_local = None
+            x1_local = [None]
         else:
             x1_global, x1_local = self.ft_net(x1, is_feat=True, hook=hook)
 
@@ -1131,7 +1131,7 @@ class TopModel(nn.Module):
 
             if self.transformer:
                 x2_global = self.ft_net(x2)
-                x2_local = None
+                x2_local = [None]
             else:
                 x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
 
