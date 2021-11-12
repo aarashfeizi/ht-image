@@ -2241,7 +2241,7 @@ class ModelMethods:
         else:
             raise Exception('Not handled feature extractor')
 
-        if args.dim_reduction != 0:
+        if args.dim_reduction != 0 and ('deit' not in args.feat_extractor):
             test_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff), dtype=np.float32)
             test_local_feats = np.zeros((len(data_loader.dataset), args.dim_reduction * coeff, 7, 7), dtype=np.float32)
 
