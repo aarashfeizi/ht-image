@@ -2647,8 +2647,8 @@ def get_logname(args):
         name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
 
     elif args.pretrained_model != '':
-        id =  # todo extract model random id to know where it was trained form
-        name += f'from{args.pretrained_model}_{args.extra_name}'
+        id = '12345678987654321' # todo extract model random id to know where it was trained form
+        name += f'from{id}'
 
     name += id_str
 
