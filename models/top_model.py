@@ -111,10 +111,10 @@ class CrossDotProductAttentionBlock(nn.Module):
             self.op_v.weight.data.fill_(constant_weight)
             self.op_v.weight.data.fill_(constant_weight)
 
-    def forward(self, pre_local_query, pre_local_key):
-        N, C, W, H = pre_local_query.size()
+    def forward(self, pre_local_query_org, pre_local_key):
+        N, C, W, H = pre_local_query_org.size()
 
-        pre_local_query = self.layernorm(pre_local_query)
+        pre_local_query = self.layernorm(pre_local_query_org)
         local_1_query = self.op_q(pre_local_query).reshape(N, C, W * H)
 
         if pre_local_key is not None:
@@ -142,7 +142,7 @@ class CrossDotProductAttentionBlock(nn.Module):
         attended_local1_asq = attended_local1_asq.view(N, C, -1).sum(dim=2)  # batch_sizexC
         attended_local2_ask = attended_local2_ask.view(N, C, -1).sum(dim=2)  # batch_sizexC
 
-        attended_local1 = (pre_local_query +
+        attended_local1 = (pre_local_query_org +
                            attended_local1_from1 +
                            attended_local1_from2) # todo works because 2 additions
 
