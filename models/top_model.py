@@ -1069,25 +1069,25 @@ class TopModel(nn.Module):
 
                 self.classifier = nn.Linear(in_features=in_feat, out_features=1)
 
-            elif self.merge_method.startswith('diff-sim') and self.global_attention:
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and self.global_attention:
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
                 self.attention_module = DiffSimFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
 
-            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'glb-both':
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'glb-both':
                 self.att_type = 'channel_spatial'
                 self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output,
                                                                       constant_weight=args.att_weight_init)
-            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'unet-att':
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'unet-att':
                 self.att_type = 'unet'
                 self.glb_atn = Att_For_Unet(in_features=ft_net_output, constant_weight=args.att_weight_init)
-            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'dot-product':
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'dot-product':
                 self.att_type = 'dot-product'
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
                                                         cross_add=False)
 
-            elif self.merge_method.startswith('diff-sim') and args.att_mode_sc == 'dot-product-add':
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'dot-product-add':
                 self.att_type = 'dot-product-add'
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
