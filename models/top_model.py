@@ -178,9 +178,15 @@ class CrossDotProductAttention(nn.Module):
         else:
             attended_local_1_asq, attended_local_1_ask, (l1_query_map, l1_key_map), attended_local_1 = self.qk_module(
                 local1, local1)
-            return self.return_representation(attended_local_1_asq, attended_local_1_ask), None, \
-                   (self.return_representation(l1_query_map, l1_key_map),
-                    None)
+            if self.cross_add:
+                return attended_local_1, \
+                       None, \
+                       (self.return_representation(l1_query_map, l1_key_map),
+                        None)
+            else:
+                return self.return_representation(attended_local_1_asq, attended_local_1_ask), None, \
+                       (self.return_representation(l1_query_map, l1_key_map),
+                        None)
         if self.cross_add:
             return attended_local_1, \
                    attended_local_2, \
@@ -1339,6 +1345,7 @@ class TopModel(nn.Module):
                     #
                     # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                     #             + F.normalize(attended_x2_global, p=2, dim=1)
+
 
                     x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
                     if anch_pass_act:
