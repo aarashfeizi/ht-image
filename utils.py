@@ -2643,8 +2643,12 @@ def get_logname(args):
     if args.loss == 'batchhard' or args.loss == 'contrv':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
-    # if args.pretrained_model != '':  # for running baselines and feature extractors
-    #     name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
+    if args.pretrained_model != '' and len(args.pretrained_model) < 10:  # for running baselines and feature extractors
+        name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
+
+    elif args.pretrained_model != '':
+        id =  # todo extract model random id to know where it was trained form
+        name += f'from{args.pretrained_model}_{args.extra_name}'
 
     name += id_str
 

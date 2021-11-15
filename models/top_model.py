@@ -111,14 +111,14 @@ class CrossDotProductAttentionBlock(nn.Module):
             self.op_v.weight.data.fill_(constant_weight)
             self.op_v.weight.data.fill_(constant_weight)
 
-    def forward(self, pre_local_query_org, pre_local_key):
+    def forward(self, pre_local_query_org, pre_local_key_org):
         N, C, W, H = pre_local_query_org.size()
 
         pre_local_query = self.layernorm(pre_local_query_org)
         local_1_query = self.op_q(pre_local_query).reshape(N, C, W * H)
 
-        if pre_local_key is not None:
-            pre_local_key = self.layernorm(pre_local_key)
+        if pre_local_key_org is not None:
+            pre_local_key = self.layernorm(pre_local_key_org)
             local_2_key = self.op_k(pre_local_key).reshape(N, C, W * H)
         else:
             local_2_key = local_1_query
@@ -128,11 +128,11 @@ class CrossDotProductAttentionBlock(nn.Module):
         query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
-        attended_local1_from2 = (self.op_v(pre_local_key).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
+        attended_local1_from2 = (self.op_v(pre_local_key_org).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
             N, C, W, H)  # todo not sure if key should be multiplied or query
 
         attended_local1_from1 = (
-                    attention_map.softmax(axis=2) @ self.op_v(pre_local_query).reshape(N, C, W * H).transpose(-2,
+                    attention_map.softmax(axis=2) @ self.op_v(pre_local_query_org).reshape(N, C, W * H).transpose(-2,
                                                                                                               -1)).reshape(
             N, C, W, H)
 

@@ -266,9 +266,9 @@ def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_meth
         elif pretrained_model == 'swav' or pretrained_model == 'dino':
             pretrained_path = os.path.join(project_path, f'models/pretrained_{arch}.pt')
             state_dict = torch.load(pretrained_path)['model_state_dict']
-
         else:
-            raise Exception(f'{arch} not supported!')
+            pretrained_path = os.path.join(project_path, pretrained_model)
+            state_dict = torch.load(pretrained_path)['model_state_dict']
 
         model.load_my_state_dict(state_dict, four_dim=(mask and fourth_dim))
         print('pretrained loaded!')
