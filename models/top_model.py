@@ -1191,7 +1191,9 @@ class TopModel(nn.Module):
                     _, x1_global = self.glb_atn(x1_local[-1], x1_global)
                 elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
                     attended_x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
-                    x1_global = attended_x1_global
+                    x1_global = attended_x1_global.reshape(attended_x1_global.shape[0],
+                                                           attended_x1_global.shape[1],
+                                                           -1).mean(axis=2)
                 elif self.att_type == 'unet':
                     pass  # shouldn't pass through attention
 
