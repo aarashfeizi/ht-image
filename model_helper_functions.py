@@ -1097,12 +1097,12 @@ class ModelMethods:
                                       'new': True}]
             if netmod.attention_module is not None:
                 learnable_params += [{'params': netmod.attention_module.parameters(),
-                                      'lr': args.lr_new,
+                                      'lr': args.lr_att,
                                       'weight_decay': args.weight_decay,
                                       'new': True}]
             if netmod.glb_atn is not None:
                 learnable_params += [{'params': netmod.glb_atn.parameters(),
-                                      'lr': args.lr_new,
+                                      'lr': args.lr_att,
                                       'weight_decay': args.weight_decay,
                                       'new': True}]
 
