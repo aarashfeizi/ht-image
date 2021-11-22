@@ -1086,14 +1086,14 @@ class TopModel(nn.Module):
             elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'unet-att':
                 self.att_type = 'unet'
                 self.glb_atn = Att_For_Unet(in_features=ft_net_output, constant_weight=args.att_weight_init)
-            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'dot-product':
+            elif ('attention' not in self.merge_method) and args.att_mode_sc == 'dot-product':
                 self.att_type = 'dot-product'
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
                                                         cross_add=False)
 
-            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'dot-product-add':
+            elif ('attention' not in self.merge_method) and args.att_mode_sc == 'dot-product-add':
                 self.att_type = 'dot-product-add'
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
