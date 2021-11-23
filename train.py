@@ -5,8 +5,7 @@ import torch.nn
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, \
-    LocalTripletLoss
+from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, LocalTripletLoss
 from models.top_model import *
 from my_datasets import *
 
@@ -56,6 +55,7 @@ def main():
     logger.info(f'Batch size is {args_dict["batch_size"]}')
     train_aug = (args.overfit_num == 0)
 
+
     # hotels v5 train small mean: tensor([0.5791, 0.5231, 0.4664])
     # hotels v5 train small std: tensor([0.2512, 0.2581, 0.2698])
 
@@ -63,12 +63,11 @@ def main():
     # hotels v5 train std: tensor([0.2508, 0.2580, 0.2701])
 
     data_transforms_train_1, transform_list_train_1 = utils.TransformLoader(args.image_size,
-                                                                            rotate=args.rotate).get_composed_transform(
+                                                                        rotate=args.rotate).get_composed_transform(
         aug=args.aug, random_crop=train_aug, color_jitter=train_aug, random_erase=args.random_erase)
 
     data_transforms_train_2, transform_list_train_2 = utils.TransformLoader(args.image_size,
-                                                                            rotate=args.rotate,
-                                                                            scale=[0.1, 0.5]).get_composed_transform(
+                                                                        rotate=args.rotate, scale=[0.1, 0.5]).get_composed_transform(
         aug=args.aug, random_crop=train_aug, color_jitter=train_aug)
 
     logger.info(f'train transforms: {transform_list_train_1}')
@@ -146,9 +145,10 @@ def main():
     if len(args.valsets) != 0:
         for v_file in args.valsets:
             val_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=v_file,
-                                                  save_pictures=False, overfit=False,
-                                                  batchhard=[False, args.bh_P, args.bh_K])
+                                                        save_pictures=False, overfit=False,
+                                                        batchhard=[False, args.bh_P, args.bh_K])
             val_sets.append(val_set_metric)
+
 
     # else:
     #     if args.vs_folder_name != 'none':
@@ -178,8 +178,8 @@ def main():
 
         for t_file in args.testsets:
             test_set_metric = Metric_Dataset_Train(args, transform=data_transforms_val, mode=t_file,
-                                                   save_pictures=False, overfit=False,
-                                                   batchhard=[False, args.bh_P, args.bh_K])
+                                                        save_pictures=False, overfit=False,
+                                                        batchhard=[False, args.bh_P, args.bh_K])
             test_sets.append(test_set_metric)
         # else:
         #
@@ -231,7 +231,7 @@ def main():
     #         test_set_unknown = FewShot_Dataset_Test(args, transform=data_transforms_val, mode=args.tu_folder_name)
     #         logger.info('*' * 10)
 
-    # todo test not supported for metric learning
+        # todo test not supported for metric learning
 
     val_db_sets = []
     if args.query_index:
@@ -239,15 +239,16 @@ def main():
             query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
                                       return_pairs=False)
 
+
             index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
-                                      return_pairs=False)
+                                    return_pairs=False)
 
             val_db_sets.append([query_db_set, index_db_set])
 
     else:
         for v_split in args.valsets:
             val_db_set = DB_Dataset(args, transform=data_transforms_val, mode=v_split,
-                                    return_pairs=False)
+                                      return_pairs=False)
 
             val_db_sets.append(val_db_set)
 
@@ -256,7 +257,7 @@ def main():
         if args.test_query_index:
             for q_split, i_split in zip(args.t_queries, args.t_indices):
                 test_query_db_set = DB_Dataset(args, transform=data_transforms_val, mode=q_split,
-                                               return_pairs=False)
+                                 return_pairs=False)
 
                 test_index_db_set = DB_Dataset(args, transform=data_transforms_val, mode=i_split,
                                                return_pairs=False)
@@ -339,15 +340,15 @@ def main():
     for set_pair in val_db_sets:
         if len(set_pair) == 2 and type(set_pair) == list:
             val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                        pin_memory=pin_memory, drop_last=args.drop_last)  # query
+                                         pin_memory=pin_memory, drop_last=args.drop_last) # query
 
             val2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                        pin_memory=pin_memory, drop_last=args.drop_last)  # index
+                                       pin_memory=pin_memory, drop_last=args.drop_last) # index
 
             val_db_loaders.append([val1_db_loader, val2_db_loader])
         else:
             val_db_loader = DataLoader(set_pair, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                       pin_memory=pin_memory, drop_last=args.drop_last)
+                                        pin_memory=pin_memory, drop_last=args.drop_last)
 
             val_db_loaders.append(val_db_loader)
 
@@ -356,10 +357,10 @@ def main():
         for set_pair in test_db_sets:
             if len(set_pair) == 2 and type(set_pair) == list:
                 test1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                             pin_memory=pin_memory, drop_last=args.drop_last)  # query
+                                             pin_memory=pin_memory, drop_last=args.drop_last) # query
 
                 test2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                             pin_memory=pin_memory, drop_last=args.drop_last)  # index
+                                           pin_memory=pin_memory, drop_last=args.drop_last) # index
 
                 test_db_loaders.append([test1_db_loader, test2_db_loader])
             else:
@@ -367,6 +368,7 @@ def main():
                                             pin_memory=pin_memory, drop_last=args.drop_last)
 
                 test_db_loaders.append(test_db_loader)
+
 
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
@@ -460,7 +462,7 @@ def main():
                 db_loader_names = [loader.dataset.name for loader in val_db_loaders]
 
             for loader, name in zip(val_db_loaders, db_loader_names):
-                if args.query_index:  # loader is pair of loaders
+                if args.query_index: # loader is pair of loaders
                     model_methods_top.make_emb_query_index(args, net, loader,
                                                            eval_sampled=args.sampled_results,
                                                            eval_per_class=args.per_class_results,
@@ -492,7 +494,6 @@ def main():
                                               epoch=-1,
                                               count=1,
                                               draw_all_thresh=args.draw_all_thresh)
-
         model_methods_top.draw_activation_layers(net=net,
                                                  loss_fn=loss_fn,
                                                  bce_loss=loss_fn_bce,
@@ -506,69 +507,21 @@ def main():
 
         logger.info(f'DONE drawing heatmaps on epoch {-1}!!!')
 
-    model_methods_top.draw_heatmaps(net=net,
-                                    loss_fn=loss_fn,
-                                    bce_loss=loss_fn_bce,
-                                    args=args,
-                                    cam_loader=cam_img_paths,
-                                    transform_for_model=data_transforms_val,
-                                    transform_for_heatmap=cam_data_transforms,
-                                    epoch=-1,
-                                    count=1,
-                                    draw_all_thresh=args.draw_all_thresh)
-    logger.info(f'DONE drawing heatmaps on epoch {-1}!!!')
+    if args.katn and args.pretrained_model_name != '':
+        logger.info('Calculating K@Ns for Validation')
+        # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+        #                               eval_sampled=False,
+        #                               eval_per_class=True, newly_trained=True,
+        #                               batch_size=args.db_batch,
+        #                               mode='train_sampled')
+        if val_db_loaders:
 
-
-if args.katn and args.pretrained_model_name != '':
-    logger.info('Calculating K@Ns for Validation')
-    # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-    #                               eval_sampled=False,
-    #                               eval_per_class=True, newly_trained=True,
-    #                               batch_size=args.db_batch,
-    #                               mode='train_sampled')
-    if val_db_loaders:
-
-        if args.query_index:
-            db_loader_names = [loader_pair[0].dataset.name for loader_pair in val_db_loaders]
-        else:
-            db_loader_names = [loader.dataset.name for loader in val_db_loaders]
-
-        for loader, name in zip(val_db_loaders, db_loader_names):
             if args.query_index:
-                model_methods_top.make_emb_query_index(args, net, loader,
-                                                       eval_sampled=args.sampled_results,
-                                                       eval_per_class=args.per_class_results,
-                                                       batch_size=args.db_batch,
-                                                       mode=name)
+                db_loader_names = [loader_pair[0].dataset.name for loader_pair in val_db_loaders]
             else:
-                model_methods_top.make_emb_db(args, net, loader,
-                                              eval_sampled=args.sampled_results,
-                                              eval_per_class=args.per_class_results, newly_trained=True,
-                                              batch_size=args.db_batch,
-                                              mode=name)
+                db_loader_names = [loader.dataset.name for loader in val_db_loaders]
 
-# testing
-if args.test:
-
-    logger.info(f"Loading {best_model_top} model...")
-    net = model_methods_top.load_model(args, net, best_model_top)
-    with torch.no_grad():
-        for tlm, comm in zip(test_loaders_metric, EVAL_SET_NAMES[len(test_loaders_metric)]):
-            model_methods_top.test_metric(args, net, tlm, loss_fn, loss_fn_bce, val=False, epoch=-1, comment=comm)
-
-        if args.katn:
-            logger.info('Calculating K@Ns for Test')
-            # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
-            #                               eval_sampled=False,
-            #                               eval_per_class=True, newly_trained=True,
-            #                               batch_size=args.db_batch,
-            #                               mode='train_sampled')
-            if args.test_query_index:
-                t_db_loader_names = [loader_pair[0].dataset.name for loader_pair in test_db_loaders]
-            else:
-                t_db_loader_names = [loader.dataset.name for loader in test_db_loaders]
-
-            for loader, name in zip(test_db_loaders, t_db_loader_names):
+            for loader, name in zip(val_db_loaders, db_loader_names):
                 if args.query_index:
                     model_methods_top.make_emb_query_index(args, net, loader,
                                                            eval_sampled=args.sampled_results,
@@ -582,10 +535,45 @@ if args.test:
                                                   batch_size=args.db_batch,
                                                   mode=name)
 
+    # testing
+    if args.test:
 
-else:
-    logger.info("NO TESTING DONE.")
-#  learning_rate = learning_rate * 0.95
+        logger.info(f"Loading {best_model_top} model...")
+        net = model_methods_top.load_model(args, net, best_model_top)
+        with torch.no_grad():
+            for tlm, comm in zip(test_loaders_metric, EVAL_SET_NAMES[len(test_loaders_metric)]):
+                model_methods_top.test_metric(args, net, tlm, loss_fn, loss_fn_bce, val=False, epoch=-1, comment=comm)
+
+            if args.katn:
+                logger.info('Calculating K@Ns for Test')
+                # model_methods_top.make_emb_db(args, tm_net, db_loader_train,
+                #                               eval_sampled=False,
+                #                               eval_per_class=True, newly_trained=True,
+                #                               batch_size=args.db_batch,
+                #                               mode='train_sampled')
+                if args.test_query_index:
+                    t_db_loader_names = [loader_pair[0].dataset.name for loader_pair in test_db_loaders]
+                else:
+                    t_db_loader_names = [loader.dataset.name for loader in test_db_loaders]
+
+                for loader, name in zip(test_db_loaders, t_db_loader_names):
+                    if args.query_index:
+                        model_methods_top.make_emb_query_index(args, net, loader,
+                                                               eval_sampled=args.sampled_results,
+                                                               eval_per_class=args.per_class_results,
+                                                               batch_size=args.db_batch,
+                                                               mode=name)
+                    else:
+                        model_methods_top.make_emb_db(args, net, loader,
+                                                      eval_sampled=args.sampled_results,
+                                                      eval_per_class=args.per_class_results, newly_trained=True,
+                                                      batch_size=args.db_batch,
+                                                      mode=name)
+
+
+    else:
+        logger.info("NO TESTING DONE.")
+    #  learning_rate = learning_rate * 0.95
 
 
 if __name__ == '__main__':
