@@ -401,8 +401,9 @@ class ModelMethods:
 
             utils.draw_entire_heatmaps([acts_anch_pos[0],
                                         acts_anch_pos[1],
+                                        acts_anch_neg[0],
                                         acts_anch_neg[1]],
-                                       [anch_org, pos_org, neg_org],
+                                       [anch_org, pos_org, anch_org, neg_org],
                                        l_labels,
                                        all_heatmap_grid_path,
                                        f'Epoch {epoch}\n{result_text}')
@@ -590,437 +591,438 @@ class ModelMethods:
         self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
         self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
 
-    def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
-                      transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
-
-        multiple_gpu = len(args.gpu_ids.split(",")) > 1
-        if multiple_gpu:  # todo local not supported
-            netmod = net.module
-        else:
-            netmod = net
-
-        net.eval()
-        # device = f'cuda:{net.device_ids[0]}'
-        heatmap_path = f'{self.save_path}/heatmap/'
-        heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
-
-        utils.make_dirs(heatmap_path_perepoch)
-        self.cam_all += 1
-        if 'attention' in self.merge_method:
-            if self.merge_method == 'local-ds-attention':
-                sub_methods = []
-                for i in args.feature_map_layers:
-                    sub_methods += [f'Layer {i} diff']
-                    sub_methods += [f'Layer {i} sim']
-            else:
-                sub_methods = [f'Layer {i}' for i in args.feature_map_layers]
-
-        else:
-            sub_methods = self.merge_method.split('-')
-
-        if args.loss != 'stopgrad':
-            classifier_weights = netmod.get_classifier_weights().data[0]
-            classifier_dim = len(classifier_weights)
-            classifier_histogram_path = os.path.join(heatmap_path_perepoch,
-                                                     f'classifier_histogram_epoch{epoch}.png')
-
-            self.plot_classifier_hist(classifier_weights.chunk(len(sub_methods), dim=-1), sub_methods,
-                                      'Classifier weight distribution', classifier_histogram_path,
-                                      f'classifier_weight', epoch)
-
-        for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
-
-            self.logger.info(f'Anch path: {anch_path}')
-            self.logger.info(f'Pos path: {pos_path}')
-            self.logger.info(f'Neg path: {neg_path}')
-
-            heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
-
-            utils.make_dirs(heatmap_path_perepoch_id)
-
-            anch = Image.open(anch_path)
-            pos = Image.open(pos_path)
-            neg = Image.open(neg_path)
-
-            if self.aug_mask:
-                anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask,
-                                                                          offsets=self.anch_offsets,
-                                                                          resize_factors=self.anch_resizefactors,
-                                                                          colored=self.colored_mask)
-                pos, masked_pos, pos_mask, param_pos = utils.add_mask(pos, self.pos_mask, offsets=self.pos_offsets,
-                                                                      resize_factors=self.pos_resizefactors,
-                                                                      colored=self.colored_mask)
-                neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
-                                                                      resize_factors=self.neg_resizefactors,
-                                                                      colored=self.colored_mask)
-
-                if not args.fourth_dim:
-                    anch = masked_anch
-                    pos = masked_pos
-                    neg = masked_neg
-
-                if self.anch_offsets is None:
-                    self.anch_offsets = param_anch['offsets']
-                    self.anch_resizefactors = param_anch['resize_factors']
-
-                    self.pos_offsets = param_pos['offsets']
-                    self.pos_resizefactors = param_pos['resize_factors']
-
-                    self.neg_offsets = param_neg['offsets']
-                    self.neg_resizefactors = param_neg['resize_factors']
-
-            tl = utils.TransformLoader(228)
-
-            anch = tl.transform_normalize(transform_for_model(anch))
-            pos = tl.transform_normalize(transform_for_model(pos))
-            neg = tl.transform_normalize(transform_for_model(neg))
-
-            anch = anch.reshape(shape=(1, anch.shape[0], anch.shape[1], anch.shape[2]))
-            pos = pos.reshape(shape=(1, pos.shape[0], pos.shape[1], pos.shape[2]))
-            neg = neg.reshape(shape=(1, neg.shape[0], neg.shape[1], neg.shape[2]))
-
-            if self.aug_mask:
-                anch_org = np.asarray(transform_for_heatmap(masked_anch))
-                pos_org = np.asarray(transform_for_heatmap(masked_pos))
-                neg_org = np.asarray(transform_for_heatmap(masked_neg))
-            else:
-                anch_org = np.asarray(transform_for_heatmap(Image.open(anch_path)))
-                pos_org = np.asarray(transform_for_heatmap(Image.open(pos_path)))
-                neg_org = np.asarray(transform_for_heatmap(Image.open(neg_path)))
-
-            zero_labels = torch.tensor([0], dtype=float)
-            one_labels = torch.tensor([1], dtype=float)
-
-            if args.cuda:
-                anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
-                                                          Variable(pos.cuda()), \
-                                                          Variable(neg.cuda()), \
-                                                          Variable(one_labels.cuda()), \
-                                                          Variable(zero_labels.cuda())
-            else:
-                anch, pos, neg, one_labels, zero_labels = Variable(anch), \
-                                                          Variable(pos), \
-                                                          Variable(neg), \
-                                                          Variable(one_labels), \
-                                                          Variable(zero_labels)
-
-            class_loss = 0
-            ext_loss = 0
-
-            pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anchp_att, pos_att = net.forward(anch, pos,
-                                                                                                     feats=True,
-                                                                                                     hook=True,
-                                                                                                     return_att=True)
-            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_pos_anch_heatmaps.pdf')
-
-            map_shape = acts_anch_pos[0].shape
-            classifier_weights_tensor = torch.repeat_interleave(classifier_weights, repeats=map_shape[2] * map_shape[3],
-                                                                dim=0).view(map_shape[0], classifier_dim, map_shape[2],
-                                                                            map_shape[3])
-
-            # acts_anch_pos[0] *= classifier_weights
-            # acts_anch_pos[1] *= classifier_weights
-            #
-            # acts_anch_pos[0] = np.maximum(acts_anch_pos[0], 0)
-            # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
-
-            # self.logger.info(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
-            pos_pred_int = int(torch.sigmoid(pos_pred).item() >= 0.5)
-            self.cam_pos[id - 1] += pos_pred_int
-            pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
-            plot_title = f'Backward BCE heatmaps Anch Pos\nAnch-Pos: {pos_text}'
-            if 'diff' in self.merge_method or 'sim' in self.merge_method:
-                pos_class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
-                pos_class_loss.backward(retain_graph=True)
-                class_loss = pos_class_loss
-
-                utils.apply_grad_heatmaps(net.get_activations_gradient(),
-                                          net.get_activations().detach(),
-                                          {'anch': anch_org,
-                                           'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
-                                          plot_title, f'triplet_{id}_anchpos_bce', epoch, self.writer)
-
-            neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anchn_att, neg_att = net.forward(anch, neg,
-                                                                                             feats=True,
-                                                                                             hook=True,
-                                                                                             return_att=True)
-
-            neg_pred_int = int(torch.sigmoid(neg_pred).item() < 0.5)
-            self.cam_neg[id - 1] += neg_pred_int
-
-            neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
-            plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
-
-            # grad heatmaps
-            if 'diff' in self.merge_method or 'sim' in self.merge_method:
-                neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
-                neg_class_loss.backward(retain_graph=True)
-                class_loss += neg_class_loss
-                utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
-                                          netmod.get_activations().detach(),
-                                          {'anch': anch_org,
-                                           'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
-                                          plot_title, f'triplet_{id}_anchneg_bce', epoch, self.writer)
-
-            # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', all_heatmap_grid_anch_path)
-            # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
-            # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
-
-            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
-            utils.draw_entire_heatmaps([acts_anch_pos[0],
-                                        acts_anch_pos[1],
-                                        acts_anch_neg[1]],
-                                       [anch_org, pos_org, neg_org],
-                                       ['Anch', 'Pos', 'Neg'],
-                                       all_heatmap_grid_path)
-
-            # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
-
-            result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
-
-            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
-                    not args.att_mode_sc.startswith('dot-product')):
-                ks = list(map(lambda x: int(x), args.k_best_maps))
-
-                value = ''
-                if self.merge_method == 'diff':
-                    value = 'different'
-                elif self.merge_method == 'sim':
-                    value = 'similar'
-                elif self.merge_method == 'diff-sim':
-                    value = 'different and similar'
-                else:
-                    raise Exception(f'Merge method not recognized {self.merge_method}')
-                #
-                # import pdb
-                # pdb.set_trace()
-
-                pos_dist_weighted = pos_dist * classifier_weights
-                neg_dist_weighted = neg_dist * classifier_weights
-                sub_method_dim = classifier_dim / len(sub_methods)
-
-                for k in ks:
-                    acts_tmp = []
-
-                    for m_i, met in enumerate(sub_methods):
-
-                        # import pdb
-                        # pdb.set_trace()
-                        offset = int(m_i * sub_method_dim)
-                        begin_index = offset
-                        end_index = int(offset + sub_method_dim)
-                        pos_dist_weighted_temp = pos_dist_weighted[:, begin_index:end_index]
-                        neg_dist_weighted_temp = neg_dist_weighted[:, begin_index:end_index]
-                        pos_max_indices = torch.topk(pos_dist_weighted_temp, k=k).indices
-
-                        print(f'offset = {offset}')
-
-                        self.logger.info(
-                            f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
-                        print(f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
-
-                        acts_tmp = []
-
-                        acts_tmp.append(acts_anch_pos[0][:, pos_max_indices, :, :].squeeze(dim=0))
-                        acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
-                        acts_tmp.append(acts_anch_neg[1][:, pos_max_indices, :, :].squeeze(dim=0))
-
-                        all_heatmap_path = {
-                            'max': os.path.join(heatmap_path_perepoch_id,
-                                                f'max_k_{k}_triplet{id}_best_anchpos_{met}.png'),
-                            'avg': os.path.join(heatmap_path_perepoch_id,
-                                                f'avg_k_{k}_triplet{id}_best_anchpos_{met}.png')}
-
-                        histogram_path = os.path.join(heatmap_path_perepoch_id,
-                                                      f'k_{k}_histogram_triplet{id}_best_anchpos_{met}.png')
-
-                        plot_title_wo_weights = f"{k} most important {value} channels for Anch Pos (w/o weights mul {met})" + result_text
-                        plot_title = f"{k} most important {value} channels for Anch Pos (with weights mul {met})" + result_text
-
-                        if k < draw_all_thresh:
-                            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
-                                                                 f'k_{k}_triplet{id}_all_heatmaps_best_anchpos_{met}.pdf')
-                            self.logger.info('before')
-                            self.logger.info(str(acts_tmp[0].min()))
-                            self.logger.info(str(acts_tmp[1].min()))
-                            self.logger.info(str(acts_tmp[2].min()))
-                            utils.draw_all_heatmaps(acts_tmp,
-                                                    [anch_org, pos_org, neg_org],
-                                                    ['Anch', 'Pos', 'Neg'],
-                                                    all_heatmap_grid_path,
-                                                    plot_title_wo_weights)
-                            self.logger.info('after')
-                            self.logger.info(str(acts_tmp[0].min()))
-                            self.logger.info(str(acts_tmp[1].min()))
-                            self.logger.info(str(acts_tmp[2].min()))
-                            self.logger.info('-------------')
-
-                        self.logger.info('before forward drawing')
-                        self.logger.info(f'min: {(acts_tmp[0].min())}')
-                        self.logger.info(f'min: {(acts_tmp[1].min())}')
-                        self.logger.info(f'min: {(acts_tmp[2].min())}')
-
-                        self.logger.info(f'max: {(acts_tmp[0].max())}')
-                        self.logger.info(f'max: {(acts_tmp[1].max())}')
-                        self.logger.info(f'max: {(acts_tmp[2].max())}')
-
-                        utils.apply_forward_heatmap(acts_tmp,
-                                                    [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
-                                                    id,
-                                                    all_heatmap_path,
-                                                    overall_title=plot_title,
-                                                    # individual_paths=[anch_hm_file_path,
-                                                    #                   pos_hm_file_path],
-                                                    # pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path],
-                                                    titles=['Anch', 'Pos', 'Neg'],
-                                                    histogram_path=histogram_path,
-                                                    merge_method=met,
-                                                    classifier_weights=classifier_weights_tensor[:,
-                                                                       offset + pos_max_indices, :,
-                                                                       :].squeeze(dim=0),
-                                                    tb_path=f'triplet_{id}_anch_pos_forward', epoch=epoch,
-                                                    writer=self.writer)
-
-                        self.logger.info('after forward drawing')
-                        self.logger.info(f'min: {(acts_tmp[0].min())}')
-                        self.logger.info(f'min: {(acts_tmp[1].min())}')
-                        self.logger.info(f'min: {(acts_tmp[2].min())}')
-
-                        self.logger.info(f'max: {(acts_tmp[0].max())}')
-                        self.logger.info(f'max: {(acts_tmp[1].max())}')
-                        self.logger.info(f'max: {(acts_tmp[2].max())}')
-
-                        self.logger.info('-------------')
-                        # import pdb
-                        # pdb.set_trace()
-
-                        acts_tmp = []
-
-                        neg_max_indices = torch.topk(neg_dist_weighted_temp, k=k).indices
-
-                        all_heatmap_path = {
-                            'max': os.path.join(heatmap_path_perepoch_id,
-                                                f'max_k_{k}_triplet{id}_best_anchneg_{met}.png'),
-                            'avg': os.path.join(heatmap_path_perepoch_id,
-                                                f'avg_k_{k}_triplet{id}_best_anchneg_{met}.png')}
-                        histogram_path = os.path.join(heatmap_path_perepoch_id,
-                                                      f'k_{k}_histogram_triplet{id}_best_anchneg_{met}.png')
-
-                        acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
-                        acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
-                        acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
-
-                        plot_title_wo_weights = f"{k} most important {value} channels for Anch Neg (w/o weights mul {met})" + result_text
-                        plot_title = f"{k} most important {value} channels for Anch Neg (with weights mul {met})" + result_text
-
-                        if k < draw_all_thresh:
-                            all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
-                                                                 f'k_{k}_triplet{id}_all_heatmaps_best_anchneg_{met}.pdf')
-                            utils.draw_all_heatmaps(acts_tmp,
-                                                    [anch_org, pos_org, neg_org],
-                                                    ['Anch', 'Pos', 'Neg'],
-                                                    all_heatmap_grid_path,
-                                                    plot_title_wo_weights)
-
-                        utils.apply_forward_heatmap(acts_tmp,
-                                                    [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
-                                                    id,
-                                                    all_heatmap_path,
-                                                    overall_title=plot_title,
-                                                    # individual_paths=[anch_hm_file_path,
-                                                    #                   neg_hm_file_path],
-                                                    # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
-                                                    titles=['Anch', 'Pos', 'Neg'],
-                                                    histogram_path=histogram_path,
-                                                    merge_method=met,
-                                                    classifier_weights=classifier_weights_tensor[:,
-                                                                       offset + neg_max_indices, :,
-                                                                       :].squeeze(dim=0),
-                                                    tb_path=f'triplet_{id}_anch_neg_forward', epoch=epoch,
-                                                    writer=self.writer)
-            elif ('attention' in self.merge_method) or (args.att_mode_sc.startswith('dot-product')):
-                att_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_att.png')
-                anch_name = utils.get_file_name(anch_path)
-                pos_name = utils.get_file_name(pos_path)
-                neg_name = utils.get_file_name(neg_path)
-                if args.local_to_local or self.merge_global or (args.att_mode_sc.startswith('dot-product')):
-
-                    utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],
-                                                  [(anch_name, anch_org), (pos_name, pos_org)],
-                                                  id,
-                                                  att_heatmap_path,
-                                                  overall_title=plot_title,
-                                                  # individual_paths=[anch_hm_file_path,
-                                                  #                   neg_hm_file_path],
-                                                  # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
-                                                  tb_path=f'triplet_{id}_anchpos_attention',
-                                                  epoch=epoch,
-                                                  writer=self.writer)
-
-                    utils.apply_attention_heatmap([anchn_att, neg_att],
-                                                  [(anch_name, anch_org), (neg_name, neg_org)],
-                                                  id,
-                                                  att_heatmap_path,
-                                                  overall_title=plot_title,
-                                                  # individual_paths=[anch_hm_file_path,
-                                                  #                   neg_hm_file_path],
-                                                  # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
-                                                  tb_path=f'triplet_{id}_anchneg_attention',
-                                                  epoch=epoch,
-                                                  writer=self.writer)
-                else:
-                    utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],  # anchn_att and anchp_att are the same
-                                                  [(anch_name, anch_org), (pos_name, pos_org), (neg_name, neg_org)],
-                                                  id,
-                                                  att_heatmap_path,
-                                                  overall_title=plot_title,
-                                                  # individual_paths=[anch_hm_file_path,
-                                                  #                   neg_hm_file_path],
-                                                  # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
-                                                  tb_path=f'triplet_{id}_attention',
-                                                  epoch=epoch,
-                                                  writer=self.writer)
-
-            if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
-                    not args.att_mode_sc.startswith('dot-product')):
-                if loss_fn is not None:
-                    ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
-                    ext_loss = ext_batch_loss
-
-                    ext_loss.backward(retain_graph=True)
-                    # ext_loss /= self.no_negative
-
-                    plot_title = f"Backward Triplet Loss" + result_text
-
-                    utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
-                                              netmod.get_activations().detach(),
-                                              {'anch': anch_org,
-                                               'pos': pos_org,
-                                               'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
-                                              plot_title, f'triplet_{id}_anchpos_triplet', epoch, self.writer)
-
-                    # class_loss /= (self.no_negative + 1)
-
-                    loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
-
-                else:
-
-                    loss = self.bce_weight * class_loss
-
-                plot_title = f"Backward Total Loss" + result_text
-
-                loss.backward()
-                utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
-                                          netmod.get_activations().detach(),
-                                          {'anch': anch_org,
-                                           'pos': pos_org,
-                                           'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
-                                          plot_title, f'triplet_{id}_anchpos_total', epoch, self.writer)
-
-        self.created_image_heatmap_path = True
-
-        self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
-        self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
+    # def draw_heatmaps(self, net, loss_fn, bce_loss, args, cam_loader, transform_for_model=None,
+    #                   transform_for_heatmap=None, epoch=0, count=1, draw_all_thresh=32):
+    #
+    #     multiple_gpu = len(args.gpu_ids.split(",")) > 1
+    #     if multiple_gpu:  # todo local not supported
+    #         netmod = net.module
+    #     else:
+    #         netmod = net
+    #
+    #     net.eval()
+    #     # device = f'cuda:{net.device_ids[0]}'
+    #     heatmap_path = f'{self.save_path}/heatmap/'
+    #     heatmap_path_perepoch = os.path.join(heatmap_path, f'epoch_{epoch}/')
+    #
+    #     utils.make_dirs(heatmap_path_perepoch)
+    #     self.cam_all += 1
+    #     if 'attention' in self.merge_method:
+    #         if self.merge_method == 'local-ds-attention':
+    #             sub_methods = []
+    #             for i in args.feature_map_layers:
+    #                 sub_methods += [f'Layer {i} diff']
+    #                 sub_methods += [f'Layer {i} sim']
+    #         else:
+    #             sub_methods = [f'Layer {i}' for i in args.feature_map_layers]
+    #
+    #     else:
+    #         sub_methods = self.merge_method.split('-')
+    #
+    #     if args.loss != 'stopgrad':
+    #         classifier_weights = netmod.get_classifier_weights().data[0]
+    #         classifier_dim = len(classifier_weights)
+    #         classifier_histogram_path = os.path.join(heatmap_path_perepoch,
+    #                                                  f'classifier_histogram_epoch{epoch}.png')
+    #
+    #         self.plot_classifier_hist(classifier_weights.chunk(len(sub_methods), dim=-1), sub_methods,
+    #                                   'Classifier weight distribution', classifier_histogram_path,
+    #                                   f'classifier_weight', epoch)
+    #
+    #     for id, (anch_path, pos_path, neg_path) in enumerate(cam_loader, 1):
+    #
+    #         self.logger.info(f'Anch path: {anch_path}')
+    #         self.logger.info(f'Pos path: {pos_path}')
+    #         self.logger.info(f'Neg path: {neg_path}')
+    #
+    #         heatmap_path_perepoch_id = os.path.join(heatmap_path_perepoch, f'triplet_{id}')
+    #
+    #         utils.make_dirs(heatmap_path_perepoch_id)
+    #
+    #         anch = Image.open(anch_path)
+    #         pos = Image.open(pos_path)
+    #         neg = Image.open(neg_path)
+    #
+    #         if self.aug_mask:
+    #             anch, masked_anch, anch_mask, param_anch = utils.add_mask(anch, self.anch_mask,
+    #                                                                       offsets=self.anch_offsets,
+    #                                                                       resize_factors=self.anch_resizefactors,
+    #                                                                       colored=self.colored_mask)
+    #             pos, masked_pos, pos_mask, param_pos = utils.add_mask(pos, self.pos_mask, offsets=self.pos_offsets,
+    #                                                                   resize_factors=self.pos_resizefactors,
+    #                                                                   colored=self.colored_mask)
+    #             neg, masked_neg, neg_mask, param_neg = utils.add_mask(neg, self.neg_mask, offsets=self.neg_offsets,
+    #                                                                   resize_factors=self.neg_resizefactors,
+    #                                                                   colored=self.colored_mask)
+    #
+    #             if not args.fourth_dim:
+    #                 anch = masked_anch
+    #                 pos = masked_pos
+    #                 neg = masked_neg
+    #
+    #             if self.anch_offsets is None:
+    #                 self.anch_offsets = param_anch['offsets']
+    #                 self.anch_resizefactors = param_anch['resize_factors']
+    #
+    #                 self.pos_offsets = param_pos['offsets']
+    #                 self.pos_resizefactors = param_pos['resize_factors']
+    #
+    #                 self.neg_offsets = param_neg['offsets']
+    #                 self.neg_resizefactors = param_neg['resize_factors']
+    #
+    #         tl = utils.TransformLoader(228)
+    #
+    #         anch = tl.transform_normalize(transform_for_model(anch))
+    #         pos = tl.transform_normalize(transform_for_model(pos))
+    #         neg = tl.transform_normalize(transform_for_model(neg))
+    #
+    #         anch = anch.reshape(shape=(1, anch.shape[0], anch.shape[1], anch.shape[2]))
+    #         pos = pos.reshape(shape=(1, pos.shape[0], pos.shape[1], pos.shape[2]))
+    #         neg = neg.reshape(shape=(1, neg.shape[0], neg.shape[1], neg.shape[2]))
+    #
+    #         if self.aug_mask:
+    #             anch_org = np.asarray(transform_for_heatmap(masked_anch))
+    #             pos_org = np.asarray(transform_for_heatmap(masked_pos))
+    #             neg_org = np.asarray(transform_for_heatmap(masked_neg))
+    #         else:
+    #             anch_org = np.asarray(transform_for_heatmap(Image.open(anch_path)))
+    #             pos_org = np.asarray(transform_for_heatmap(Image.open(pos_path)))
+    #             neg_org = np.asarray(transform_for_heatmap(Image.open(neg_path)))
+    #
+    #         zero_labels = torch.tensor([0], dtype=float)
+    #         one_labels = torch.tensor([1], dtype=float)
+    #
+    #         if args.cuda:
+    #             anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
+    #                                                       Variable(pos.cuda()), \
+    #                                                       Variable(neg.cuda()), \
+    #                                                       Variable(one_labels.cuda()), \
+    #                                                       Variable(zero_labels.cuda())
+    #         else:
+    #             anch, pos, neg, one_labels, zero_labels = Variable(anch), \
+    #                                                       Variable(pos), \
+    #                                                       Variable(neg), \
+    #                                                       Variable(one_labels), \
+    #                                                       Variable(zero_labels)
+    #
+    #         class_loss = 0
+    #         ext_loss = 0
+    #
+    #         pos_pred, pos_dist, anch_feat, pos_feat, acts_anch_pos, anchp_att, pos_att = net.forward(anch, pos,
+    #                                                                                                  feats=True,
+    #                                                                                                  hook=True,
+    #                                                                                                  return_att=True)
+    #         all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_pos_anch_heatmaps.pdf')
+    #
+    #         map_shape = acts_anch_pos[0].shape
+    #         # classifier_weights_tensor = torch.repeat_interleave(classifier_weights, repeats=map_shape[2] * map_shape[3],
+    #         #                                                     dim=0).view(map_shape[0], classifier_dim, map_shape[2],
+    #         #                                                                 map_shape[3])
+    #
+    #         # acts_anch_pos[0] *= classifier_weights
+    #         # acts_anch_pos[1] *= classifier_weights
+    #         #
+    #         # acts_anch_pos[0] = np.maximum(acts_anch_pos[0], 0)
+    #         # acts_anch_pos[1] = np.maximum(acts_anch_pos[1], 0)
+    #
+    #         # self.logger.info(f'cam pos {id - 1}: ', torch.sigmoid(pos_pred).item())
+    #         pos_pred_int = int(torch.sigmoid(pos_pred).item() >= 0.5)
+    #         self.cam_pos[id - 1] += pos_pred_int
+    #         pos_text = "Correct" if pos_pred_int == 1 else "Wrong"
+    #         plot_title = f'Backward BCE heatmaps Anch Pos\nAnch-Pos: {pos_text}'
+    #         if 'diff' in self.merge_method or 'sim' in self.merge_method:
+    #             pos_class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
+    #             pos_class_loss.backward(retain_graph=True)
+    #             class_loss = pos_class_loss
+    #
+    #             utils.apply_grad_heatmaps(net.get_activations_gradient(),
+    #                                       net.get_activations().detach(),
+    #                                       {'anch': anch_org,
+    #                                        'pos': pos_org}, 'bce_anch_pos', id, heatmap_path_perepoch_id,
+    #                                       plot_title, f'triplet_{id}_anchpos_bce', epoch, self.writer)
+    #
+    #         neg_pred, neg_dist, _, neg_feat, acts_anch_neg, anchn_att, neg_att = net.forward(anch, neg,
+    #                                                                                          feats=True,
+    #                                                                                          hook=True,
+    #                                                                                          return_att=True)
+    #
+    #         neg_pred_int = int(torch.sigmoid(neg_pred).item() < 0.5)
+    #         self.cam_neg[id - 1] += neg_pred_int
+    #
+    #         neg_text = "Correct" if neg_pred_int == 1 else "Wrong"
+    #         plot_title = f'Backward BCE heatmaps Anch Neg\nAnch-Neg: {neg_text}'
+    #
+    #         # grad heatmaps
+    #         if 'diff' in self.merge_method or 'sim' in self.merge_method:
+    #             neg_class_loss = bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
+    #             neg_class_loss.backward(retain_graph=True)
+    #             class_loss += neg_class_loss
+    #             utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
+    #                                       netmod.get_activations().detach(),
+    #                                       {'anch': anch_org,
+    #                                        'neg': neg_org}, 'bce_anch_neg', id, heatmap_path_perepoch_id,
+    #                                       plot_title, f'triplet_{id}_anchneg_bce', epoch, self.writer)
+    #
+    #         # utils.draw_all_heatmaps(acts_anch_pos[0], anch_org, 'Anch', all_heatmap_grid_anch_path)
+    #         # utils.draw_all_heatmaps(acts_anch_pos[1], pos_org, 'Pos', all_heatmap_grid_pos_path)
+    #         # utils.draw_all_heatmaps(acts_anch_neg[1], neg_org, 'Neg', all_heatmap_grid_neg_path)
+    #
+    #         all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_all_heatmaps.pdf')
+    #         utils.draw_entire_heatmaps([acts_anch_pos[0],
+    #                                     acts_anch_pos[1],
+    #                                     acts_anch_neg[0],
+    #                                     acts_anch_neg[1]],
+    #                                    [anch_org, pos_org, anch_org, neg_org],
+    #                                    ['Anch', 'Pos', 'Neg'],
+    #                                    all_heatmap_grid_path)
+    #
+    #         # self.logger.info('neg_pred', torch.sigmoid(neg_pred))
+    #
+    #         result_text = f'\nAnch-Pos: {pos_text}\nAnch-Neg: {neg_text}'
+    #
+    #         if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
+    #                 not args.att_mode_sc.startswith('dot-product')):
+    #             ks = list(map(lambda x: int(x), args.k_best_maps))
+    #
+    #             value = ''
+    #             if self.merge_method == 'diff':
+    #                 value = 'different'
+    #             elif self.merge_method == 'sim':
+    #                 value = 'similar'
+    #             elif self.merge_method == 'diff-sim':
+    #                 value = 'different and similar'
+    #             else:
+    #                 raise Exception(f'Merge method not recognized {self.merge_method}')
+    #             #
+    #             # import pdb
+    #             # pdb.set_trace()
+    #
+    #             pos_dist_weighted = pos_dist * classifier_weights
+    #             neg_dist_weighted = neg_dist * classifier_weights
+    #             sub_method_dim = classifier_dim / len(sub_methods)
+    #
+    #             for k in ks:
+    #                 acts_tmp = []
+    #
+    #                 for m_i, met in enumerate(sub_methods):
+    #
+    #                     # import pdb
+    #                     # pdb.set_trace()
+    #                     offset = int(m_i * sub_method_dim)
+    #                     begin_index = offset
+    #                     end_index = int(offset + sub_method_dim)
+    #                     pos_dist_weighted_temp = pos_dist_weighted[:, begin_index:end_index]
+    #                     neg_dist_weighted_temp = neg_dist_weighted[:, begin_index:end_index]
+    #                     pos_max_indices = torch.topk(pos_dist_weighted_temp, k=k).indices
+    #
+    #                     print(f'offset = {offset}')
+    #
+    #                     self.logger.info(
+    #                         f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
+    #                     print(f'pos max indices {met}: {pos_max_indices}, {pos_dist_weighted_temp[0][pos_max_indices]}')
+    #
+    #                     acts_tmp = []
+    #
+    #                     acts_tmp.append(acts_anch_pos[0][:, pos_max_indices, :, :].squeeze(dim=0))
+    #                     acts_tmp.append(acts_anch_pos[1][:, pos_max_indices, :, :].squeeze(dim=0))
+    #                     acts_tmp.append(acts_anch_neg[1][:, pos_max_indices, :, :].squeeze(dim=0))
+    #
+    #                     all_heatmap_path = {
+    #                         'max': os.path.join(heatmap_path_perepoch_id,
+    #                                             f'max_k_{k}_triplet{id}_best_anchpos_{met}.png'),
+    #                         'avg': os.path.join(heatmap_path_perepoch_id,
+    #                                             f'avg_k_{k}_triplet{id}_best_anchpos_{met}.png')}
+    #
+    #                     histogram_path = os.path.join(heatmap_path_perepoch_id,
+    #                                                   f'k_{k}_histogram_triplet{id}_best_anchpos_{met}.png')
+    #
+    #                     plot_title_wo_weights = f"{k} most important {value} channels for Anch Pos (w/o weights mul {met})" + result_text
+    #                     plot_title = f"{k} most important {value} channels for Anch Pos (with weights mul {met})" + result_text
+    #
+    #                     if k < draw_all_thresh:
+    #                         all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
+    #                                                              f'k_{k}_triplet{id}_all_heatmaps_best_anchpos_{met}.pdf')
+    #                         self.logger.info('before')
+    #                         self.logger.info(str(acts_tmp[0].min()))
+    #                         self.logger.info(str(acts_tmp[1].min()))
+    #                         self.logger.info(str(acts_tmp[2].min()))
+    #                         utils.draw_all_heatmaps(acts_tmp,
+    #                                                 [anch_org, pos_org, neg_org],
+    #                                                 ['Anch', 'Pos', 'Neg'],
+    #                                                 all_heatmap_grid_path,
+    #                                                 plot_title_wo_weights)
+    #                         self.logger.info('after')
+    #                         self.logger.info(str(acts_tmp[0].min()))
+    #                         self.logger.info(str(acts_tmp[1].min()))
+    #                         self.logger.info(str(acts_tmp[2].min()))
+    #                         self.logger.info('-------------')
+    #
+    #                     self.logger.info('before forward drawing')
+    #                     self.logger.info(f'min: {(acts_tmp[0].min())}')
+    #                     self.logger.info(f'min: {(acts_tmp[1].min())}')
+    #                     self.logger.info(f'min: {(acts_tmp[2].min())}')
+    #
+    #                     self.logger.info(f'max: {(acts_tmp[0].max())}')
+    #                     self.logger.info(f'max: {(acts_tmp[1].max())}')
+    #                     self.logger.info(f'max: {(acts_tmp[2].max())}')
+    #
+    #                     utils.apply_forward_heatmap(acts_tmp,
+    #                                                 [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
+    #                                                 id,
+    #                                                 all_heatmap_path,
+    #                                                 overall_title=plot_title,
+    #                                                 # individual_paths=[anch_hm_file_path,
+    #                                                 #                   pos_hm_file_path],
+    #                                                 # pair_paths=[anchpos_anch_hm_file_path, anchpos_pos_hm_file_path],
+    #                                                 titles=['Anch', 'Pos', 'Neg'],
+    #                                                 histogram_path=histogram_path,
+    #                                                 merge_method=met,
+    #                                                 classifier_weights=classifier_weights_tensor[:,
+    #                                                                    offset + pos_max_indices, :,
+    #                                                                    :].squeeze(dim=0),
+    #                                                 tb_path=f'triplet_{id}_anch_pos_forward', epoch=epoch,
+    #                                                 writer=self.writer)
+    #
+    #                     self.logger.info('after forward drawing')
+    #                     self.logger.info(f'min: {(acts_tmp[0].min())}')
+    #                     self.logger.info(f'min: {(acts_tmp[1].min())}')
+    #                     self.logger.info(f'min: {(acts_tmp[2].min())}')
+    #
+    #                     self.logger.info(f'max: {(acts_tmp[0].max())}')
+    #                     self.logger.info(f'max: {(acts_tmp[1].max())}')
+    #                     self.logger.info(f'max: {(acts_tmp[2].max())}')
+    #
+    #                     self.logger.info('-------------')
+    #                     # import pdb
+    #                     # pdb.set_trace()
+    #
+    #                     acts_tmp = []
+    #
+    #                     neg_max_indices = torch.topk(neg_dist_weighted_temp, k=k).indices
+    #
+    #                     all_heatmap_path = {
+    #                         'max': os.path.join(heatmap_path_perepoch_id,
+    #                                             f'max_k_{k}_triplet{id}_best_anchneg_{met}.png'),
+    #                         'avg': os.path.join(heatmap_path_perepoch_id,
+    #                                             f'avg_k_{k}_triplet{id}_best_anchneg_{met}.png')}
+    #                     histogram_path = os.path.join(heatmap_path_perepoch_id,
+    #                                                   f'k_{k}_histogram_triplet{id}_best_anchneg_{met}.png')
+    #
+    #                     acts_tmp.append(acts_anch_pos[0][:, neg_max_indices, :, :].squeeze(dim=0))
+    #                     acts_tmp.append(acts_anch_pos[1][:, neg_max_indices, :, :].squeeze(dim=0))
+    #                     acts_tmp.append(acts_anch_neg[1][:, neg_max_indices, :, :].squeeze(dim=0))
+    #
+    #                     plot_title_wo_weights = f"{k} most important {value} channels for Anch Neg (w/o weights mul {met})" + result_text
+    #                     plot_title = f"{k} most important {value} channels for Anch Neg (with weights mul {met})" + result_text
+    #
+    #                     if k < draw_all_thresh:
+    #                         all_heatmap_grid_path = os.path.join(heatmap_path_perepoch_id,
+    #                                                              f'k_{k}_triplet{id}_all_heatmaps_best_anchneg_{met}.pdf')
+    #                         utils.draw_all_heatmaps(acts_tmp,
+    #                                                 [anch_org, pos_org, neg_org],
+    #                                                 ['Anch', 'Pos', 'Neg'],
+    #                                                 all_heatmap_grid_path,
+    #                                                 plot_title_wo_weights)
+    #
+    #                     utils.apply_forward_heatmap(acts_tmp,
+    #                                                 [('anch', anch_org), ('pos', pos_org), ('neg', neg_org)],
+    #                                                 id,
+    #                                                 all_heatmap_path,
+    #                                                 overall_title=plot_title,
+    #                                                 # individual_paths=[anch_hm_file_path,
+    #                                                 #                   neg_hm_file_path],
+    #                                                 # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+    #                                                 titles=['Anch', 'Pos', 'Neg'],
+    #                                                 histogram_path=histogram_path,
+    #                                                 merge_method=met,
+    #                                                 classifier_weights=classifier_weights_tensor[:,
+    #                                                                    offset + neg_max_indices, :,
+    #                                                                    :].squeeze(dim=0),
+    #                                                 tb_path=f'triplet_{id}_anch_neg_forward', epoch=epoch,
+    #                                                 writer=self.writer)
+    #         elif ('attention' in self.merge_method) or (args.att_mode_sc.startswith('dot-product')):
+    #             att_heatmap_path = os.path.join(heatmap_path_perepoch_id, f'triplet{id}_att.png')
+    #             anch_name = utils.get_file_name(anch_path)
+    #             pos_name = utils.get_file_name(pos_path)
+    #             neg_name = utils.get_file_name(neg_path)
+    #             if args.local_to_local or self.merge_global or (args.att_mode_sc.startswith('dot-product')):
+    #
+    #                 utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],
+    #                                               [(anch_name, anch_org), (pos_name, pos_org)],
+    #                                               id,
+    #                                               att_heatmap_path,
+    #                                               overall_title=plot_title,
+    #                                               # individual_paths=[anch_hm_file_path,
+    #                                               #                   neg_hm_file_path],
+    #                                               # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+    #                                               tb_path=f'triplet_{id}_anchpos_attention',
+    #                                               epoch=epoch,
+    #                                               writer=self.writer)
+    #
+    #                 utils.apply_attention_heatmap([anchn_att, neg_att],
+    #                                               [(anch_name, anch_org), (neg_name, neg_org)],
+    #                                               id,
+    #                                               att_heatmap_path,
+    #                                               overall_title=plot_title,
+    #                                               # individual_paths=[anch_hm_file_path,
+    #                                               #                   neg_hm_file_path],
+    #                                               # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+    #                                               tb_path=f'triplet_{id}_anchneg_attention',
+    #                                               epoch=epoch,
+    #                                               writer=self.writer)
+    #             else:
+    #                 utils.apply_attention_heatmap([anchp_att, pos_att, neg_att],  # anchn_att and anchp_att are the same
+    #                                               [(anch_name, anch_org), (pos_name, pos_org), (neg_name, neg_org)],
+    #                                               id,
+    #                                               att_heatmap_path,
+    #                                               overall_title=plot_title,
+    #                                               # individual_paths=[anch_hm_file_path,
+    #                                               #                   neg_hm_file_path],
+    #                                               # pair_paths=[anchneg_anch_hm_file_path, anchneg_neg_hm_file_path],
+    #                                               tb_path=f'triplet_{id}_attention',
+    #                                               epoch=epoch,
+    #                                               writer=self.writer)
+    #
+    #         if ('diff' in self.merge_method or 'sim' in self.merge_method) and (
+    #                 not args.att_mode_sc.startswith('dot-product')):
+    #             if loss_fn is not None:
+    #                 ext_batch_loss, parts = self.get_loss_value(args, loss_fn, anch_feat, pos_feat, neg_feat)
+    #                 ext_loss = ext_batch_loss
+    #
+    #                 ext_loss.backward(retain_graph=True)
+    #                 # ext_loss /= self.no_negative
+    #
+    #                 plot_title = f"Backward Triplet Loss" + result_text
+    #
+    #                 utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
+    #                                           netmod.get_activations().detach(),
+    #                                           {'anch': anch_org,
+    #                                            'pos': pos_org,
+    #                                            'neg': neg_org}, 'triplet', id, heatmap_path_perepoch_id,
+    #                                           plot_title, f'triplet_{id}_anchpos_triplet', epoch, self.writer)
+    #
+    #                 # class_loss /= (self.no_negative + 1)
+    #
+    #                 loss = self.trpl_weight * ext_loss + self.bce_weight * class_loss
+    #
+    #             else:
+    #
+    #                 loss = self.bce_weight * class_loss
+    #
+    #             plot_title = f"Backward Total Loss" + result_text
+    #
+    #             loss.backward()
+    #             utils.apply_grad_heatmaps(netmod.get_activations_gradient(),
+    #                                       netmod.get_activations().detach(),
+    #                                       {'anch': anch_org,
+    #                                        'pos': pos_org,
+    #                                        'neg': neg_org}, 'all', id, heatmap_path_perepoch_id,
+    #                                       plot_title, f'triplet_{id}_anchpos_total', epoch, self.writer)
+    #
+    #     self.created_image_heatmap_path = True
+    #
+    #     self.logger.info(f'CAM: anch-pos acc: {self.cam_pos / self.cam_all}')
+    #     self.logger.info(f'CAM: anch-neg acc: {self.cam_neg / self.cam_all}')
 
     def train_metriclearning(self, net, loss_fn, bce_loss, args, train_loader, val_loaders, cam_args=None,
                              db_loaders=None):
@@ -1321,7 +1323,6 @@ class ModelMethods:
                             #                                              comment=comm)
 
                             utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
-
 
                             val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
                                 args, net, loader,
@@ -2229,7 +2230,8 @@ class ModelMethods:
             test_local_feats = np.zeros((len(data_loader.dataset), 512 * coeff, 7, 7), dtype=np.float32)
         elif args.feat_extractor == 'vgg16':
             test_feats = np.zeros((len(data_loader.dataset), 4096 * coeff))
-            test_local_feats = np.zeros((len(data_loader.dataset), 4096 * coeff, 7, 7), dtype=np.float32) # 7,7 is wrong
+            test_local_feats = np.zeros((len(data_loader.dataset), 4096 * coeff, 7, 7),
+                                        dtype=np.float32)  # 7,7 is wrong
         elif args.feat_extractor == 'deit16_224':
             test_feats = np.zeros((len(data_loader.dataset), 768 * coeff))
             test_local_feats = np.zeros((len(data_loader.dataset), 768 * coeff, 7, 7),
@@ -2297,7 +2299,7 @@ class ModelMethods:
 
                 if local_feat is not None:
                     utils.save_h5(f'{args.dataset_name}_{mode}_locfeats', test_local_feats, 'f',
-                                os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
+                                  os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
                 if return_bg and mode != 'train':
                     utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
@@ -2309,7 +2311,7 @@ class ModelMethods:
 
             if os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5')):
                 test_local_feats = utils.load_h5(f'{args.dataset_name}_{mode}_locfeats',
-                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
+                                                 os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
 
             test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
@@ -2706,7 +2708,6 @@ class ModelMethods:
 
         neg_dists = distances[batch_size:].view(batch_size, -1)
 
-
         if args.loss == 'trpl' or args.loss == 'contrv_mlp':
             neg_dist = neg_dists.mean(dim=1)
             loss = loss_fn(pos_dist, neg_dist)
@@ -2947,7 +2948,7 @@ class ModelMethods:
         return t, (train_loss, train_bce_loss)
 
     def train_metriclearning_one_epoch2(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
-                                       grad_save_path, drew_graph):
+                                        grad_save_path, drew_graph):
         train_loss = 0
         train_bce_loss = 0
         train_triplet_loss = 0
@@ -2977,8 +2978,8 @@ class ModelMethods:
 
             if args.cuda:
                 total_anchs, total_seconds, labels = Variable(total_anchs.cuda()), \
-                                                          Variable(total_seconds.cuda()), \
-                                                          Variable(labels.cuda())
+                                                     Variable(total_seconds.cuda()), \
+                                                     Variable(labels.cuda())
             else:
                 total_anchs, total_seconds, labels = Variable(total_anchs), \
                                                      Variable(total_seconds), \
@@ -2994,7 +2995,6 @@ class ModelMethods:
 
             # warm-up learning rate
             utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
-
 
             forward_start = time.time()
             predictions, distances, anch_feat, second_feats = net.forward(total_anchs, total_seconds, feats=True)
@@ -3139,7 +3139,6 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_bce_loss, train_triplet_loss), (pos_parts, neg_parts)
-
 
     def train_metriclearning_one_epoch(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader, epoch,
                                        grad_save_path, drew_graph):
@@ -3427,7 +3426,7 @@ class ModelMethods:
             metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
 
             forward_start = time.time()
-            neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True) # todo use anch features for dpa
+            neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)  # todo use anch features for dpa
 
             if neg_all_merged_vectors is None:
                 neg_all_merged_vectors = neg_dist.data.cpu()
