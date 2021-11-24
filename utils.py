@@ -2528,10 +2528,10 @@ def get_logname(args):
                       'warm',
                       'random_erase']
 
-    if not args.no_final_network: # has final network and merging method
-        important_args += ['classifier_layer',
-                           'projection_layer',
-                           'merge_method']
+
+    important_args += ['classifier_layer',
+                       'projection_layer',
+                       'merge_method']
 
     arg_booleans = ['spatial_projection',
                     'attention',
