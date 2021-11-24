@@ -37,7 +37,8 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'local-diff-sim-add-unequaldim', 'local-diff-sim-mult-unequaldim',
                  'channel-attention']
 
-LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local', 'contrv_mlp']
+LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local',
+                'contrv_mlp']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -118,7 +119,7 @@ class TransformLoader:
         elif transform_type == 'ColorJitter':
             return method(brightness=0.5, hue=0.5, contrast=0.5, saturation=0.5)
         elif transform_type == 'RandomErasing':
-            return method(p=self.random_erase_prob, scale=(0.1, 0.75), ratio=(0.3, 3.3)) # TODO RANDOM ERASE!!!
+            return method(p=self.random_erase_prob, scale=(0.1, 0.75), ratio=(0.3, 3.3))  # TODO RANDOM ERASE!!!
 
         else:
             return method()
@@ -150,7 +151,6 @@ class TransformLoader:
             if random_erase > 0.0:
                 self.random_erase_prob = random_erase
                 transform_list.extend(['RandomErasing'])
-
 
         transform_funcs = [self.parse_transform(x) for x in transform_list]
         transform = transforms.Compose(transform_funcs)
@@ -189,7 +189,8 @@ def get_args():
                         help="where the code is being run, e.g. local, beluga, graham")  # before: default="0,1,2,3"
     parser.add_argument('-on', '--overfit_num', default=0, type=int)
     parser.add_argument('-dsn', '--dataset_name', default='hotels',
-                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'new_hotels_small', 'new_hotels', 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
+                        choices=['omniglot', 'cub', 'cub_eval', 'hotels', 'new_hotels_small', 'new_hotels',
+                                 'hotels_dummy', 'cars', 'cars_eval', 'sop'])
     parser.add_argument('-dsp', '--dataset_path', default='')
     parser.add_argument('-por', '--portion', default=0, type=int)
     parser.add_argument('-ls', '--limit_samples', default=0, type=int, help="Limit samples per class for val and test")
@@ -214,7 +215,8 @@ def get_args():
     parser.add_argument('-pmd', '--pretrained_model_dir', default='')
     parser.add_argument('-ev', '--eval_mode', default='fewshot', choices=['fewshot', 'simple'])
     parser.add_argument('-fe', '--feat_extractor', default='resnet18',
-                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16', 'deit16_224', 'deit16_small_224'])
+                        choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'vgg16', 'deit16_224',
+                                 'deit16_small_224'])
     parser.add_argument('--pretrained_model', default='', choices=['swav', 'simclr', 'byol', 'dino'])
     parser.add_argument('-pool', '--pooling', default='spoc',
                         choices=['spoc', 'gem', 'mac', 'rmac'])
@@ -280,7 +282,6 @@ def get_args():
 
     parser.add_argument('-no_final_network', '--no_final_network', default=False, action='store_true')
 
-
     parser.add_argument('-my_dist', '--my_dist', default=False, action='store_true')
 
     parser.add_argument('-hparams', '--hparams', default=False, action='store_true')
@@ -303,22 +304,18 @@ def get_args():
     # parser.add_argument('--new_hotel_split_query',  nargs='+', default=['new_split_query1.csv'])
     # parser.add_argument('--new_hotel_split_index',  nargs='+', default=['new_split_index1.csv'])
 
-
-    parser.add_argument('--valsets',  nargs='+', default=[])
+    parser.add_argument('--valsets', nargs='+', default=[])
     parser.add_argument('--testsets', nargs='+', default=[])
 
     parser.add_argument('-qi', '--query_index', default=False, action='store_true')
     parser.add_argument('--queries', nargs='+', default=[])
     parser.add_argument('--indices', nargs='+', default=[])
-    parser.add_argument('-ciq', '--classes_in_query', default=0, type=int, help="number of classes in each query/index run") # 2200
-
-
+    parser.add_argument('-ciq', '--classes_in_query', default=0, type=int,
+                        help="number of classes in each query/index run")  # 2200
 
     parser.add_argument('-tqi', '--test_query_index', default=False, action='store_true')
     parser.add_argument('--t_queries', nargs='+', default=[])
     parser.add_argument('--t_indices', nargs='+', default=[])
-
-
 
     parser.add_argument('--train_folder_name', default='train')
     parser.add_argument('--vs_folder_name', default='val_seen')
@@ -365,7 +362,8 @@ def get_args():
     parser.add_argument('-att_merge_fc', '--att_merge_fc', default=False, action='store_true')
     parser.add_argument('-att_bias', '--att_bias', default=False, action='store_true')
 
-    parser.add_argument('-att_weight_init', '--att_weight_init', default=None, type=float, help="initialize glb-both att")
+    parser.add_argument('-att_weight_init', '--att_weight_init', default=None, type=float,
+                        help="initialize glb-both att")
 
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
 
@@ -491,22 +489,25 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
         # unsampled_total = _get_per_class_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, mode,
         #                                               sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
         unsampled_total, _, _ = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1],
-                                                      logger, limit,
-                                                      run_number, mode,
-                                                      sim_matrix=sim_matrix, metric=metric, extra_name=extra_name,
-                                                      sampled=False) # unsampled
+                                                         logger, limit,
+                                                         run_number, mode,
+                                                         sim_matrix=sim_matrix, metric=metric, extra_name=extra_name,
+                                                         sampled=False)  # unsampled
 
-        unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_UNsampled_avg_k@n.csv'),
-                     header=True, index=False)
+        unsampled_total.to_csv(
+            os.path.join(save_path, f'{args.dataset_name}_{mode}_{extra_name}_UNsampled_avg_k@n.csv'),
+            header=True, index=False)
 
         kavg = pd.DataFrame()
         if sampled:
             all_run_avgs = None
             for i in range(args.number_of_runs):
                 logger.info(f'K@N sample {i} class')
-                kavg_i, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0], img_lbls[1], logger, limit,
-                                      run_number, mode,
-                                      sim_matrix=sim_matrix, metric=metric, extra_name=extra_name)
+                kavg_i, kruns, total = _get_sampled_distance_qi(args, img_feats[0], img_feats[1], img_lbls[0],
+                                                                img_lbls[1], logger, limit,
+                                                                run_number, mode,
+                                                                sim_matrix=sim_matrix, metric=metric,
+                                                                extra_name=extra_name)
 
                 if all_run_avgs is None:
                     all_run_avgs = kavg_i
@@ -534,17 +535,20 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
         if per_class:
             logger.info('K@N per class')
             unsampled_total, seen, unseen = _get_per_class_distance(args, img_feats, img_lbls, seen_list, logger, mode,
-                                                          sim_matrix=sim_matrix, metric=metric)
-            unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'), header=True,
-                         index=False)
+                                                                    sim_matrix=sim_matrix, metric=metric)
+            unsampled_total.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_total_avg_k@n.csv'),
+                                   header=True,
+                                   index=False)
             seen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_seen_avg_k@n.csv'), header=True,
                         index=False)
-            unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'), header=True,
+            unseen.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_per_class_unseen_avg_k@n.csv'),
+                          header=True,
                           index=False)
 
         if sampled:
             logger.info('K@N for sampled')
-            kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger, limit,
+            kavg, kruns, total, seen, unseen = _get_sampled_distance(args, img_feats, img_lbls, seen_list, logger,
+                                                                     limit,
                                                                      run_number, mode, even_sampled=even_sampled,
                                                                      sim_matrix=sim_matrix, metric=metric)
             kavg.to_csv(os.path.join(save_path, f'{args.dataset_name}_{mode}_sampled_avg_k@n.csv'), header=True,
@@ -560,7 +564,9 @@ def calculate_k_at_n(args, img_feats, img_lbls, seen_list, logger, limit=0, run_
 
     return kavg, unsampled_total
 
-def _get_per_class_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, mode, sim_matrix=None, metric='cosine', extra_name=''):
+
+def _get_per_class_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, mode, sim_matrix=None,
+                               metric='cosine', extra_name=''):
     all_lbls = np.unique(img_lbls_q)
     num = img_lbls_q.shape[0]
 
@@ -574,7 +580,6 @@ def _get_per_class_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_l
     metric_total = metrics.Accuracy_At_K(classes=np.array(all_lbls))
 
     for idx, lbl in enumerate(img_lbls_q):
-
         ret_lbls = img_lbls_i[I[idx]]
 
         metric_total.update(lbl, ret_lbls)
@@ -672,16 +677,19 @@ def _log_per_class(logger, df, split_kind=''):
     logger.info(f'k@10 per class average: {np.array(df["k@10"]).mean()}')
     logger.info(f'k@100 per class average: {np.array(df["k@100"]).mean()}\n')
 
-def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, limit=0, run_number=0, mode='',
+
+def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbls_i, logger, limit=0, run_number=0,
+                             mode='',
                              sim_matrix=None, metric='cosine', extra_name='', sampled=True):
     all_lbls = np.unique(img_lbls_q)
 
     if sampled:
-        img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(img_feats_q,
-                                                                                                                   img_feats_i,
-                                                                                                                   img_lbls_q,
-                                                                                                                   img_lbls_i,
-                                                                                                                   classes=args.classes_in_query)
+        img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = get_sampled_query_index(
+            img_feats_q,
+            img_feats_i,
+            img_lbls_q,
+            img_lbls_i,
+            classes=args.classes_in_query)
     else:
         img_feats_q_sampled, img_feats_i_sampled, img_lbls_q_sampled, img_lbls_i_sampled = img_feats_q, img_feats_i, img_lbls_q, img_lbls_i
 
@@ -698,11 +706,9 @@ def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbl
     metric_total = metrics.Accuracy_At_K(classes=all_lbls)
 
     for idx, lbl in enumerate(img_lbls_q_sampled):
-
         ret_lbls = img_lbls_i_sampled[I[idx]]
 
         metric_total.update(lbl, ret_lbls)
-
 
     total = metric_total.get_per_class_metrics()
 
@@ -710,7 +716,6 @@ def _get_sampled_distance_qi(args, img_feats_q, img_feats_i, img_lbls_q, img_lbl
     logger.info(metric_total)
     k1, k2, k4, k5, k8, k10, k100 = metric_total.get_tot_metrics()
     logger.info("*" * 50)
-
 
     _log_per_class(logger, total, split_kind='Total')
 
@@ -1138,7 +1143,7 @@ def loadDataToMem_2(dataPath, dataset_name, mode='train',
     return datas, num_classes, num_instances, labels, datas_bg
 
 
-def load_Data_ToMem(dataPath,  dataset_folder, mode='train',
+def load_Data_ToMem(dataPath, dataset_folder, mode='train',
                     portion=0,
                     extensions=('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp'),
                     split_file_path=''):
@@ -1152,15 +1157,12 @@ def load_Data_ToMem(dataPath,  dataset_folder, mode='train',
     else:
         image_path, image_labels = _get_imgs_labels(os.path.join(dataset_path, mode), extensions)
 
-
     if portion > 0:
         image_path = image_path[image_labels < portion]
         image_labels = image_labels[image_labels < portion]
 
-
     print(f'{dataset_folder}_{mode} number of imgs:', len(image_labels))
     print(f'{dataset_folder}_{mode} number of labels:', len(np.unique(image_labels)))
-
 
     num_instances = len(image_labels)
 
@@ -1260,22 +1262,19 @@ def load_hotelData_ToMem(dataPath, dataset_name, mode='train', split_file_path='
 
     print(f'finish loading {dataset_name}_{mode} dataset to memory')
 
-
     return datas, num_classes, num_instances, labels, datas_bg
 
+
 def load_splits(dataPath, dataset_name, main_split, mode='train', split_file_path='',
-                         portion=0, dataset_folder='', backgroud_splits=[]):
+                portion=0, dataset_folder='', backgroud_splits=[]):
     print(split_file_path, '!!!!!!!!')
     dataset_path = os.path.join(dataPath, dataset_folder)
-
 
     print("begin loading dataset to memory")
     datas = {}
     datas_bg = {}  # in case of mode == val/test_seen/unseen
 
-
     file_name = f'{dataset_name}_' + main_split
-
 
     print(f'{mode}', file_name)
     image_path, image_labels = _read_new_split(split_file_path, file_name)
@@ -1294,7 +1293,6 @@ def load_splits(dataPath, dataset_name, main_split, mode='train', split_file_pat
 
             image_path_bg = pd.concat(image_path_bg, ignore_index=True)
             image_labels_bg = pd.concat(image_labels_bg, ignore_index=True)
-
 
     if portion > 0:
         image_path = image_path[image_labels < portion]
@@ -1348,8 +1346,8 @@ def load_splits(dataPath, dataset_name, main_split, mode='train', split_file_pat
 
     print(f'finish loading {dataset_name}_{mode} dataset to memory')
 
-
     return datas, num_classes, num_instances, labels, datas_bg
+
 
 def choose_n_from_all(df, n=4):
     chosen_labels = []
@@ -1395,7 +1393,7 @@ def read_masks(path):
 
 
 def get_overfit(data, labels, anchors=1, neg_per_pos=1, batchhard=[0, 0]):
-    if batchhard != [0, 0]: # not batchhard
+    if batchhard != [0, 0]:  # not batchhard
         anch_class = np.random.choice(labels, 1)
         neg_class = anch_class
         while neg_class == anch_class:
@@ -1426,7 +1424,7 @@ def get_overfit(data, labels, anchors=1, neg_per_pos=1, batchhard=[0, 0]):
                 negs.append(neg_path)
 
                 to_return.append({'anch': anch_path, 'pos': pos_path, 'neg': negs})
-    else: #batchhard
+    else:  # batchhard
 
         to_return = []
         bh_P = batchhard[0]
@@ -2361,6 +2359,7 @@ def draw_entire_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     fig.savefig(path, dpi=5000)
     plt.close('all')
 
+
 def draw_all_heatmaps(actss, imgs, subplot_titles, path, supplot_title):
     plt.rcParams.update({'font.size': 5})
     fig, axes = plt.subplots(1, 3)
@@ -2528,7 +2527,6 @@ def get_logname(args):
                       'warm',
                       'random_erase']
 
-
     important_args += ['classifier_layer',
                        'projection_layer',
                        'merge_method']
@@ -2582,7 +2580,6 @@ def get_logname(args):
             elif str(arg) == 'bcecoefficient' and getattr(args, arg) == 1.0:
                 continue
 
-
             if type(getattr(args, arg)) is not bool:
                 if name_replace_dict[str(arg)] != '':
                     name += '-' + name_replace_dict[str(arg)] + '_' + str(getattr(args, arg))
@@ -2619,7 +2616,7 @@ def get_logname(args):
 
             if str(arg) == 'merge_method' and (
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith(
-                'sim')) and args.att_mode_sc.startswith('dot-product'):
+                'sim') or getattr(args, arg).startswith('concat')) and args.att_mode_sc.startswith('dot-product'):
                 name += f'-{name_replace_dict[args.att_mode_sc]}-{args.lr_att}'
                 if args.att_merge_fc:
                     name += '-FCm'
@@ -2649,7 +2646,6 @@ def get_logname(args):
         name = args.pretrained_model_dir + '_PTRN'
         id_str = ''
 
-
     if args.loss == 'batchhard' or args.loss == 'contrv':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
@@ -2657,7 +2653,7 @@ def get_logname(args):
         name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
 
     elif args.pretrained_model != '':
-        id = '12345678987654321' # todo extract model random id to know where it was trained form
+        id = '12345678987654321'  # todo extract model random id to know where it was trained form
         name += f'from{id}'
 
     name += id_str
@@ -2786,6 +2782,7 @@ def plot_pred_hist(pos_preds, neg_preds, bins=100, title='Pred Histogram', savep
     plt.savefig(savepath)
     plt.close('all')
 
+
 def save_representation_hists(representation, savepath):
     representation = representation.cpu().detach().numpy()
     if os.path.exists(savepath):
@@ -2795,7 +2792,6 @@ def save_representation_hists(representation, savepath):
         new_reps = representation
 
     np.save(savepath, new_reps)
-
 
 
 def get_pos_neg_preds(file_path, pos_freq=10):
@@ -2944,7 +2940,8 @@ def plot_class_dist(datas, plottitle, path):
 
 
 # softtriplet loss code
-def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=False, k=5, path_to_lbl2chain='', tb_draw=False,
+def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=False, k=5, path_to_lbl2chain='',
+               tb_draw=False,
                metric='cosine', dist_matrix=None, create_best_negatives=True, create_too_close_negatvies=True):
     if superY is None:
         superY = np.array([-1 for _ in Y])
@@ -3025,13 +3022,15 @@ def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=F
             if tb_draw:
                 if Y[j] == YNN[j, 0]:
                     if r1_counter < k:
-                        plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loader,
+                        plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer,
+                                    loader,
                                     f'r@1_{r1_counter}_{split}')
                         r1_counter += 1
                         print('r1_counter = ', r1_counter)
                 elif Y[j] in YNN[j, :10]:
                     if r10_counter < k:
-                        plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loader,
+                        plot_images(ids[j], Y[j], superY[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer,
+                                    loader,
                                     f'r@10_{r10_counter}_{split}')
                         r10_counter += 1
                         print('r10_counter = ', r10_counter)
@@ -3045,7 +3044,8 @@ def evaluation(args, X, Y, superY, ids, writer, loader, Kset, split, path, gpu=F
     return recallK
 
 
-def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, writer, loaders, Kset, split, path, gpu=False, k=5, tb_draw=False,
+def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, writer, loaders, Kset, split, path,
+                  gpu=False, k=5, tb_draw=False,
                   metric='cosine', dist_matrix=None):
     if superY_q is None:
         superY_q = np.array([-1 for _ in Y_q])
@@ -3068,7 +3068,6 @@ def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, wr
 
     print(f'**** Evaluation, calculating dist rank DONE. Took {time.time() - start}s')
 
-
     YNN = Y_i[indices]
     superYNN = superY_i[indices]
     idxNN = ids_i[indices]
@@ -3083,18 +3082,21 @@ def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, wr
             if tb_draw:
                 if Y_q[j] == YNN[j, 0]:
                     if r1_counter < k:
-                        plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loaders[0],
+                        plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer,
+                                    loaders[0],
                                     f'r@1_{r1_counter}_{split}', loader_i=loaders[1])
                         r1_counter += 1
                         print('r1_counter = ', r1_counter)
                 elif Y_q[j] in YNN[j, :10]:
                     if r10_counter < k:
-                        plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loaders[0],
+                        plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer,
+                                    loaders[0],
                                     f'r@10_{r10_counter}_{split}', loader_i=loaders[1])
                         r10_counter += 1
                         print('r10_counter = ', r10_counter)
                 elif counter < k:
-                    plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer, loaders[0],
+                    plot_images(ids_q[j], Y_q[j], superY_q[j], idxNN[j, :10], YNN[j, :10], superYNN[j, :10], writer,
+                                loaders[0],
                                 f'{counter}_{split}', loader_i=loaders[1])
                     counter += 1
                     print('counter = ', counter)
@@ -3103,8 +3105,8 @@ def evaluation_qi(args, X_q, X_i, Y_q, Y_i, superY_q, superY_i, ids_q, ids_i, wr
     return recallK
 
 
-
-def plot_images(org_idx, org_lbl, sup_lbl, top_10_indx, top_10_lbl, top_10_super_lbl, writer, loader_q, tb_label, loader_i=None):
+def plot_images(org_idx, org_lbl, sup_lbl, top_10_indx, top_10_lbl, top_10_super_lbl, writer, loader_q, tb_label,
+                loader_i=None):
     if loader_i is None:
         loader_i = loader_q
 
@@ -3137,6 +3139,7 @@ def get_attention_normalized(reps, chunks):
 
     reps = np.concatenate(final_reps, axis=1)
     return reps
+
 
 def get_faiss_query_index(reps_q, reps_i, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
     assert reps_q.dtype == np.float32
@@ -3174,8 +3177,8 @@ def get_faiss_query_index(reps_q, reps_i, k=1000, gpu=False, metric='cosine'):  
 
     D, I = index_flat.search(reps_q, k)
 
-
     return D, I
+
 
 def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
     assert reps.dtype == np.float32
@@ -3262,7 +3265,8 @@ def calc_custom_euc(feat, chunks=4):
     return sum(eucs)
 
 
-def draw_top_results(args, embeddings, labels, superlabels, ids, seens, data_loader, tb_writer, save_path, metric='cosine', k=5,
+def draw_top_results(args, embeddings, labels, superlabels, ids, seens, data_loader, tb_writer, save_path,
+                     metric='cosine', k=5,
                      dist_matrix=None, best_negative=False, too_close_negative=False):
     unique_seens = np.unique(seens)
     if len(unique_seens) == 2:
@@ -3306,19 +3310,23 @@ def draw_top_results(args, embeddings, labels, superlabels, ids, seens, data_loa
     else:
         raise Exception(f"More than 2 values in 'seens'. len(unique_seens) = {len(unique_seens)}")
 
-def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_loaders, tb_writer, save_path, metric='cosine', k=5,
-                     dist_matrix=None):
 
-    res = evaluation_qi(args, embeddings[0], embeddings[1], labels[0], labels[1], superlabels[0], superlabels[1], ids[0], ids[1], tb_writer,
-                     data_loaders, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split=data_loaders[0].dataset.name, path=save_path, k=k,
-                     gpu=args.cuda, metric=metric, dist_matrix=dist_matrix,
-                     tb_draw=True)
+def draw_top_results_qi(args, embeddings, labels, superlabels, ids, seens, data_loaders, tb_writer, save_path,
+                        metric='cosine', k=5,
+                        dist_matrix=None):
+    res = evaluation_qi(args, embeddings[0], embeddings[1], labels[0], labels[1], superlabels[0], superlabels[1],
+                        ids[0], ids[1], tb_writer,
+                        data_loaders, Kset=[1, 2, 4, 5, 8, 10, 100, 1000], split=data_loaders[0].dataset.name,
+                        path=save_path, k=k,
+                        gpu=args.cuda, metric=metric, dist_matrix=dist_matrix,
+                        tb_draw=True)
     print(f'Total length: {len(labels)}')
     print(f'K@1, K@2, K@4, K@5, K@8, K@10, K@100, K@1000')
     print(res)
 
 
-def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels, thresh=6, min_index_perclass=3, classes=0):
+def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels, thresh=6, min_index_perclass=3,
+                            classes=0):
     ilbls, ilbls_c = np.unique(index_labels, return_counts=True)
 
     if ilbls_c.mean() > thresh:
@@ -3337,7 +3345,8 @@ def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels
     sampled_query_masks = np.array([])
 
     if classes != 0:
-        above_thresh_lbls = np.random.choice(above_thresh_lbls, classes, replace=False) # should raise error if classes != 0 and more than the number
+        above_thresh_lbls = np.random.choice(above_thresh_lbls, classes,
+                                             replace=False)  # should raise error if classes != 0 and more than the number
 
     for l in above_thresh_lbls:
         i_relevant_masks = np.array(imask_on_all_abovethresh)[index_labels == l]
@@ -3356,8 +3365,8 @@ def get_sampled_query_index(query_feats, index_feats, query_labels, index_labels
     sampled_query = query_feats[sampled_query_masks, :]
     sampled_query_lbls = query_labels[sampled_query_masks]
 
-
     return sampled_query, sampled_index, sampled_query_lbls, sampled_index_lbls
+
 
 def warmup_learning_rate(args, epoch, batch_id, total_batches, optimizer):
     if args.warm and epoch <= args.warm_epochs:
