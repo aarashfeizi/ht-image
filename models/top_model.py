@@ -90,15 +90,19 @@ class LinearAttentionBlock_Spatial2(nn.Module):
 
 
 class CrossDotProductAttentionBlock(nn.Module):
-    def __init__(self, in_features, constant_weight=None):
+    def __init__(self, in_features, constant_weight=None, merge_with_fc=False, bias=False):
         super(CrossDotProductAttentionBlock, self).__init__()
 
         self.layernorm = nn.LayerNorm([in_features, 7, 7])
 
-        self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
-        self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
-        self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=False)
+        self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
+        self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
+        self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
 
+        if merge_with_fc:
+            self.op_o = nn.Conv2d(in_channels=3 * in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
+        else:
+            self.op_o = None
         # self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
 
         if constant_weight is not None:
@@ -110,6 +114,9 @@ class CrossDotProductAttentionBlock(nn.Module):
 
             self.op_v.weight.data.fill_(constant_weight)
             self.op_v.weight.data.fill_(constant_weight)
+
+            self.op_o.weight.data.fill_(constant_weight)
+            self.op_o.weight.data.fill_(constant_weight)
 
     def forward(self, pre_local_query_org, pre_local_key_org):
         N, C, W, H = pre_local_query_org.size()
@@ -128,11 +135,12 @@ class CrossDotProductAttentionBlock(nn.Module):
         query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
-        attended_local1_from2 = (self.op_v(pre_local_key_org).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
+        attended_local1_from2 = (
+                    self.op_v(pre_local_key_org).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
             N, C, W, H)  # todo not sure if key should be multiplied or query
 
         attended_local1_from1 = (
-                    attention_map.softmax(axis=2) @ self.op_v(pre_local_query_org).reshape(N, C, W * H).transpose(-2,
+                attention_map.softmax(axis=2) @ self.op_v(pre_local_query_org).reshape(N, C, W * H).transpose(-2,
                                                                                                               -1)).reshape(
             N, C, W, H)
 
@@ -142,9 +150,14 @@ class CrossDotProductAttentionBlock(nn.Module):
         attended_local1_asq = attended_local1_asq.view(N, C, -1).sum(dim=2)  # batch_sizexC
         attended_local2_ask = attended_local2_ask.view(N, C, -1).sum(dim=2)  # batch_sizexC
 
-        attended_local1 = (pre_local_query_org +
-                           attended_local1_from1 +
-                           attended_local1_from2) # todo works because 2 additions
+        if self.op_o is not None:
+            attended_local1 = self.op_o(torch.cat([pre_local_query_org,
+                                                   attended_local1_from1,
+                                                   attended_local1_from2], dim=1))
+        else:
+            attended_local1 = (pre_local_query_org +
+                               attended_local1_from1 +
+                               attended_local1_from2)  # todo works because 2 additions
 
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
@@ -152,11 +165,12 @@ class CrossDotProductAttentionBlock(nn.Module):
 
 class CrossDotProductAttention(nn.Module):
     def __init__(self, in_features, constant_weight=None, mode='query',
-                 cross_add=False):  # mode can be "query", "key", and "both"
+                 cross_add=False, merge_with_fc=False, bias=False):  # mode can be "query", "key", and "both"
         super(CrossDotProductAttention, self).__init__()
         self.mode = mode
         self.cross_add = cross_add
-        self.qk_module = CrossDotProductAttentionBlock(in_features=in_features, constant_weight=constant_weight)
+        self.qk_module = CrossDotProductAttentionBlock(in_features=in_features, constant_weight=constant_weight,
+                                                       merge_with_fc=merge_with_fc, bias=bias)
 
     def return_representation(self, q, k):
         if self.mode == 'query':
@@ -1075,15 +1089,18 @@ class TopModel(nn.Module):
 
                 self.classifier = nn.Linear(in_features=in_feat, out_features=1)
 
-            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and self.global_attention:
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith(
+                    'sim')) and self.global_attention:
                 feature_map_inputs = [FEATURE_MAP_SIZES[i] for i in self.fmaps_no]
                 self.attention_module = DiffSimFeatureAttention(args, feature_map_inputs, global_dim=ft_net_output)
 
-            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'glb-both':
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith(
+                    'sim')) and args.att_mode_sc == 'glb-both':
                 self.att_type = 'channel_spatial'
                 self.glb_atn = LinearAttentionBlock_GlbChannelSpatial(in_features=ft_net_output,
                                                                       constant_weight=args.att_weight_init)
-            elif (self.merge_method.startswith('diff') or self.merge_method.startswith('sim')) and args.att_mode_sc == 'unet-att':
+            elif (self.merge_method.startswith('diff') or self.merge_method.startswith(
+                    'sim')) and args.att_mode_sc == 'unet-att':
                 self.att_type = 'unet'
                 self.glb_atn = Att_For_Unet(in_features=ft_net_output, constant_weight=args.att_weight_init)
             elif ('attention' not in self.merge_method) and args.att_mode_sc == 'dot-product':
@@ -1091,14 +1108,18 @@ class TopModel(nn.Module):
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
-                                                        cross_add=False)
+                                                        cross_add=False,
+                                                        merge_with_fc=args.att_merge_fc,
+                                                        bias=args.att_bias)
 
             elif ('attention' not in self.merge_method) and args.att_mode_sc == 'dot-product-add':
                 self.att_type = 'dot-product-add'
                 self.glb_atn = CrossDotProductAttention(in_features=ft_net_output,
                                                         constant_weight=args.att_weight_init,
                                                         mode=args.dp_type,
-                                                        cross_add=True)
+                                                        cross_add=True,
+                                                        merge_with_fc=args.att_merge_fc,
+                                                        bias=args.att_bias)
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -1204,8 +1225,6 @@ class TopModel(nn.Module):
                 else:
                     output = self.sm_net(x1_global, None, single)  # single is true
 
-
-
             return output, x1_local[-1]
 
     def classify(self, globals, locals, feats=True, hook=False, return_att=False):
@@ -1306,7 +1325,8 @@ class TopModel(nn.Module):
                 return pred, local_features
         else:  # diff, sim, or diff-sim
             if self.loss == 'stopgrad':
-                x1, x2, x1_pred, x2_pred = self.sm_net(x1_global, x2_global) # todo doesn't support args.no_final_network
+                x1, x2, x1_pred, x2_pred = self.sm_net(x1_global,
+                                                       x2_global)  # todo doesn't support args.no_final_network
 
                 return x1, x2, x1_pred, x2_pred
             else:
@@ -1348,7 +1368,6 @@ class TopModel(nn.Module):
                     # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                     #             + F.normalize(attended_x2_global, p=2, dim=1)
 
-
                     x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
                     if anch_pass_act:
                         anch_pass_act.append(attended_x1_global.detach().clone())
@@ -1371,7 +1390,6 @@ class TopModel(nn.Module):
                     ret = (pred, cos_sim, x1_global, x2_global)
                 else:
                     ret = self.sm_net(x1_global, x2_global, feats=feats, softmax=self.softmax)
-
 
                 if self.loss == 'trpl_local':
                     pred, pdist, out1, out2 = ret
@@ -1412,7 +1430,6 @@ class TopModel(nn.Module):
                             num_workers=4,
                             pin_memory=True)
 
-
         with tqdm(total=len(loader), desc='PLEASE WORK!!') as t:
             for idx, batch in enumerate(loader):
                 x1_local, x1_global, x2_local, x2_global, idx_pairs = batch
@@ -1429,6 +1446,7 @@ class TopModel(nn.Module):
         sim_matrix[min_dist_mask] = min_similarity
 
         return sim_matrix
+
 
 def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, mask=False, fourth_dim=False):
     if trained_sm_net is None:
@@ -1476,4 +1494,3 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
             param.requires_grad = False
 
     return TopModel(args=args, ft_net=ft_net, sm_net=sm_net, aug_mask=(mask and fourth_dim), attention=args.attention)
-

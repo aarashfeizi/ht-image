@@ -362,6 +362,9 @@ def get_args():
                                                                                      'dot-product',
                                                                                      'dot-product-add'])
 
+    parser.add_argument('-att_merge_fc', '--att_merge_fc', default=False, action='store_true')
+    parser.add_argument('-att_bias', '--att_bias', default=False, action='store_true')
+
     parser.add_argument('-att_weight_init', '--att_weight_init', default=None, type=float, help="initialize glb-both att")
 
     parser.add_argument('-att_on_all', '--att_on_all', default=False, action='store_true')
@@ -2618,6 +2621,10 @@ def get_logname(args):
                     getattr(args, arg).startswith('diff') or getattr(args, arg).startswith(
                 'sim')) and args.att_mode_sc.startswith('dot-product'):
                 name += f'-{name_replace_dict[args.att_mode_sc]}-{args.lr_att}'
+                if args.att_merge_fc:
+                    name += '-FCm'
+                if args.att_bias:
+                    name += '-b'
                 if args.att_mode_sc == 'dot-product':
                     name += f'-{args.dp_type}'
 
