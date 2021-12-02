@@ -1057,6 +1057,7 @@ class TopModel(nn.Module):
         self.classifier = None
         self.attention_module = None
         self.global_attention = args.attention
+        self.infer_wo_att = args.infer_wo_att
         self.glb_atn = None
         self.att_type = ''
         if args.loss != 'stopgrad':
@@ -1199,24 +1200,26 @@ class TopModel(nn.Module):
 
                 output = F.normalize(output, p=2, dim=1)
             else:
+                
+                if not self.infer_wo_att:
 
-                if self.global_attention:
-                    x1_input = []
+                    if self.global_attention:
+                        x1_input = []
 
-                    for i in self.fmaps_no:
-                        x1_input.append(x1_local[i - 1])
+                        for i in self.fmaps_no:
+                            x1_input.append(x1_local[i - 1])
 
-                    x1_global, _ = self.attention_module(x1_input, x1_global, None, None, single=single)
-                if self.att_type == 'channel_spatial':
-                    # print('Using glb_atn! *********')
-                    _, x1_global = self.glb_atn(x1_local[-1], x1_global)
-                elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
-                    attended_x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
-                    x1_global = attended_x1_global.reshape(attended_x1_global.shape[0],
-                                                           attended_x1_global.shape[1],
-                                                           -1).mean(axis=2)
-                elif self.att_type == 'unet':
-                    pass  # shouldn't pass through attention
+                        x1_global, _ = self.attention_module(x1_input, x1_global, None, None, single=single)
+                    if self.att_type == 'channel_spatial':
+                        # print('Using glb_atn! *********')
+                        _, x1_global = self.glb_atn(x1_local[-1], x1_global)
+                    elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
+                        attended_x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
+                        x1_global = attended_x1_global.reshape(attended_x1_global.shape[0],
+                                                            attended_x1_global.shape[1],
+                                                            -1).mean(axis=2)
+                    elif self.att_type == 'unet':
+                        pass  # shouldn't pass through attention
 
                 if self.no_final_network:
                     x1_global = x1_global.view((x1_global.size()[0], -1))

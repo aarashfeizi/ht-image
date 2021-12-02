@@ -344,6 +344,7 @@ def get_args():
     parser.add_argument('-draw_top_k_results', '--draw_top_k_results', default=5, type=int)
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
+    parser.add_argument('-infer_wo_att', '--infer_wo_att', default=False, action='store_true')
 
     parser.add_argument('-dp_type', '--dp_type', default='both',
                         choices=['query', 'key', 'both'])
@@ -2484,7 +2485,8 @@ def get_logname(args):
                          'random_erase': 're',
                          'dot-product': 'dp',
                          'dot-product-add': 'dpa',
-                         'my_dist': 'MD'}
+                         'my_dist': 'MD',
+                         'infer_wo_att': 'IwoA'}
 
     important_args = ['dataset_name',
                       'batch_size',
@@ -2525,7 +2527,8 @@ def get_logname(args):
                       'classes_in_query',
                       'small_and_big',
                       'warm',
-                      'random_erase']
+                      'random_erase',
+                      'infer_wo_att']
 
     important_args += ['classifier_layer',
                        'projection_layer',
@@ -2550,7 +2553,8 @@ def get_logname(args):
                     'test_query_index',
                     'small_and_big',
                     'warm',
-                    'my_dist']
+                    'my_dist',
+                    'infer_wo_att']
 
     args_shouldnt_be_zero = ['overfit_num',
                              'gamma',
