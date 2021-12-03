@@ -1371,8 +1371,8 @@ class TopModel(nn.Module):
                     #
                     # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                     #             + F.normalize(attended_x2_global, p=2, dim=1)
-                    diffs.append(torch.abs(x1_local[-1].sum().data.cpu() - attended_x1_global.sum().data.cpu()))
-                    diffs.append(torch.abs(x2_local[-1].sum().data.cpu() - attended_x2_global.sum().data.cpu()))
+                    diffs.append(torch.abs(x1_local[-1].sum().data.cpu() - attended_x1_global.sum().data.cpu()).numpy())
+                    diffs.append(torch.abs(x2_local[-1].sum().data.cpu() - attended_x2_global.sum().data.cpu()).numpy())
 
                     x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
                     if anch_pass_act:
