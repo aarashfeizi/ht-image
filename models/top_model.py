@@ -93,7 +93,7 @@ class CrossDotProductAttentionBlock(nn.Module):
     def __init__(self, in_features, constant_weight=None, merge_with_fc=False, bias=False):
         super(CrossDotProductAttentionBlock, self).__init__()
 
-        self.layernorm = nn.LayerNorm([in_features, 7, 7])
+        # self.layernorm = nn.LayerNorm([in_features, 7, 7])
 
         self.op_k = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
         self.op_q = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
@@ -121,12 +121,12 @@ class CrossDotProductAttentionBlock(nn.Module):
     def forward(self, pre_local_query_org, pre_local_key_org):
         N, C, W, H = pre_local_query_org.size()
 
-        pre_local_query = self.layernorm(pre_local_query_org)
-        local_1_query = self.op_q(pre_local_query).reshape(N, C, W * H)
+        # pre_local_query = self.layernorm(pre_local_query_org)
+        local_1_query = self.op_q(pre_local_query_org).reshape(N, C, W * H)
 
         if pre_local_key_org is not None:
-            pre_local_key = self.layernorm(pre_local_key_org)
-            local_2_key = self.op_k(pre_local_key).reshape(N, C, W * H)
+            # pre_local_key = self.layernorm(pre_local_key_org)
+            local_2_key = self.op_k(pre_local_key_org).reshape(N, C, W * H)
         else:
             local_2_key = local_1_query
 
