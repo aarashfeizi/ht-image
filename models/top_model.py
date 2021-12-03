@@ -157,7 +157,7 @@ class CrossDotProductAttentionBlock(nn.Module):
         else:
             attended_local1 = (pre_local_query_org +
                                attended_local1_from1 +
-                               attended_local1_from2)  # todo works because 2 additions
+                               attended_local1_from2)  # todo works symmetricly because 2 additions
 
         # return c.view(N, 1, W, H), g
         return attended_local1_asq, attended_local2_ask, (query_atts_map, key_atts_map), attended_local1
@@ -1143,7 +1143,7 @@ class TopModel(nn.Module):
     def get_activations(self):
         return self.ft_net.get_activations()
 
-    def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False, return_att=False):
+    def forward(self, x1, x2, single=False, feats=False, dist=False, hook=False, return_att=False, get_att_diffs=False):
         # print('model input:', x1[-1].size())
 
         if self.transformer:
@@ -1164,7 +1164,7 @@ class TopModel(nn.Module):
                 x2_global, x2_local = self.ft_net(x2, is_feat=True, hook=hook)
 
             results = self.classify(globals=[x1_global, x2_global], locals=[x1_local, x2_local],
-                                    feats=feats, hook=hook, return_att=return_att)
+                                    feats=feats, hook=hook, return_att=return_att, get_att_diffs=get_att_diffs)
             return results
         else:  # single
 
@@ -1230,12 +1230,13 @@ class TopModel(nn.Module):
 
             return output, x1_local[-1]
 
-    def classify(self, globals, locals, feats=True, hook=False, return_att=False):
+    def classify(self, globals, locals, feats=True, hook=False, return_att=False, get_att_diffs=False):
 
         x1_global, x2_global = globals
         x1_local, x2_local = locals
         atts_1 = None
         atts_2 = None
+        diffs = [] # absolute difference between the summation of values of the tensors before and after attention
         if hook:
             anch_pass_act = [l.detach().clone() for l in x1_local]
         else:
@@ -1370,6 +1371,8 @@ class TopModel(nn.Module):
                     #
                     # x2_global = F.normalize(x2_global.squeeze(dim=-1).squeeze(dim=-1), p=2, dim=1) \
                     #             + F.normalize(attended_x2_global, p=2, dim=1)
+                    diffs.append(torch.abs(x1_local[-1].sum().data.cpu() - attended_x1_global.sum().data.cpu()))
+                    diffs.append(torch.abs(x2_local[-1].sum().data.cpu() - attended_x2_global.sum().data.cpu()))
 
                     x1_global = attended_x1_global.reshape(N, C, -1).mean(axis=2)
                     if anch_pass_act:
@@ -1405,11 +1408,21 @@ class TopModel(nn.Module):
                     pred, pdist, out1, out2 = ret
                     if hook:
                         if return_att:
-                            return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
+                            if get_att_diffs:
+                                return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2, diffs
+                            else:
+                                if get_att_diffs:
+                                    return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2, diffs
+                                else:
+                                    return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
                         else:
                             return pred, pdist, out1, out2, [anch_pass_act, other_pass_act]
                     else:
-                        return pred, pdist, out1, out2
+                        if get_att_diffs:
+                            return pred, pdist, out1, out2, diffs
+                        else:
+                            return pred, pdist, out1, out2
+                                
                 else:
                     pred, pdist = ret
                     return pred, pdist

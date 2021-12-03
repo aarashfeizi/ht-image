@@ -1617,6 +1617,8 @@ class ModelMethods:
         loss = 0
         true_label_auc = []
         pred_label_auc = []
+        all_pos_att_diffs = []
+        all_neg_att_diffs = []
         all_pos_predictions = []
         all_neg_predictions = []
         with tqdm(total=len(data_loader), desc=f'{prompt_text_tb}') as t:
@@ -1680,19 +1682,21 @@ class ModelMethods:
 
 
                 else:
-                    pos_pred, pos_dist, anch_feat, pos_feat = net.forward(anch, pos, feats=True)
+                    pos_pred, pos_dist, anch_feat, pos_feat, pos_att_diffs = net.forward(anch, pos, feats=True, get_att_diffs=True)
                     class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze(axis=1))
 
                     pred_label_auc.extend(pos_pred.data.cpu().numpy())
                     true_label_auc.extend(one_labels.data.cpu().numpy())
+                    all_pos_att_diffs.extend(pos_att_diffs)
                     all_pos_predictions.extend(pos_pred.data.cpu().numpy())
                     metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze(axis=1))
 
                     # self.logger.info(anch.shape)
                     # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                    neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg, feats=True)
+                    neg_pred, neg_dist, neganch_feat, neg_feat, neg_att_diffs = net.forward(anch, neg, feats=True, get_att_diffs=True)
 
                     all_neg_predictions.extend(neg_pred.data.cpu().numpy())
+                    all_neg_att_diffs.extend(neg_att_diffs)
                     pred_label_auc.extend(neg_pred.data.cpu().numpy())
                     true_label_auc.extend(zero_labels.data.cpu().numpy())
 
@@ -1751,6 +1755,12 @@ class ModelMethods:
             self.hparams_metric[f'{prompt_text_tb}/Acc'] = metric_ACC.get_acc()
         else:
             self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
+
+        if len(all_pos_att_diffs) > 0:
+            self.writer.add_histogram('ATTENTION_DIFFS/pos', all_pos_att_diffs, epoch)
+
+        if len(all_neg_att_diffs) > 0:
+            self.writer.add_histogram('ATTENTION_DIFFS/neg', all_neg_att_diffs, epoch)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
