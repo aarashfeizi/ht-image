@@ -1757,10 +1757,10 @@ class ModelMethods:
             self.writer.add_scalar(f'{prompt_text_tb}/Acc', metric_ACC.get_acc(), epoch)
 
         if len(all_pos_att_diffs) > 0:
-            self.writer.add_histogram('ATTENTION_DIFFS/pos', all_pos_att_diffs, epoch)
+            self.writer.add_histogram('ATTENTION_DIFFS/pos', np.array(all_pos_att_diffs), epoch)
 
         if len(all_neg_att_diffs) > 0:
-            self.writer.add_histogram('ATTENTION_DIFFS/neg', all_neg_att_diffs, epoch)
+            self.writer.add_histogram('ATTENTION_DIFFS/neg', np.array(all_neg_att_diffs), epoch)
 
         # self.writer.add_scalar(f'{prompt_text_tb}/Acc', test_acc, epoch)
         self.writer.flush()
