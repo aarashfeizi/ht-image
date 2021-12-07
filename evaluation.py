@@ -13,12 +13,14 @@ import pickle
 import torch
 import proxy_anchor_models as pa
 import softtriple_models as st
+import sup_contrastive_models as sc
 import torch.nn.functional as F
 import h5py
 
 import dataset_loaders
 
 dataset_choices = ['cars', 'cub', 'hotels']
+BASELINE_MODELS = ['ours', 'softtriple', 'proxy-anchor', 'supcontrastive', 'resnet50']
 
 # softtriplet loss code
 def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matrix=None, ):
@@ -197,6 +199,29 @@ def proxyanchor_load_model_resnet50(save_path, args):
 
     return net
 
+def supcontrastive_load_model_resnet50(save_path, args):
+    if args.cuda:
+        checkpoint = torch.load(save_path, map_location=torch.device(0))
+    else:
+        checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
+
+    net = sc.resnet50()
+
+    new_checkpoint = {}
+    for key, value in checkpoint['model'].items():
+        if key.startswith('encoder'):
+            new_checkpoint[key[8:]] = value
+        elif key.startswith('head'):
+            pass
+
+    net.load_state_dict(new_checkpoint)
+
+    if args.cuda:
+        net = net.cuda()
+
+    return net
+
+
 def softtriple_load_model_resnet50(save_path, args):
     if args.cuda:
         checkpoint = torch.load(save_path, map_location=torch.device(0))
@@ -268,7 +293,7 @@ def main():
 
     parser.add_argument('-d', '--dataset', default=None, choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
-    parser.add_argument('--baseline', default='proxy-anchor', choices=['ours', 'softtriple', 'proxy-anchor', 'resnet50'])
+    parser.add_argument('--baseline', default='proxy-anchor', choices=BASELINE_MODELS)
     parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
 
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
@@ -314,6 +339,8 @@ def main():
 
         if args.baseline == 'proxy-anchor':
             net = proxyanchor_load_model_resnet50(args.checkpoint, args)
+        elif args.baseline == 'supcontrastive':
+            net = supcontrastive_load_model_resnet50(args.checkpoint, args)
         elif args.baseline == 'softtriple':
             if args.model_type == 'resnet50':
                 net = softtriple_load_model_resnet50(args.checkpoint, args)
