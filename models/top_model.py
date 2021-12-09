@@ -123,12 +123,12 @@ class CrossDotProductAttentionBlock(nn.Module):
 
         # pre_local_query = self.layernorm(pre_local_query_org)
         local_1_query = self.op_q(pre_local_query_org).reshape(N, C, W * H)
-        local_1_query = F.normalize(local_1_query, p=2, dim=2)
+        # local_1_query = F.normalize(local_1_query, p=2, dim=2) # euc norm
 
         if pre_local_key_org is not None:
             # pre_local_key = self.layernorm(pre_local_key_org)
             local_2_key = self.op_k(pre_local_key_org).reshape(N, C, W * H)
-            local_2_key = F.normalize(local_2_key, p=2, dim=2)
+          # local_2_key = F.normalize(local_2_key, p=2, dim=2) # euc norm
         else:
             local_2_key = local_1_query
 
