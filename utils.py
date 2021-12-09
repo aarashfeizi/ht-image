@@ -5,6 +5,7 @@ import logging
 import math
 import multiprocessing
 import os
+import random
 import sys
 import time
 import pickle
@@ -168,6 +169,11 @@ class TransformLoader:
 
 
 # '../../dataset/omniglot/python/images_evaluation'
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 @MY_DEC
 def get_logger(logname, env):
@@ -452,7 +458,7 @@ def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], star
     return workers, pin_memory
 
 
-def get_val_loaders(args, val_sets, workers, pin_memory, batch_size=None):
+def get_val_loaders(args, val_sets, workers, pin_memory, generator, batch_size=None):
     val_loaders = []
 
     if not val_sets:
@@ -464,7 +470,7 @@ def get_val_loaders(args, val_sets, workers, pin_memory, batch_size=None):
     for val_set in val_sets:
         val_loaders.append(
             DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory, drop_last=args.drop_last))
+                       pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=seed_worker, generator=generator))
 
     return val_loaders
 

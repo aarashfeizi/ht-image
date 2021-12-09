@@ -44,7 +44,11 @@ def main():
         args.warm_epochs = min(args.epochs // 10, 10)
 
     random.seed(args.seed)
+    np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+
+    dl_gen = torch.Generator()
+    dl_gen.manual_seed(args.seed)
 
     # args.dataset_folder = dataset_info[args.dataset_name][]
     model_name, id_str = utils.get_logname(args)
@@ -282,7 +286,7 @@ def main():
         for t_set in test_sets:
             test_loaders.append(
                 DataLoader(t_set, batch_size=args.way, shuffle=False, num_workers=args.workers,
-                           drop_last=args.drop_last))
+                           drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen))
 
     # workers = 4
     # pin_memory = False
@@ -301,7 +305,7 @@ def main():
         bs = args.batch_size
 
     train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
-                              pin_memory=pin_memory, drop_last=args.drop_last)
+                              pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen)
 
     # train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
     #                                   pin_memory=pin_memory, drop_last=args.drop_last)
@@ -323,10 +327,10 @@ def main():
     #                                 pin_memory=pin_memory)
 
     val_loaders_metric = utils.get_val_loaders(args, val_sets, workers,
-                                               pin_memory, batch_size=args.batch_size)
+                                               pin_memory, generator=dl_gen, batch_size=args.batch_size)
     if args.test:
-        test_loaders_metric = utils.get_val_loaders(args, test_set_known_metric, test_set_unknown_metric, workers,
-                                                    pin_memory, batch_size=args.batch_size)
+        test_loaders_metric = utils.get_val_loaders(args, test_sets, workers,
+                                                    pin_memory, generator=dl_gen, batch_size=args.batch_size)
 
         # train_loader_classify = DataLoader(train_classify, batch_size=args.batch_size, shuffle=False,
         #                                    num_workers=workers,
@@ -340,15 +344,15 @@ def main():
     for set_pair in val_db_sets:
         if len(set_pair) == 2 and type(set_pair) == list:
             val1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                         pin_memory=pin_memory, drop_last=args.drop_last) # query
+                                         pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen) # query
 
             val2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                       pin_memory=pin_memory, drop_last=args.drop_last) # index
+                                       pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen) # index
 
             val_db_loaders.append([val1_db_loader, val2_db_loader])
         else:
             val_db_loader = DataLoader(set_pair, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                        pin_memory=pin_memory, drop_last=args.drop_last)
+                                        pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen)
 
             val_db_loaders.append(val_db_loader)
 
@@ -357,15 +361,15 @@ def main():
         for set_pair in test_db_sets:
             if len(set_pair) == 2 and type(set_pair) == list:
                 test1_db_loader = DataLoader(set_pair[0], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                             pin_memory=pin_memory, drop_last=args.drop_last) # query
+                                             pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen) # query
 
                 test2_db_loader = DataLoader(set_pair[1], batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                           pin_memory=pin_memory, drop_last=args.drop_last) # index
+                                           pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen) # index
 
                 test_db_loaders.append([test1_db_loader, test2_db_loader])
             else:
                 test_db_loader = DataLoader(set_pair, batch_size=args.db_batch, shuffle=False, num_workers=workers,
-                                            pin_memory=pin_memory, drop_last=args.drop_last)
+                                            pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker, generator=dl_gen)
 
                 test_db_loaders.append(test_db_loader)
 
