@@ -175,6 +175,23 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+def seed_all(seed, cuda=False):
+    if not seed:
+        seed = 10
+
+    print("[ Using Seed : ", seed, " ]")
+
+    torch.manual_seed(seed)
+    if cuda:
+        torch.cuda.manual_seed_all(seed)
+        torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    return True
+
 @MY_DEC
 def get_logger(logname, env):
     if env == 'hlr' or env == 'local':
@@ -458,7 +475,7 @@ def get_best_workers_pinmemory(args, train_set, pin_memories=[False, True], star
     return workers, pin_memory
 
 
-def get_val_loaders(args, val_sets, workers, pin_memory, generator, batch_size=None):
+def get_val_loaders(args, val_sets, workers, pin_memory, batch_size=None):
     val_loaders = []
 
     if not val_sets:
@@ -470,7 +487,7 @@ def get_val_loaders(args, val_sets, workers, pin_memory, generator, batch_size=N
     for val_set in val_sets:
         val_loaders.append(
             DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=workers,
-                       pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=seed_worker, generator=generator))
+                       pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=seed_worker))
 
     return val_loaders
 
