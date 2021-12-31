@@ -49,6 +49,8 @@ def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matri
         indices = (-dist_matrix).argsort()[:, :-1]
 
     else:
+        if not X.flags['C_CONTIGUOUS']:
+            X = np.ascontiguousarray(X)
         distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu, metric=metric)
 
     print(f'**** Evaluation, calculating dist rank DONE. Took {time.time() - start}s')
