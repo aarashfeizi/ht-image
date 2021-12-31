@@ -1880,22 +1880,22 @@ class ModelMethods:
             test_sim = test_sim.reshape((len(test_classes), len(test_classes)))
             # utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
             #               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
+            utils.save_h5('data', test_classes, 'i8',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_sim', test_sim, 'f',
+            utils.save_h5('data', test_sim, 'f',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))
 
             if return_bg and mode != 'train':
-                utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
+                utils.save_h5('data', test_seen, 'i2',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         test_seen = np.zeros(((len(data_loader.dataset))))
-        test_sim = utils.load_h5(f'{args.dataset_name}_{mode}_sim',
+        test_sim = utils.load_h5('data',
                                  os.path.join(self.save_path, f'{args.dataset_name}_{mode}Sim.h5'))
-        test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
+        test_classes = utils.load_h5('data',
                                      os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
         if return_bg and mode != 'train':
-            test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
+            test_seen = utils.load_h5('data',
                                       os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         # pca_path = os.path.join(self.scatter_plot_path, f'pca_{epoch}.png')
@@ -2046,32 +2046,32 @@ class ModelMethods:
             test_feats_i = test_feats_i.astype(np.float32)
 
         if epoch == self.max_epochs or epoch == -1:
-            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_ids_q', test_paths_q, 'S20',
+            utils.save_h5('data', test_paths_q, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Ids_q.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_classes_q', test_classes_q, 'i8',
+            utils.save_h5('data', test_classes_q, 'i8',
                           os.path.join(self.save_path,
                                        f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_feats_q', test_feats_q, 'f',
+            utils.save_h5('data', test_feats_q, 'f',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_ids_i', test_paths_i, 'S20',
+            utils.save_h5('data', test_paths_i, 'S20',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Ids_i.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_classes_i', test_classes_i, 'i8',
+            utils.save_h5('data', test_classes_i, 'i8',
                           os.path.join(self.save_path,
                                        f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
-            utils.save_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_feats_i', test_feats_i, 'f',
+            utils.save_h5('data', test_feats_i, 'f',
                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
 
         if epoch == self.max_epochs or epoch == -1:
-            test_feats_i = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_feats_i',
+            test_feats_i = utils.load_h5('data',
                                          os.path.join(self.save_path,
                                                       f'{args.dataset_name}_{mode}_{query_index_names[1]}_Feats_i.h5'))
-            test_classes_i = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[1]}_classes_i',
+            test_classes_i = utils.load_h5('data',
                                            os.path.join(self.save_path,
                                                         f'{args.dataset_name}_{mode}_{query_index_names[1]}_Classes_i.h5'))
-            test_feats_q = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_feats_q',
+            test_feats_q = utils.load_h5('data',
                                          os.path.join(self.save_path,
                                                       f'{args.dataset_name}_{mode}_{query_index_names[0]}_Feats_q.h5'))
-            test_classes_q = utils.load_h5(f'{args.dataset_name}_{mode}_{query_index_names[0]}_classes_q',
+            test_classes_q = utils.load_h5('data',
                                            os.path.join(self.save_path,
                                                         f'{args.dataset_name}_{mode}_{query_index_names[0]}_Classes_q.h5'))
 
@@ -2300,35 +2300,35 @@ class ModelMethods:
                 test_feats = test_feats.astype(np.float32)
 
             if epoch == self.max_epochs or epoch == -1:
-                utils.save_h5(f'{args.dataset_name}_{mode}_ids', test_paths, 'S20',
+                utils.save_h5('data', test_paths, 'S20',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
-                utils.save_h5(f'{args.dataset_name}_{mode}_classes', test_classes, 'i8',
+                utils.save_h5('data', test_classes, 'i8',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-                utils.save_h5(f'{args.dataset_name}_{mode}_feats', test_feats, 'f',
+                utils.save_h5('data', test_feats, 'f',
                               os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
 
                 if local_feat is not None:
-                    utils.save_h5(f'{args.dataset_name}_{mode}_locfeats', test_local_feats, 'f',
+                    utils.save_h5('data', test_local_feats, 'f',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
                 if return_bg and mode != 'train':
-                    utils.save_h5(f'{args.dataset_name}_{mode}_seen', test_seen, 'i2',
+                    utils.save_h5('data', test_seen, 'i2',
                                   os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         if epoch == self.max_epochs or epoch == -1:
             test_seen = np.zeros(((len(data_loader.dataset))))
-            test_feats = utils.load_h5(f'{args.dataset_name}_{mode}_feats',
+            test_feats = utils.load_h5('data',
                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}Feats.h5'))
 
             if os.path.exists(os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5')):
-                test_local_feats = utils.load_h5(f'{args.dataset_name}_{mode}_locfeats',
+                test_local_feats = utils.load_h5('data',
                                                  os.path.join(self.save_path, f'{args.dataset_name}_{mode}LocFeats.h5'))
 
-            test_classes = utils.load_h5(f'{args.dataset_name}_{mode}_classes',
+            test_classes = utils.load_h5('data',
                                          os.path.join(self.save_path, f'{args.dataset_name}_{mode}Classes.h5'))
-            test_paths = utils.load_h5(f'{args.dataset_name}_{mode}_ids',
+            test_paths = utils.load_h5('data',
                                        os.path.join(self.save_path, f'{args.dataset_name}_{mode}Ids.h5'))
             if return_bg and mode != 'train':
-                test_seen = utils.load_h5(f'{args.dataset_name}_{mode}_seen',
+                test_seen = utils.load_h5('data',
                                           os.path.join(self.save_path, f'{args.dataset_name}_{mode}Seen.h5'))
 
         if data_loader.dataset.lbl2chain:

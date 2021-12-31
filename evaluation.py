@@ -1,24 +1,23 @@
-import os
-
-import numpy as np
-import time
-import timm
-import faiss
-import torchvision.models
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.metrics import roc_auc_score
-from tqdm import tqdm
 import argparse
+import os
 import pickle
+import time
+
+import faiss
+import h5py
+import numpy as np
+import timm
 import torch
+import torch.nn.functional as F
+from sklearn.decomposition import PCA
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
+
+import dataset_loaders
 import proxy_anchor_models as pa
 import softtriple_models as st
 import sup_contrastive_models as sc
-import torch.nn.functional as F
-import h5py
-
-import dataset_loaders
-
 
 # on hlr:
 # python evaluation.py -chk ../SupContrast/save/SupCon/hotels_models/SupCon_hotels_resnet50_lr_0.01_decay_0.0001_bsz_32_temp_0.1_trial_0_cosine/last.pth -name SupCon_hotels_resnet50_lr_0.01_decay_0.0001_bsz_32_temp_0.1_trial_0_cosine/ --kset 1 2 4 8 10 100 1000 --model_type resnet50 -d hotels -dr ../../datasets/ --baseline supcontrastive --gpu_ids 6
@@ -272,6 +271,15 @@ def resnet_load_model(save_path, args):
     return net
 
 
+def pca(features, sz_embedding):
+    pca_model = PCA(n_components=sz_embedding)
+
+    print(f'Performing PCA to reduce dim from {features.shape[1]} to {sz_embedding}')
+    new_features = pca_model.fit_transform(features)
+
+    return new_features
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -281,13 +289,13 @@ def main():
 
     parser.add_argument('-X', '--X', nargs='+', default=[],
                         help="Different features for datasets (order important)")
-    parser.add_argument('-X_desc', '--X_desc', nargs='+', default=[],
-                        help="Different features desc for datasets (order important)") # for h5 or npz files
+    # parser.add_argument('-X_desc', '--X_desc', nargs='+', default=[],
+    #                     help="Different features desc for datasets (order important)") # for h5 or npz files
 
     parser.add_argument('-Y', '--Y', nargs='+', default=[],
                         help="Different labels for datasets (order important)")
-    parser.add_argument('-Y_desc', '--Y_desc', nargs='+', default=[],
-                        help="Different labels desc for datasets (order important)")  # for h5 or npz files
+    # parser.add_argument('-Y_desc', '--Y_desc', nargs='+', default=[],
+    #                     help="Different labels desc for datasets (order important)")  # for h5 or npz files
 
 
 
@@ -299,6 +307,9 @@ def main():
     parser.add_argument('-dr', '--data_root', default='../hotels')
     parser.add_argument('--baseline', default='proxy-anchor', choices=BASELINE_MODELS)
     parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
+
+    parser.add_argument('--pca_to_dim', action='store_true')
+
 
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
     parser.add_argument('--kset', nargs='+', default=[1, 2, 4, 8])
@@ -318,6 +329,7 @@ def main():
     if args.name is None:
         raise Exception('Provide --name')
 
+    # provide model and extract embeddings here
     if args.dataset is not None:
 
         if args.gpu_ids != '':
@@ -368,7 +380,6 @@ def main():
         for ldr in eval_ldrs:
             features, labels = get_features_and_labels(args, net, ldr)
             all_data.append((features, labels))
-
     else: # X and Y should be provided
         for idx, (x, y) in enumerate(zip(args.X, args.Y)):
             if x.endswith('.pkl'):
@@ -378,7 +389,7 @@ def main():
                 features = np.load(x)
             elif x.endswith('.h5'):
                 with h5py.File(x, 'r') as hf:
-                    features = hf[args.X_desc[idx]][:]
+                    features = hf['data'][:]
             else:
                 raise Exception(f'{x} data format not supported')
 
@@ -389,7 +400,7 @@ def main():
                 labels = np.load(y)
             elif y.endswith('.h5'):
                 with h5py.File(y, 'r') as hf:
-                    labels = hf[args.Y_desc[idx]][:]
+                    labels = hf['data'][:]
             else:
                 raise Exception(f'{y} data format not supported')
 
@@ -403,6 +414,14 @@ def main():
 
     results = f'{args.dataset}\n'
     for idx, (features, labels) in enumerate(all_data, 1):
+
+        if features.shape[1] != args.sz_embedding:
+            if args.pca_to_dim:
+                features = pca(features, args.sz_embedding)
+            else:
+                raise Exception(
+                    f'--pca_to_dim is set to False and feature dim {features.shape[1]} not equal to expected dim {args.sz_embedding}')
+
         print(f'{idx}: Calc Recall at {kset}')
         rec = evaluate_recall_at_k(features, labels, Kset=kset, metric=args.metric)
         print(kset)
