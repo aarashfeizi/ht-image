@@ -292,8 +292,8 @@ def pca(features, sz_embedding):
 def check(args, all_data):
     val_keys = DATASET_SIZES[args.dataset].keys()
     for provided_data, val_type in zip(all_data, val_keys):
-        if provided_data.shape[0] != DATASET_SIZES[args.dataset][val_type]:
-            print(f'Val type {val_type} should be {DATASET_SIZES[args.dataset][val_type]} images, but is {provided_data.shape[0]}')
+        if provided_data[0].shape[0] != DATASET_SIZES[args.dataset][val_type]:
+            print(f'Val type {val_type} should be {DATASET_SIZES[args.dataset][val_type]} images, but is {provided_data[0].shape[0]}')
             return False
     print(f'All sizes for {val_keys} were checked and are correct')
     return True
