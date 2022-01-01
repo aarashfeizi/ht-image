@@ -350,7 +350,7 @@ def main():
         raise Exception('Provide --name')
 
     # provide model and extract embeddings here
-    if args.dataset is not None:
+    if len(args.X) == 0:
 
         if args.gpu_ids != '':
             os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
