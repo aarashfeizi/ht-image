@@ -25,6 +25,13 @@ import sup_contrastive_models as sc
 dataset_choices = ['cars', 'cub', 'hotels']
 BASELINE_MODELS = ['ours', 'softtriple', 'proxy-anchor', 'supcontrastive', 'resnet50']
 
+DATASET_SIZES = {'cars': {'test': 10}, # wrong!
+                 'cub': {'test': 10}, # wrong!
+                 'hotels': {'val1_small': 3060,
+                            'val2_small': 2397,
+                            'val3_small': 2207,
+                            'val4_small': 2348}}
+
 # softtriplet loss code
 def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matrix=None, ):
 
@@ -282,6 +289,17 @@ def pca(features, sz_embedding):
     return new_features
 
 
+def check(args, all_data):
+    val_keys = DATASET_SIZES[args.dataset].keys()
+    for provided_data, val_type in zip(all_data, val_keys):
+        if provided_data.shape[0] != DATASET_SIZES[args.dataset][val_type]:
+            print(f'Val type {val_type} should be {DATASET_SIZES[args.dataset][val_type]} images, but is {provided_data.shape[0]}')
+            return False
+    print(f'All sizes for {val_keys} were checked and are correct')
+    return True
+
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -413,6 +431,9 @@ def main():
                 labels = labels.cpu().numpy()
 
             all_data.append((features, labels))
+
+    if check(args, all_data):
+        print('Assertion completed!')
 
     results = f'{args.dataset}\n'
     for idx, (features, labels) in enumerate(all_data, 1):
