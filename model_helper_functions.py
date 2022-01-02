@@ -3900,6 +3900,8 @@ class ModelMethods:
 
             forward_start = time.time()
             pos_pred, pos_dist, posanch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            pos_feat_map = None
+            neg_feat_map = None
             if type(pos_feat) == list:
                 posanch_feat_map = posanch_feat[1]
                 posanch_feat = posanch_feat[0]
@@ -3949,7 +3951,7 @@ class ModelMethods:
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
             #
-            if type(neg_feat) == list:
+            if neg_feat_map:
                 ext_loss = loss_fn(posanch_feat, pos_feat, neg_feat,
                                    maps=[posanch_feat_map, pos_feat_map, neg_feat_map]) # posanch_feat and neganch_feat are the same
             else:
