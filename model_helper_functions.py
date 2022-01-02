@@ -3902,7 +3902,7 @@ class ModelMethods:
             pos_pred, pos_dist, posanch_feat, pos_feat = net.forward(anch, pos, feats=True)
             pos_feat_map = None
             neg_feat_map = None
-            if type(pos_feat) == list:
+            if type(pos_feat) == tuple:
                 posanch_feat_map = posanch_feat[1]
                 posanch_feat = posanch_feat[0]
 
@@ -3925,7 +3925,7 @@ class ModelMethods:
             forward_start = time.time()
             neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg, feats=True)
 
-            if type(neg_feat) == list:
+            if type(neg_feat) == tuple:
                 neganch_feat_map = neganch_feat[1]
                 neganch_feat = neganch_feat[0]
 

@@ -18,10 +18,11 @@ A_SUM = [0, 0]
 
 
 class LinearAttentionBlock_Spatial(nn.Module):
-    def __init__(self, in_features, normalize_attn=True):
+    def __init__(self, in_features, normalize_attn=True, return_att_map=False):
         super(LinearAttentionBlock_Spatial, self).__init__()
         self.normalize_attn = normalize_attn
         self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
+        self.return_att_map = return_att_map
 
     def forward(self, l, g):
         N, C, W, H = l.size()
@@ -48,7 +49,10 @@ class LinearAttentionBlock_Spatial(nn.Module):
         else:
             l_att_vector = F.adaptive_avg_pool2d(l_att, (1, 1)).view(N, C)
         # return c.view(N, 1, W, H), g
-        return l_att, l_att_vector
+        if self.return_att_map:
+            return l_att, a
+        else:
+            return l_att, l_att_vector
 
 
 class LinearAttentionBlock_Spatial2(nn.Module):
@@ -1181,7 +1185,7 @@ class TopModel(nn.Module):
                                                         bias=args.att_bias)
             elif self.loss == 'trpl_local' and args.att_mode_sc == 'spatial':
                 self.att_type = 'spatial'
-                self.glb_atn = LinearAttentionBlock_Spatial(in_features=ft_net_output)
+                self.glb_atn = LinearAttentionBlock_Spatial(in_features=ft_net_output, return_att_map=True)
             # elif args.att_mode_sc == 'dot-product-twolayer': # never gets here
             #     self.att_type = 'dot-product-twolayer'
             #     self.glb_atn = TwoLayerCrossDotProductAttention(in_features=ft_net_output,
@@ -1398,8 +1402,8 @@ class TopModel(nn.Module):
             else:
                 return pred, local_features
         elif self.att_type == 'spatial' and self.loss == 'trpl_local': # automatically no_final_network (no_final_network should be true)
-            x1_att_map = self.glb_atn(x1_local[-1], None)
-            x2_att_map = self.glb_atn(x2_local[-1], None)
+            _, x1_att_map = self.glb_atn(x1_local[-1], None)
+            _, x2_att_map = self.glb_atn(x2_local[-1], None)
 
             pred = (x1_global * x2_global).sum(axis=1)
 
