@@ -3951,7 +3951,7 @@ class ModelMethods:
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
             #
-            if neg_feat_map:
+            if neg_feat_map is not None:
                 ext_loss = loss_fn(posanch_feat, pos_feat, neg_feat,
                                    maps=[posanch_feat_map, pos_feat_map, neg_feat_map]) # posanch_feat and neganch_feat are the same
             else:
