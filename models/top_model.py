@@ -1398,8 +1398,8 @@ class TopModel(nn.Module):
             else:
                 return pred, local_features
         elif self.att_type == 'spatial' and self.loss == 'trpl_local': # automatically no_final_network (no_final_network should be true)
-            x1_att_map = self.glb_atn(x1_local[-1])
-            x2_att_map = self.glb_atn(x2_local[-1])
+            x1_att_map = self.glb_atn(x1_local[-1], None)
+            x2_att_map = self.glb_atn(x2_local[-1], None)
 
             pred = (x1_global * x2_global).sum(axis=1)
 
