@@ -7,13 +7,14 @@ import utils
 # todo between local features, use the nearest/farthest distances among them (between two image tensors) as distances of two tensors?'
 
 class LocalTripletLoss(nn.Module):
-    def __init__(self, args, margin, soft=False):
+    def __init__(self, args, margin, soft=False, att_maps=None):
         super(LocalTripletLoss, self).__init__()
 
         self.margin = margin
         self.loss = 0
         self.pd = torch.nn.PairwiseDistance(p=2)
         self.soft = soft
+        self.att_maps = att_maps
 
     def forward(self, anch_tensors, pos_tensor, neg_tensor):
         if type(anch_tensors) == list: # different anch activations for pos and neg
@@ -47,8 +48,15 @@ class LocalTripletLoss(nn.Module):
             pos_tensor_locals = F.normalize(pos_tensor_locals, dim=2)
             neg_tensor_locals = F.normalize(neg_tensor_locals, dim=2)
 
-            pos_dist = torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
-            neg_dist = torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
+            if self.att_maps:
+                anch_map_flattened = self.att_maps[0].view(N, -1)
+                pos_map_flattened = self.att_maps[1].view(N, -1)
+                neg_map_flattened = self.att_maps[2].view(N, -1)
+                pos_dist = (torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0] * (anch_map_flattened + pos_map_flattened)).sum(axis=1)
+                neg_dist = (torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0] * (anch_map_flattened + neg_map_flattened)).sum(axis=1)
+            else:
+                pos_dist = torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
+                neg_dist = torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
 
         if self.soft:
             loss = F.softplus(pos_dist - neg_dist)

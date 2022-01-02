@@ -87,7 +87,8 @@ class TransformLoader:
     def __init__(self, image_size, rotate=0,
                  normalize_param=dict(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                  jitter_param=dict(Brightness=0.4, Contrast=0.4, Color=0.4),
-                 scale=[0.5, 1.0]):
+                 scale=[0.5, 1.0],
+                 first_resize=256):
         # hotels v5 train small mean: tensor([0.5791, 0.5231, 0.4664])
         # hotels v5 train small std: tensor([0.2512, 0.2581, 0.2698])
 
@@ -95,6 +96,7 @@ class TransformLoader:
         # hotels v5 train std: tensor([0.2508, 0.2580, 0.2701])
 
         self.image_size = image_size
+        self.first_resize = first_resize
         self.normalize_param = normalize_param
         self.jitter_param = jitter_param
         self.rotate = rotate
@@ -112,7 +114,7 @@ class TransformLoader:
         elif transform_type == 'CenterCrop':
             return method(self.image_size)
         elif transform_type == 'Resize':
-            return method([int(self.image_size * 1.15), int(self.image_size * 1.15)])
+            return method([self.first_resize, self.first_resize]) # 256 by 256
         elif transform_type == 'Normalize':
             return method(**self.normalize_param)
         elif transform_type == 'RandomRotation':
@@ -121,7 +123,8 @@ class TransformLoader:
             return method(brightness=0.5, hue=0.5, contrast=0.5, saturation=0.5)
         elif transform_type == 'RandomErasing':
             return method(p=self.random_erase_prob, scale=(0.1, 0.75), ratio=(0.3, 3.3))  # TODO RANDOM ERASE!!!
-
+        elif transform_type == 'RandomHorizontalFlip':
+            return method(p=0.5)
         else:
             return method()
 
@@ -133,14 +136,14 @@ class TransformLoader:
         transform_list = []
 
         if aug:
-            transform_list = ['RandomResizedCrop', 'ImageJitter', 'RandomHorizontalFlip']
+            transform_list = ['RandomResizedCrop', 'ImageJitter']
         elif not aug and self.rotate == 0:
             transform_list = ['Resize']
         elif not aug and self.rotate != 0:
             transform_list = ['Resize', 'RandomRotation']
 
         if random_crop:
-            transform_list.extend(['RandomResizedCrop'])
+            transform_list.extend(['RandomResizedCrop', 'RandomHorizontalFlip'])
         else:
             transform_list.extend(['CenterCrop'])
 

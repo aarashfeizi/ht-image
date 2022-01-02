@@ -1,14 +1,11 @@
 import numpy as np
-import torch
-import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from models.MLP import *
+from models.deit import *
 from models.resnet import *
 from models.vgg import *
-from models.deit import *
-
-from torch.utils.data import DataLoader
 from my_datasets import Local_Feat_Dataset
 
 FEATURE_MAP_SIZES = {1: (256, 56, 56),
@@ -100,7 +97,8 @@ class CrossDotProductAttentionBlock(nn.Module):
         self.op_v = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
 
         if merge_with_fc:
-            self.op_o = nn.Conv2d(in_channels=3 * in_features, out_channels=in_features, kernel_size=1, padding=0, bias=bias)
+            self.op_o = nn.Conv2d(in_channels=3 * in_features, out_channels=in_features, kernel_size=1, padding=0,
+                                  bias=bias)
         else:
             self.op_o = None
         # self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
@@ -128,7 +126,7 @@ class CrossDotProductAttentionBlock(nn.Module):
         if pre_local_key_org is not None:
             # pre_local_key = self.layernorm(pre_local_key_org)
             local_2_key = self.op_k(pre_local_key_org).reshape(N, C, W * H)
-          # local_2_key = F.normalize(local_2_key, p=2, dim=2) # euc norm
+        # local_2_key = F.normalize(local_2_key, p=2, dim=2) # euc norm
         else:
             local_2_key = local_1_query
 
@@ -138,7 +136,7 @@ class CrossDotProductAttentionBlock(nn.Module):
         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
 
         attended_local1_from2 = (
-                    self.op_v(pre_local_key_org).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
+                self.op_v(pre_local_key_org).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
             N, C, W, H)  # todo not sure if key should be multiplied or query
 
         attended_local1_from1 = (
@@ -173,6 +171,64 @@ class CrossDotProductAttention(nn.Module):
         self.cross_add = cross_add
         self.qk_module = CrossDotProductAttentionBlock(in_features=in_features, constant_weight=constant_weight,
                                                        merge_with_fc=merge_with_fc, bias=bias)
+
+    def return_representation(self, q, k):
+        if self.mode == 'query':
+            return q
+        elif self.mode == 'key':
+            return k
+        elif self.mode == 'both':
+            return (q + k) / 2
+        else:
+            raise Exception('Unsuppored representation generation for CrossDotProductAttention')
+
+    def forward(self, local1, local2):
+
+        if local2 is not None:
+            attended_local_1_asq, attended_local_2_ask, (l1_query_map, l2_key_map), attended_local_1 = self.qk_module(
+                local1, local2)
+            attended_local_2_asq, attended_local_1_ask, (l2_query_map, l1_key_map), attended_local_2 = self.qk_module(
+                local2, local1)
+        else:
+            attended_local_1_asq, attended_local_1_ask, (l1_query_map, l1_key_map), attended_local_1 = self.qk_module(
+                local1, local1)
+            if self.cross_add:
+                return attended_local_1, \
+                       None, \
+                       (self.return_representation(l1_query_map, l1_key_map),
+                        None)
+            else:
+                return self.return_representation(attended_local_1_asq, attended_local_1_ask), None, \
+                       (self.return_representation(l1_query_map, l1_key_map),
+                        None)
+        if self.cross_add:
+            return attended_local_1, \
+                   attended_local_2, \
+                   (self.return_representation(l1_query_map, l1_key_map),
+                    self.return_representation(l2_query_map, l2_key_map))
+        else:
+            return self.return_representation(attended_local_1_asq, attended_local_1_ask) + local1, \
+                   self.return_representation(attended_local_2_asq, attended_local_2_ask) + local2, \
+                   (self.return_representation(l1_query_map, l1_key_map),
+                    self.return_representation(l2_query_map, l2_key_map))
+
+
+class TwoLayerCrossDotProductAttention(nn.Module):
+    def __init__(self, in_features, constant_weight=None, mode='query',
+                 cross_add=False, merge_with_fc=False, bias=False,
+                 maxpool_fn=None):  # mode can be "query", "key", and "both"
+        super(TwoLayerCrossDotProductAttention, self).__init__()
+        self.mode = mode
+        self.cross_add = cross_add
+
+        assert in_features
+
+        self.qk_module_3 = CrossDotProductAttentionBlock(in_features=in_features[0], constant_weight=constant_weight,
+                                                         merge_with_fc=merge_with_fc, bias=bias,
+                                                         maxpool_fn=nn.MaxPool2d())
+
+        self.qk_module_4 = CrossDotProductAttentionBlock(in_features=in_features[1], constant_weight=constant_weight,
+                                                         merge_with_fc=merge_with_fc, bias=bias)
 
     def return_representation(self, q, k):
         if self.mode == 'query':
@@ -1123,6 +1179,18 @@ class TopModel(nn.Module):
                                                         cross_add=True,
                                                         merge_with_fc=args.att_merge_fc,
                                                         bias=args.att_bias)
+            elif self.loss == 'trpl_local' and args.att_mode_sc == 'spatial':
+                self.att_type = 'spatial'
+                self.glb_atn = LinearAttentionBlock_Spatial(in_features=ft_net_output)
+            # elif args.att_mode_sc == 'dot-product-twolayer': # never gets here
+            #     self.att_type = 'dot-product-twolayer'
+            #     self.glb_atn = TwoLayerCrossDotProductAttention(in_features=ft_net_output,
+            #                                                     constant_weight=args.att_weight_init,
+            #                                                     mode=args.dp_type,
+            #                                                     cross_add=True,
+            #                                                     merge_with_fc=args.att_merge_fc,
+            #                                                     bias=args.att_bias,
+            #                                                     maxpool_fn=nn.MaxPool2d(2))
 
             # if self.mask:
             #     self.input_layer = nn.Sequential(list(self.ft_net.children())[0])
@@ -1202,7 +1270,7 @@ class TopModel(nn.Module):
 
                 output = F.normalize(output, p=2, dim=1)
             else:
-                
+
                 if not self.infer_wo_att:
 
                     if self.global_attention:
@@ -1218,8 +1286,8 @@ class TopModel(nn.Module):
                     elif self.att_type == 'dot-product' or self.att_type == 'dot-product-add':
                         attended_x1_global, _, (x1_map, _) = self.glb_atn(x1_local[-1], None)
                         x1_global = attended_x1_global.reshape(attended_x1_global.shape[0],
-                                                            attended_x1_global.shape[1],
-                                                            -1).mean(axis=2)
+                                                               attended_x1_global.shape[1],
+                                                               -1).mean(axis=2)
                     elif self.att_type == 'unet':
                         pass  # shouldn't pass through attention
 
@@ -1238,7 +1306,7 @@ class TopModel(nn.Module):
         x1_local, x2_local = locals
         atts_1 = None
         atts_2 = None
-        diffs = [] # absolute difference between the summation of values of the tensors before and after attention
+        diffs = []  # absolute difference between the summation of values of the tensors before and after attention
         if hook:
             anch_pass_act = [l.detach().clone() for l in x1_local]
         else:
@@ -1329,6 +1397,23 @@ class TopModel(nn.Module):
                     return pred, local_features, att_x1_local, att_x2_local
             else:
                 return pred, local_features
+        elif self.att_type == 'spatial' and self.loss == 'trpl_local': # automatically no_final_network (no_final_network should be true)
+            x1_att_map = self.glb_atn(x1_local[-1])
+            x2_att_map = self.glb_atn(x2_local[-1])
+
+            pred = (x1_global * x2_global).sum(axis=1)
+
+            x1_global = F.normalize(x1_global, p=2, dim=1)
+            x2_global = F.normalize(x2_global, p=2, dim=1)
+            cos_sim = (x1_global * x2_global).sum(axis=1)
+
+            ret = (pred,
+                   cos_sim,
+                   (x1_local[-1], x1_att_map),
+                   (x2_local[-1], x2_att_map))
+
+            return ret
+
         else:  # diff, sim, or diff-sim
             if self.loss == 'stopgrad':
                 x1, x2, x1_pred, x2_pred = self.sm_net(x1_global,
@@ -1414,7 +1499,8 @@ class TopModel(nn.Module):
                                 return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2, diffs
                             else:
                                 if get_att_diffs:
-                                    return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2, diffs
+                                    return pred, pdist, out1, out2, [anch_pass_act,
+                                                                     other_pass_act], atts_1, atts_2, diffs
                                 else:
                                     return pred, pdist, out1, out2, [anch_pass_act, other_pass_act], atts_1, atts_2
                         else:
@@ -1424,7 +1510,7 @@ class TopModel(nn.Module):
                             return pred, pdist, out1, out2, diffs
                         else:
                             return pred, pdist, out1, out2
-                                
+
                 else:
                     pred, pdist = ret
                     return pred, pdist
@@ -1512,3 +1598,141 @@ def top_module(args, trained_feat_net=None, trained_sm_net=None, num_classes=1, 
             param.requires_grad = False
 
     return TopModel(args=args, ft_net=ft_net, sm_net=sm_net, aug_mask=(mask and fourth_dim), attention=args.attention)
+
+# class TwoCrossDotProductAttentionBlock(nn.Module):
+#     def __init__(self, in_features, constant_weight=None, merge_with_fc=False, bias=False, avgpool_kernel_size=2):
+#         super(TwoCrossDotProductAttentionBlock, self).__init__()
+#
+#         # self.layernorm = nn.LayerNorm([in_features, 7, 7])
+#
+#         self.avgpool_fn = nn.AvgPool2d(avgpool_kernel_size)
+#
+#         self.op_k_0 = nn.Conv2d(in_channels=in_features[0], out_channels=in_features[0], kernel_size=1, padding=0,
+#                                 bias=bias)
+#         self.op_q_0 = nn.Conv2d(in_channels=in_features[0], out_channels=in_features[0], kernel_size=1, padding=0,
+#                                 bias=bias)
+#         self.op_v_0 = nn.Conv2d(in_channels=in_features[0], out_channels=in_features[0], kernel_size=1, padding=0,
+#                                 bias=bias)
+#
+#         self.op_k_1 = nn.Conv2d(in_channels=in_features[1], out_channels=in_features[1], kernel_size=1, padding=0,
+#                                 bias=bias)
+#         self.op_q_1 = nn.Conv2d(in_channels=in_features[1], out_channels=in_features[1], kernel_size=1, padding=0,
+#                                 bias=bias)
+#         self.op_v_1 = nn.Conv2d(in_channels=in_features[1], out_channels=in_features[1], kernel_size=1, padding=0,
+#                                 bias=bias)
+#
+#         if merge_with_fc:
+#             self.op_o = nn.Conv2d(in_channels=3 * in_features[1] + 3 * in_features[0], out_channels=in_features[1],
+#                                   kernel_size=1, padding=0,
+#                                   bias=bias)
+#         else:
+#             self.op_o = None
+#         # self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
+#
+#         if constant_weight is not None:
+#             self.op_k_1.weight.data.fill_(constant_weight)
+#             self.op_k_1.bias.data.fill_(constant_weight)
+#             self.op_q_1.weight.data.fill_(constant_weight)
+#             self.op_q_1.bias.data.fill_(constant_weight)
+#             self.op_v_1.weight.data.fill_(constant_weight)
+#             self.op_v_1.bias.data.fill_(constant_weight)
+#
+#             self.op_k_0.weight.data.fill_(constant_weight)
+#             self.op_k_0.bias.data.fill_(constant_weight)
+#             self.op_q_0.weight.data.fill_(constant_weight)
+#             self.op_q_0.bias.data.fill_(constant_weight)
+#             self.op_v_0.weight.data.fill_(constant_weight)
+#             self.op_v_0.bias.data.fill_(constant_weight)
+#
+#             self.op_o.weight.data.fill_(constant_weight)
+#             self.op_o.bias.data.fill_(constant_weight)
+#
+#     def get_attended_locals(self, pre_key_org, pre_query_org, query, key, op_v, shape):
+#         N, C, W, H = shape
+#         attention_map = query.transpose(-2, -1) @ key
+#
+#         key_atts_map = attention_map.sum(axis=1).softmax(axis=1).reshape(N, 1, W, H)
+#         query_atts_map = attention_map.sum(axis=2).softmax(axis=1).reshape(N, 1, W, H)
+#
+#         attended_local1_from2 = (
+#                 op_v(pre_key_org).reshape(N, C, W * H) @ attention_map.softmax(axis=1)).reshape(
+#             N, C, W, H)  # todo not sure if key should be multiplied or query
+#
+#         attended_local1_from1 = (
+#                 attention_map.softmax(axis=2) @ op_v(pre_query_org).reshape(N, C, W * H).transpose(-2,
+#                                                                                                    -1)).reshape(
+#             N, C, W, H)
+#
+#         return attended_local1_from1, attended_local1_from2, (query_atts_map, key_atts_map)
+#
+#     def forward(self, pre_local_query_orgs, pre_local_key_orgs):
+#
+#         # if self.maxpool_fn is not None:
+#         #     pre_local_key_org = self.maxpool_fn(pre_local_key_org)
+#         #     pre_local_query_org = self.maxpool_fn(pre_local_query_org)
+#
+#         N, C__0, W__0, H__0 = pre_local_query_orgs[0].size()
+#         _, C__1, W__1, H__1 = pre_local_query_orgs[1].size()
+#
+#         # pre_local_query = self.layernorm(pre_local_query_org)
+#         local_1_query__0 = self.op_q_0(pre_local_query_orgs[0]).reshape(N, C__0, W__0 * H__0)
+#         local_1_query__1 = self.op_q_1(pre_local_query_orgs[1]).reshape(N, C__1, W__1 * H__1)
+#
+#         # local_1_query = F.normalize(local_1_query, p=2, dim=2) # euc norm
+#
+#         if pre_local_key_orgs is not None:
+#             # pre_local_key = self.layernorm(pre_local_key_org)
+#             local_2_key__0 = self.op_k_0(pre_local_key_orgs[0]).reshape(N, C__0, W__0 * H__0)
+#             local_2_key__1 = self.op_k_1(pre_local_key_orgs[0]).reshape(N, C__1, W__1 * H__1)
+#
+#         # local_2_key = F.normalize(local_2_key, p=2, dim=2) # euc norm
+#         else:
+#             local_2_key__0 = local_1_query__0
+#             local_2_key__1 = local_1_query__1
+#
+#         attended_local1_from1__0, attended_local1_from2__0, (
+#         query_atts_map__0, key_atts_map__0) = self.get_attended_locals(pre_local_key_orgs[0],
+#                                                                        pre_local_query_orgs[0],
+#                                                                        local_1_query__0,
+#                                                                        local_2_key__0,
+#                                                                        self.op_v_0,
+#                                                                        (N, C__0, W__0, H__0))
+#
+#         attended_local1_from1__1, attended_local1_from2__1, (
+#             query_atts_map__1, key_atts_map__1) = self.get_attended_locals(pre_local_key_orgs[1],
+#                                                                            pre_local_query_orgs[1],
+#                                                                            local_1_query__1,
+#                                                                            local_2_key__1,
+#                                                                            self.op_v_1,
+#                                                                            (N, C__1, W__1, H__1))
+#
+#         attended_local1_asq__0 = torch.mul(query_atts_map__0.expand_as(pre_local_query_orgs[0]), pre_local_query_orgs[0])
+#         attended_local2_ask__0 = torch.mul(key_atts_map__0.expand_as(pre_local_key_orgs[0]), pre_local_key_orgs[0])
+#
+#         attended_local1_asq__0 = attended_local1_asq__0.view(N, C__0, -1).sum(dim=2)  # batch_sizexC__0
+#         attended_local2_ask__0 = attended_local2_ask__0.view(N, C__0, -1).sum(dim=2)  # batch_sizexC__0
+#
+#         attended_local1_asq__1 = torch.mul(query_atts_map__1.expand_as(pre_local_query_orgs[1]), pre_local_query_orgs[1])
+#         attended_local2_ask__1 = torch.mul(key_atts_map__1.expand_as(pre_local_key_orgs[1]), pre_local_key_orgs[1])
+#
+#         attended_local1_asq__1 = attended_local1_asq__1.view(N, C__1, -1).sum(dim=2)  # batch_sizexC__1
+#         attended_local2_ask__1 = attended_local2_ask__1.view(N, C__1, -1).sum(dim=2)  # batch_sizexC__1
+#
+#         pre_local_query_orgs__0 = self.avgpool_fn(pre_local_query_orgs[0])
+#         attended_local1_from1__0 = self.avgpool_fn(attended_local1_from1__0)
+#         attended_local1_from2__0 = self.avgpool_fn(attended_local1_from2__0)
+#
+#
+#         attended_local1 = self.op_o(torch.cat([pre_local_query_orgs__0,
+#                                                attended_local1_from1__0,
+#                                                attended_local1_from2__0,
+#                                                pre_local_query_orgs[1],
+#                                                attended_local1_from1__1,
+#                                                attended_local1_from2__1], dim=1))
+#
+#
+#
+#
+#
+#         # return c.view(N, 1, W, H), g
+#         return attended_local1_asq__, attended_lowcal2_ask, (query_atts_map, key_atts_map), attended_local1

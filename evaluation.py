@@ -25,8 +25,8 @@ import sup_contrastive_models as sc
 dataset_choices = ['cars', 'cub', 'hotels']
 BASELINE_MODELS = ['ours', 'softtriple', 'proxy-anchor', 'supcontrastive', 'resnet50']
 
-DATASET_SIZES = {'cars': {'test': 10}, # wrong!
-                 'cub': {'test': 10}, # wrong!
+DATASET_SIZES = {'cars': {'test': 8131},
+                 'cub': {'test': 5924},
                  'hotels': {'val1_small': 3060,
                             'val2_small': 2397,
                             'val3_small': 2207,

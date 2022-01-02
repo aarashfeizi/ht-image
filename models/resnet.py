@@ -178,8 +178,46 @@ class ResNet(tResNet):
     def activations_hook(self, grad):
         self.gradients = grad.clone()
 
-    @utils.MY_DEC
-    def forward(self, x, is_feat=False, hook=False):
+    def att_forward(self, x1_and_x2, is_feat, hook):
+
+
+        x1_and_x2 = self.conv1(x1_and_x2)
+        x1_and_x2 = self.bn1(x1_and_x2)
+        x1_and_x2 = self.relu(x1_and_x2)
+        x1_and_x2 = self.maxpool(x1_and_x2)
+
+        f0 = x1_and_x2
+
+        x1_and_x2 = self.layer1(x1_and_x2)
+        f1 = x1_and_x2
+        x1_and_x2 = self.layer2(x1_and_x2)
+        f2 = x1_and_x2
+        x1_and_x2 = self.layer3(x1_and_x2)
+        f3 = x1_and_x2
+        x1_and_x2 = self.layer4(x1_and_x2)
+
+        if self.last_conv is not None:
+            x1_and_x2 = self.last_conv(x1_and_x2)  # downsampling channels for dim reduction
+
+        if hook:
+            x1_and_x2.register_hook(self.activations_hook)
+            self.activations = x1_and_x2.clone()
+
+        f4 = x1_and_x2
+        x1_and_x2 = self.pool(x1_and_x2)
+
+        feat = x1_and_x2
+        x1_and_x2 = torch.flatten(x1_and_x2, 1)
+        # x = self.new_fc(x)
+        # print('is_feat', is_feat)
+        # print('type is_feat', type(is_feat))
+        if is_feat:
+            return feat, [f1, f2, f3, f4]
+        else:
+            return x1_and_x2
+
+
+    def normal_forward(self, x, is_feat, hook):
 
         x = self.conv1(x)
         x = self.bn1(x)
@@ -216,6 +254,13 @@ class ResNet(tResNet):
         else:
             return x
 
+    @utils.MY_DEC
+    def forward(self, x, is_feat=False, hook=False):
+        # if self.att_resnet:
+        #     return self.att_forward(x, is_feat, hook)
+        # else:
+        return self.normal_forward(x, is_feat, hook)
+
     def get_activations_gradient(self):
         return self.gradients
 
@@ -246,8 +291,6 @@ class ResNet(tResNet):
                 param = torch.cat((param, zeros), axis=1)
 
             own_state[name].copy_(param)
-
-
 
 def _resnet(arch, block, layers, pretrained, progress, num_classes, pooling_method='spoc', mask=False, fourth_dim=False, project_path='.', output_dim=0, pretrained_model='', **kwargs):
     model = ResNet(block, layers, num_classes, four_dim=(mask and fourth_dim), pooling_method=pooling_method, output_dim=output_dim, **kwargs)
@@ -300,8 +343,8 @@ def resnet18(args, pretrained=False, progress=True, num_classes=1, mask=False, f
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes,
-                   mask=mask, fourth_dim=fourth_dim, project_path=args.project_path, pooling_method=args.pooling, output_dim=output_dim, pretrained_model=args.pretrained_model, **kwargs)
+    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress, num_classes, project_path=args.project_path,
+                   mask=mask, fourth_dim=fourth_dim, pooling_method=args.pooling, output_dim=output_dim, pretrained_model=args.pretrained_model, **kwargs)
 
 
 

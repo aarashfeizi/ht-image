@@ -13,6 +13,7 @@ from my_datasets import *
 # todo for next week
 
 # Average per class for metrics (k@n) ???
+from my_sampler import RandomIdentitySampler
 
 EVAL_SET_NAMES = {1: ['total'],
                   2: ['seen', 'unseen']}
@@ -56,6 +57,8 @@ def main():
     model_name, id_str = utils.get_logname(args)
 
     logger = utils.get_logger(model_name, args.env)
+
+    logger.info("Training parameters: {}".format(vars(args)))
 
     logger.info(f'Verbose: {args.verbose}')
     logger.info(f'Batch size is {args_dict["batch_size"]}')
@@ -143,6 +146,11 @@ def main():
                                      batchhard=[is_batchhard, args.bh_P, args.bh_K],
                                      allow_same_chain_negative=True,
                                      is_train=True)
+
+    train_sampler = RandomIdentitySampler(train_set,
+                                          batch_size=args.batch_size,
+                                          num_instances=5,
+                                          max_iters=args.epochs * (train_set.__len__() // args.batch_size))
 
     logger.info('*' * 10)
     val_set_known_metric = None

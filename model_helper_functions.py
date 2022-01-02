@@ -3900,6 +3900,13 @@ class ModelMethods:
 
             forward_start = time.time()
             pos_pred, pos_dist, posanch_feat, pos_feat = net.forward(anch, pos, feats=True)
+            if type(pos_feat) == list:
+                posanch_feat_map = posanch_feat[1]
+                posanch_feat = posanch_feat[0]
+
+                pos_feat_map = pos_feat[1]
+                pos_feat = pos_feat[0]
+
             forward_end = time.time()
 
             # if pos_all_merged_vectors is None:
@@ -3915,6 +3922,13 @@ class ModelMethods:
 
             forward_start = time.time()
             neg_pred, neg_dist, neganch_feat, neg_feat = net.forward(anch, neg, feats=True)
+
+            if type(neg_feat) == list:
+                neganch_feat_map = neganch_feat[1]
+                neganch_feat = neganch_feat[0]
+
+                neg_feat_map = neg_feat[1]
+                neg_feat = neg_feat[0]
 
             if neg_all_merged_vectors is None:
                 neg_all_merged_vectors = neg_dist.data.cpu()
@@ -3934,7 +3948,8 @@ class ModelMethods:
 
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
-            ext_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
+            # ext_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
+            ext_loss = loss_fn(posanch_feat, pos_feat, neg_feat, maps=[posanch_feat_map, pos_feat_map, neg_feat_map]) # posanch_feat and neganch_feat are the same
 
             # class_loss /= (self.no_negative + 1)
 
