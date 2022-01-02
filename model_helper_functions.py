@@ -3953,7 +3953,7 @@ class ModelMethods:
             #
             if neg_feat_map is not None:
                 ext_loss = loss_fn(posanch_feat, pos_feat, neg_feat,
-                                   maps=[posanch_feat_map, pos_feat_map, neg_feat_map]) # posanch_feat and neganch_feat are the same
+                                   att_maps=[posanch_feat_map, pos_feat_map, neg_feat_map]) # posanch_feat and neganch_feat are the same
             else:
                 ext_loss = loss_fn([posanch_feat, neganch_feat], pos_feat, neg_feat)
 
