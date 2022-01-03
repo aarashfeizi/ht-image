@@ -37,7 +37,7 @@ class RandomIdentitySampler(Sampler):
                     selected_idxs = np.random.choice(self.datas[l], size=self.K, replace=True)
                 else:
                     selected_idxs = np.random.choice(self.datas[l], size=self.K, replace=False)
-                overfitting_datas[l] = selected_idxs
+                overfitting_datas[l] = list(selected_idxs)
 
             self.datas = overfitting_datas
 
