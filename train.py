@@ -154,7 +154,7 @@ def main():
         train_sampler = RandomIdentitySampler(train_set,
                                               batch_size=args.batch_size,
                                               num_instances=args.bh_K,
-                                              max_iters=args.epochs * (train_set.__len__() // args.batch_size))
+                                              max_iters=(train_set.__len__() // args.batch_size))
 
 
     logger.info('*' * 10)
