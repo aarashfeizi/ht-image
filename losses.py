@@ -17,12 +17,13 @@ class LinkPredictionLoss(nn.Module):
     def __init__(self, args, k=5):
         super(LinkPredictionLoss, self).__init__()
         self.k = k
-        self.bce_with_logit = torch.nn.BCEWithLogitsLoss()
+        # self.bce_with_logit = torch.nn.BCEWithLogitsLoss()
+        self.bce = torch.nn.BCELoss()
 
     def forward(self, batch, labels):
-        dot_product = torch.matmul(batch, batch.T)  # between -inf and +inf
-        min_value = dot_product.min().item() - 1
-        dot_product = dot_product.fill_diagonal_(min_value)
+        # dot_product = torch.matmul(batch, batch.T)  # between -inf and +inf
+        # min_value = dot_product.min().item() - 1
+        # dot_product = dot_product.fill_diagonal_(min_value)
 
         # preds = F.sigmoid(dot_product) # between 0 and 1
 
@@ -31,15 +32,19 @@ class LinkPredictionLoss(nn.Module):
         min_value = cosine_sim.min().item() - 1
         cosine_sim = cosine_sim.fill_diagonal_(min_value)
 
+        preds = (cosine_sim + 1) / 2 # between 0 and 1
+
+
         neighbor_indices_ = (-cosine_sim).argsort()[:, :self.k]
         indices = torch.tensor([[j for _ in range(self.k)] for j in range(len(labels))])
-        neighbor_preds_ = dot_product[indices, neighbor_indices_]
+        neighbor_preds_ = preds[indices, neighbor_indices_]
         neighbor_labels_ = labels[neighbor_indices_]
 
         true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
 
-        loss = self.bce_with_logit(neighbor_preds_, true_labels)
+        # loss = self.bce_with_logit(neighbor_preds_, true_labels)
+        loss = self.bce(neighbor_preds_, true_labels)
 
         return loss
 
