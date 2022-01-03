@@ -40,6 +40,7 @@ class RandomIdentitySampler(Sampler):
                 overfitting_datas[l] = list(selected_idxs)
 
             self.datas = overfitting_datas
+            self.labels = list(self.datas.keys())
 
 
 
