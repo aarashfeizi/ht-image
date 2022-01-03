@@ -25,6 +25,7 @@ class RandomIdentitySampler(Sampler):
         self.num_labels_per_batch = self.batch_size // self.K
         self.max_iters = max_iters
         self.labels = list(self.datas.keys())
+        self.num_classes = len(self.labels)
 
 
     def __len__(self):
