@@ -32,7 +32,8 @@ class LinkPredictionLoss(nn.Module):
         cosine_sim = cosine_sim.fill_diagonal_(min_value)
 
         neighbor_indices_ = (-cosine_sim).argsort()[:, :self.k]
-        neighbor_preds_ = dot_product[neighbor_indices_]
+        indices = torch.tensor([[j for _ in range(self.k)] for j in range(len(labels))])
+        neighbor_preds_ = dot_product[indices, neighbor_indices_]
         neighbor_labels_ = labels[neighbor_indices_]
 
         true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
