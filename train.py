@@ -153,6 +153,7 @@ def main():
 
         print(f'Max iters: {args.epochs * (train_set.__len__() // args.batch_size)}')
         train_sampler = RandomIdentitySampler(train_set,
+                                              overfit=args.overfit_num,
                                               batch_size=args.batch_size,
                                               num_instances=args.bh_K,
                                               max_iters=(train_set.__len__() // args.batch_size))

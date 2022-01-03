@@ -18,13 +18,29 @@ class RandomIdentitySampler(Sampler):
     """
 
 
-    def __init__(self, dataset, batch_size, num_instances, max_iters):
+    def __init__(self, dataset, batch_size, num_instances, max_iters, overfit=0):
         self.datas = dataset.datas
         self.batch_size = batch_size
         self.K = num_instances
         self.num_labels_per_batch = self.batch_size // self.K
         self.max_iters = max_iters
         self.labels = list(self.datas.keys())
+        self.overfit = overfit
+
+
+        if self.overfit > 0:
+            overfitting_datas = {}
+            selected_labels = random.sample(self.labels, self.overfit)
+
+            for l in selected_labels:
+                if len(self.datas[l]) < self.K:
+                    selected_idxs = np.random.choice(self.datas[l], size=self.K, replace=True)
+                else:
+                    selected_idxs = np.random.choice(self.datas[l], size=self.K, replace=False)
+                overfitting_datas[l] = selected_idxs
+
+            self.datas = overfitting_datas
+
 
 
     def __len__(self):
