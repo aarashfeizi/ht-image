@@ -1689,7 +1689,12 @@ class ModelMethods:
                     test_bce_loss += class_loss.item()
 
                 else:
-                    pos_pred, pos_dist, anch_feat, pos_feat, pos_att_diffs = net.forward(anch, pos, feats=True, get_att_diffs=True)
+                    ret = net.forward(anch, pos, feats=True, get_att_diffs=True)
+                    if args.loss == 'linkpred':
+                        pos_att_diffs = []
+                        pos_pred, pos_dist, anch_feat, pos_feat = ret
+                    else:
+                        pos_pred, pos_dist, anch_feat, pos_feat, pos_att_diffs = ret
                     class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze(axis=1))
 
                     pred_label_auc.extend(pos_pred.data.cpu().numpy())
