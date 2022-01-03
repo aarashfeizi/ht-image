@@ -39,7 +39,7 @@ class LinkPredictionLoss(nn.Module):
         true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
 
-        loss = self.bce_with_logit(true_labels, neighbor_preds_)
+        loss = self.bce_with_logit(neighbor_preds_, true_labels)
 
         return loss
 
