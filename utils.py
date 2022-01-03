@@ -289,6 +289,7 @@ def get_args():
     parser.add_argument('-link_prediction_k', '--link_prediction_k', default=0, type=int)
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
+    parser.add_argument('-metric', '--metric', default='cosine', choices=['cosine', 'euclidean'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
     parser.add_argument('-tco', '--trplcoefficient', default=1.0, type=float, help="TRPL loss weight")
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float, help="Decoupled Weight Decay Regularization")

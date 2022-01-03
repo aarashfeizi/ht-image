@@ -141,10 +141,13 @@ class ModelMethods:
         self.merge_method = args.merge_method
         self.logger.info(f'Merging with {self.merge_method}')
 
-        if 'attention' in self.merge_method:
-            self.metric = 'cosine'
+        if args.metric == '':
+            if 'attention' in self.merge_method:
+                self.metric = 'cosine'
+            else:
+                self.metric = 'euclidean'
         else:
-            self.metric = 'euclidean'
+            self.metric = args.metric
         self.logger.info(f'Metric is {self.metric}')
 
         if args.debug_grad:
