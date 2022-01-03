@@ -2596,7 +2596,7 @@ def get_logname(args):
                              'random_erase',
                              'link_prediction_k']
 
-    if args.loss != 'bce' and args.loss != 'stopgrad':
+    if args.loss != 'linkpred' and args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrv':
             important_args.extend(['margin'])
         else:
