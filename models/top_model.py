@@ -1297,7 +1297,7 @@ class TopModel(nn.Module):
 
                 if self.no_final_network:
                     x1_global = x1_global.view((x1_global.size()[0], -1))
-                    x1_global = F.normalize(x1_global, p=2, dim=1)
+                    # x1_global = F.normalize(x1_global, p=2, dim=1)
                     output = x1_global
                 else:
                     output = self.sm_net(x1_global, None, single)  # single is true

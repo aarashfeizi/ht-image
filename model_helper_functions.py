@@ -2280,11 +2280,13 @@ class ModelMethods:
                 img = Variable(img)
 
                 output, local_feat = net.forward(img, None, single=True)
+                output = F.normalize(output, p=2, dim=1)
                 output = output.data.cpu().numpy()
 
                 if local_feat is not None:
                     local_feat = local_feat.data.cpu().numpy()
                     test_local_feats[idx * batch_size:end, :] = local_feat
+
 
                 test_feats[idx * batch_size:end, :] = output
                 test_classes[idx * batch_size:end] = lbl
