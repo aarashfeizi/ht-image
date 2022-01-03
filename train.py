@@ -2,11 +2,12 @@ import json
 from argparse import Namespace
 
 import torch.nn
+from torch._fx import Proxy
 from torch.utils.data import DataLoader
 
 import model_helper_functions
 from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, \
-    LocalTripletLoss, LinkPredictionLoss
+    LocalTripletLoss, LinkPredictionLoss, ProxyNCA_classic
 from models.top_model import *
 from my_datasets import *
 
@@ -314,12 +315,12 @@ def main():
         workers = args.workers
         pin_memory = args.pin_memory
 
-    if args.loss == 'batchhard' or args.loss == 'contrv' or args.loss == 'batchallgen':
+    if args.loss == 'pnpp' or args.loss == 'batchhard' or args.loss == 'contrv' or args.loss == 'batchallgen':
         bs = args.bh_P
     else:
         bs = args.batch_size
 
-    if args.loss != 'linkpred':
+    if args.loss != 'linkpred' or args.loss == 'pnpp':
         train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
                                   pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker)
     else:
@@ -397,9 +398,15 @@ def main():
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = None
+    elif args.loss == 'pnpp':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = ProxyNCA_classic(args, k=args.link_prediction_k)
     elif args.loss == 'linkpred':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
-        loss_fn = LinkPredictionLoss(args, k=args.link_prediction_k)
+        loss_fn = LinkPredictionLoss(args,
+                                     loss_metric=args.loss_metric,
+                                     k=args.link_prediction_k,
+                                     temp=args.temperature)
     elif args.loss == 'contrv':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = ContrastiveLoss(args, args.margin, l=args.reg_lambda)

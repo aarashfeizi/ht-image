@@ -39,7 +39,7 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'channel-attention']
 
 LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local',
-                'contrv_mlp', 'linkpred']
+                'contrv_mlp', 'linkpred', 'pnpp']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -287,6 +287,8 @@ def get_args():
     parser.add_argument('-lss', '--loss', default='bce',
                         choices=LOSS_METHODS)
     parser.add_argument('-link_prediction_k', '--link_prediction_k', default=0, type=int)
+    parser.add_argument('-temperature', '--temperature', default=1.0, type=float)
+    parser.add_argument('-loss_metric', '--loss_metric', default='euclidean', choices=['cosine', 'euclidean'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-metric', '--metric', default='cosine', choices=['cosine', 'euclidean'])
@@ -2687,7 +2689,7 @@ def get_logname(args):
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
 
     if args.loss == 'linkpred':
-        name += f'-bhk_{args.bh_K}'
+        name += f'-bhk_{args.bh_K}-{args.loss_metric}-temp{args.temperature}'
 
 
     if args.pretrained_model != '' and len(args.pretrained_model) < 10:  # for running baselines and feature extractors
@@ -2846,6 +2848,49 @@ def get_pos_neg_preds(file_path, pos_freq=10):
 
     return pos_preds, neg_preds
 
+def pairwise_distance(a, squared=False, diag_to_max=False):
+    """Computes the pairwise distance matrix with numerical stability."""
+    pairwise_distances_squared = torch.add(
+        a.pow(2).sum(dim=1, keepdim=True).expand(a.size(0), -1),
+        torch.t(a).pow(2).sum(dim=0, keepdim=True).expand(a.size(0), -1)
+    ) - 2 * (
+                                     torch.mm(a, torch.t(a))
+                                 )
+
+    # Deal with numerical inaccuracies. Set small negatives to zero.
+    pairwise_distances_squared = torch.clamp(
+        pairwise_distances_squared, min=0.0
+    )
+
+    # Get the mask where the zero distances are at.
+    error_mask = torch.le(pairwise_distances_squared, 0.0)
+    # print(error_mask.sum())
+    # Optionally take the sqrt.
+    if squared:
+        pairwise_distances = pairwise_distances_squared
+    else:
+        pairwise_distances = torch.sqrt(
+            pairwise_distances_squared + error_mask.float() * 1e-16
+        )
+
+    # Undo conditionally adding 1e-16.
+    pairwise_distances = torch.mul(
+        pairwise_distances,
+        (error_mask == False).float()
+    )
+
+    # Explicitly set diagonals to zero or diag_to_max.
+    mask_offdiagonals = 1 - torch.eye(
+        *pairwise_distances.size(),
+        device=pairwise_distances.device
+    )
+    pairwise_distances = torch.mul(pairwise_distances, mask_offdiagonals)
+
+    if diag_to_max:
+        max_value = pairwise_distances.max().item() + 10
+        pairwise_distances.fill_diagonal_(max_value)
+
+    return pairwise_distances
 
 def squared_pairwise_distances(embeddings, sqrt=False):
     """
