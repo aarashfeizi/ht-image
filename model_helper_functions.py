@@ -1720,7 +1720,7 @@ class ModelMethods:
                     class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
                     metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
 
-                    if loss_fn is not None:
+                    if loss_fn is not None and (args.loss != 'linkpred'):
                         if args.loss == 'trpl_local':
                             ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
                         elif args.loss == 'contrv_mlp':
@@ -1732,7 +1732,7 @@ class ModelMethods:
 
                     # class_loss /= (self.no_negative + 1)
 
-                    if loss_fn is not None:
+                    if loss_fn is not None and (args.loss != 'linkpred'):
                         # ext_loss /= self.no_negative
                         test_triplet_loss += ext_loss.item()
                         if args.loss == 'contrv_mlp':
@@ -1757,7 +1757,7 @@ class ModelMethods:
         # self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
         self.logger.error(f'{prompt_text_tb}/Loss:  {test_loss / len(data_loader)}, epoch: {epoch}')
         self.writer.add_scalar(f'{prompt_text_tb}/Loss', test_loss / len(data_loader), epoch)
-        if loss_fn is not None:
+        if loss_fn is not None and (args.loss != 'linkpred'):
             self.logger.error(f'{prompt_text_tb}/Triplet_Loss: {test_triplet_loss / len(data_loader)}, epoch: {epoch}')
             self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_triplet_loss / len(data_loader), epoch)
         self.logger.error(f'{prompt_text_tb}/BCE_Loss: {test_bce_loss / len(data_loader)}, epoch: {epoch}')
