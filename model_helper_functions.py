@@ -1209,22 +1209,28 @@ class ModelMethods:
                 utils.print_gpu_stuff(args.cuda, 'before train epoch')
 
                 if args.loss == 'batchhard':
-                    t, (train_loss, train_bce_loss, train_triplet_loss), (
+                    t, (train_loss, train_bce_loss, train_other_loss), (
                         _, _) = self.train_metriclearning_one_epoch_batchhard(args, t, net, opt, bce_loss,
                                                                               metric_ACC,
                                                                               loss_fn, train_loader, epoch,
                                                                               grad_save_path, drew_graph)
 
                 elif args.loss == 'contrv':
-                    t, (train_loss, train_reg, train_triplet_loss), (
+                    t, (train_loss, train_reg, train_other_loss), (
                         _, _) = self.train_metriclearning_one_epoch_contrastive(args, t, net, opt, bce_loss,
+                                                                                metric_ACC,
+                                                                                loss_fn, train_loader, epoch,
+                                                                                grad_save_path, drew_graph)
+                elif args.loss == 'linkpred':
+                    t, (train_loss, train_other_loss), (
+                        _, _) = self.train_metriclearning_one_epoch_link_prediction(args, t, net, opt, bce_loss,
                                                                                 metric_ACC,
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
 
                 elif args.loss == 'contrv_mlp':
                     t, (train_loss, train_bce_loss,
-                        train_triplet_loss), _ = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt,
+                        train_other_loss), _ = self.train_metriclearning_one_epoch_mlp_contrastive(args, t, net, opt,
                                                                                                      bce_loss,
                                                                                                      metric_ACC,
                                                                                                      loss_fn,
@@ -1240,7 +1246,7 @@ class ModelMethods:
                                                                                     grad_save_path, drew_graph)
 
                 elif args.loss == 'stopgrad':
-                    train_triplet_loss = None
+                    train_other_loss = None
                     pos_parts, neg_parts = None, None
 
                     t, (train_loss, train_bce_loss) = self.train_metriclearning_stopgrad_one_epoch(args, t, net, opt,
@@ -1251,7 +1257,7 @@ class ModelMethods:
                                                                                                    grad_save_path,
                                                                                                    drew_graph)
                 elif args.loss == 'trpl_local':
-                    t, (train_loss, train_bce_loss, train_triplet_loss), (
+                    t, (train_loss, train_bce_loss, train_other_loss), (
                         pos_parts, neg_parts) = self.train_metriclearning_one_epoch_localtriplet(args, t, net, opt,
                                                                                                  bce_loss,
                                                                                                  metric_ACC,
@@ -1261,7 +1267,7 @@ class ModelMethods:
                                                                                                  drew_graph)
 
                 else:
-                    t, (train_loss, train_bce_loss, train_triplet_loss), (
+                    t, (train_loss, train_bce_loss, train_other_loss), (
                         pos_parts, neg_parts) = self.train_metriclearning_one_epoch(args, t, net, opt, bce_loss,
                                                                                     metric_ACC,
                                                                                     loss_fn, train_loader, epoch,
@@ -1289,16 +1295,18 @@ class ModelMethods:
                     self.writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
 
                     if (loss_fn is not None) and args.loss == 'contrv':
-                        self.writer.add_scalar('Train/Contrastive_Loss', train_triplet_loss / len(train_loader), epoch)
+                        self.writer.add_scalar('Train/Contrastive_Loss', train_other_loss / len(train_loader), epoch)
+                    elif (loss_fn is not None) and args.loss == 'linkpred':
+                        self.writer.add_scalar('Train/Linkpred_Loss', train_other_loss / len(train_loader), epoch)
                     elif (loss_fn is not None) and args.loss != 'stopgrad' and args.loss != 'batchallgen':
-                        self.writer.add_scalar('Train/Triplet_Loss', train_triplet_loss / len(train_loader), epoch)
+                        self.writer.add_scalar('Train/Triplet_Loss', train_other_loss / len(train_loader), epoch)
 
-                    if args.loss != 'contrv' and args.loss != 'batchallgen':
+                    if args.loss != 'linkpred' and args.loss != 'contrv' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                         self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
 
-                    elif args.loss != 'batchallgen':
+                    elif args.loss == 'contrv':
                         self.writer.add_scalar('Train/Reg', train_reg / len(train_loader), epoch)
 
                     self.writer.flush()
@@ -1314,15 +1322,15 @@ class ModelMethods:
 
                         for loader, comm in zip(val_loaders, val_loader_names):
 
-                            utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
-                            # _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
-                            #                                              fewshot_loader,
-                            #                                              bce_loss,
-                            #                                              val=True,
-                            #                                              epoch=epoch,
-                            #                                              comment=comm)
-
-                            utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
+                            # utils.print_gpu_stuff(args.cuda, f'before test few_shot {comm}')
+                            # # _, _, val_acc_fewshot, _ = self.test_fewshot(args, net,
+                            # #                                              fewshot_loader,
+                            # #                                              bce_loss,
+                            # #                                              val=True,
+                            # #                                              epoch=epoch,
+                            # #                                              comment=comm)
+                            #
+                            # utils.print_gpu_stuff(args.cuda, f'after test few_shot {comm} and before test_metric')
 
                             val_auc, val_acc, val_rgt_err, val_preds_pos_neg, val_loss = self.test_metric(
                                 args, net, loader,
@@ -1679,7 +1687,6 @@ class ModelMethods:
                     test_loss += loss.item()
 
                     test_bce_loss += class_loss.item()
-
 
                 else:
                     pos_pred, pos_dist, anch_feat, pos_feat, pos_att_diffs = net.forward(anch, pos, feats=True, get_att_diffs=True)
@@ -3853,6 +3860,109 @@ class ModelMethods:
             self.writer.flush()
 
         return t, (train_loss, train_reg, train_contrastive_loss), ([], [])
+
+    def train_metriclearning_one_epoch_link_prediction(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn, train_loader,
+                                                   epoch,
+                                                   grad_save_path, drew_graph):
+        train_loss = 0
+        train_reg = 0
+        # train_bce_loss = 0
+        train_linkpred_loss = 0
+
+        metric_ACC.reset_acc()
+
+        merged_vectors = {}
+        #
+        # pos_all_merged_vectors = None
+        # neg_all_merged_vectors = None
+
+        labels = torch.Tensor([[i for _ in range(args.bh_K)] for i in range(args.bh_P)]).flatten()
+        if args.cuda:
+            labels = Variable(labels.cuda())
+        else:
+            labels = Variable(labels)
+
+        for batch_id, (imgs, lbls) in enumerate(train_loader, 1):
+
+            imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
+            start = time.time()
+            # self.logger.info('input: ', img1.size())
+
+            debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
+
+            one_labels = torch.tensor([1 for _ in range(imgs.shape[0])], dtype=float)
+            zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
+
+            if args.cuda:
+                imgs, one_labels, zero_labels = Variable(imgs.cuda()), \
+                                                Variable(one_labels.cuda()), \
+                                                Variable(zero_labels.cuda())
+            else:
+                imgs, one_labels, zero_labels = Variable(imgs), \
+                                                Variable(one_labels), \
+                                                Variable(zero_labels)
+
+            # if not drew_graph:
+            #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
+            #     self.writer.flush()
+            #     drew_graph = True
+            utils.warmup_learning_rate(args, epoch, batch_id, len(train_loader), opt)
+            net.train()
+            # device = f'cuda:{net.device_ids[0]}'
+            forward_start = time.time()
+            imgs_f, _ = net(imgs, None, single=True)
+            forward_end = time.time()
+
+            imgs_f = imgs_f.view(imgs_f.size()[0], -1)
+
+            loss = loss_fn(imgs_f, labels[:imgs_f.shape[0]])
+
+            train_loss += loss.item()
+
+            train_linkpred_loss += loss.item()
+            # train_bce_loss += class_loss.item()
+
+            if debug_grad:
+                raise Exception('Debug grad not implemented for linkpred')
+
+            opt.zero_grad()
+            loss.backward()  # training with triplet loss
+
+            opt.step()
+
+            # if loss_fn is not None:
+            t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+                          linkpred=f'{train_linkpred_loss / batch_id:.4f}',
+                          )
+            # else:
+            #     t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
+            #                   bce_loss=f'{train_bce_loss / batch_id:.4f}',
+            #                   train_acc=f'{metric_ACC.get_acc():.4f}'
+            #                   )
+
+            t.update()
+            end = time.time()
+            if utils.MY_DEC.enabled:
+                self.logger.info(f'########### one batch time: {end - start}')
+
+        # if self.merge_method == 'diff-sim':
+        #
+        #     merged_vectors['pos-diff'] = pos_all_merged_vectors[:, :(pos_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['pos-sim'] = pos_all_merged_vectors[:, (pos_all_merged_vectors.shape[1] // 2):]
+        #
+        #     merged_vectors['neg-diff'] = neg_all_merged_vectors[:, :(neg_all_merged_vectors.shape[1] // 2)]
+        #     merged_vectors['neg-sim'] = neg_all_merged_vectors[:, (neg_all_merged_vectors.shape[1] // 2):]
+        # else:
+        #     merged_vectors[f'pos-{self.merge_method}'] = pos_all_merged_vectors
+        #     merged_vectors[f'neg-{self.merge_method}'] = neg_all_merged_vectors
+
+        for name, param in merged_vectors.items():
+            self.writer.add_histogram(name, param.flatten(), epoch)
+            self.writer.flush()
+
+        return t, (train_loss, train_linkpred_loss), ([], [])
+
+
 
     def train_metriclearning_one_epoch_localtriplet(self, args, t, net, opt, bce_loss, metric_ACC, loss_fn,
                                                     train_loader, epoch,

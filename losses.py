@@ -4,7 +4,67 @@ import torch.nn.functional as F
 
 import utils
 
+
 # todo between local features, use the nearest/farthest distances among them (between two image tensors) as distances of two tensors?'
+
+
+class LinkPredictionLoss(nn.Module):
+    """
+        Choose k nearest neighbors and calculate a BCE-Cross-Entropy loss
+         on the anchor and each one of the k neighbors
+    """
+
+    def __init__(self, args, k=5):
+        super(LinkPredictionLoss, self).__init__()
+        self.k = k
+        self.bce_with_logit = torch.nn.BCEWithLogitsLoss()
+
+    def forward(self, batch, labels):
+        dot_product = torch.matmul(batch, batch.T)  # between -inf and +inf
+        min_value = dot_product.min().item() - 1
+        dot_product = dot_product.fill_diagonal_(min_value)
+
+        # preds = F.sigmoid(dot_product) # between 0 and 1
+
+        batch = F.normalize(batch, p=2)
+        cosine_sim = torch.matmul(batch, batch.T)  # between -1 and 1
+        min_value = cosine_sim.min().item() - 1
+        cosine_sim = cosine_sim.fill_diagonal_(min_value)
+
+        neighbor_indices_ = (-cosine_sim).argsort()[:, :self.k]
+        neighbor_preds_ = dot_product[neighbor_indices_]
+        neighbor_labels_ = labels[neighbor_indices_]
+
+        true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
+        true_labels = true_labels.type(torch.float32)
+
+        loss = self.bce_with_logit(true_labels, neighbor_preds_)
+
+        return loss
+
+        # gpu = labels.device.type == 'cuda'
+        #
+        # mask_positive = utils.get_valid_positive_mask(labels, gpu)
+        # pos_loss = ((1 - dot_product) * mask_positive.float()).sum(dim=1)
+        # # positive_dist_idx = (cosine_sim * mask_positive.float())
+        #
+        # mask_negative = utils.get_valid_negative_mask(labels, gpu)
+        # neg_loss = (F.relu(dot_product - self.margin) * mask_negative.float()).sum(dim=1)
+        #
+        # if self.l != 0:
+        #     distances = utils.squared_pairwise_distances(batch)
+        #     # import pdb
+        #     # pdb.set_trace()
+        #     idxs = distances.argsort()[:, 1]
+        #     reg_loss = -1 * distances.gather(1, idxs.view(-1, 1)).mean()
+        # else:
+        #     reg_loss = None
+
+        # if self.soft:
+        #     loss = F.softplus(hardest_positive_dist - hardest_negative_dist)
+        # else:
+        #     loss = (hardest_positive_dist - hardest_negative_dist + self.margin).clamp(min=0)
+
 
 class LocalTripletLoss(nn.Module):
     def __init__(self, args, margin, soft=False):
@@ -16,7 +76,7 @@ class LocalTripletLoss(nn.Module):
         self.soft = soft
 
     def forward(self, anch_tensors, pos_tensor, neg_tensor, att_maps=None):
-        if type(anch_tensors) == list: # different anch activations for pos and neg
+        if type(anch_tensors) == list:  # different anch activations for pos and neg
             posanch_tensor = anch_tensors[0]
             neganch_tensor = anch_tensors[1]
 
@@ -35,7 +95,7 @@ class LocalTripletLoss(nn.Module):
             pos_dist = torch.cdist(posanch_tensor_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
             neg_dist = torch.cdist(neganch_tensor_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
 
-        else: # same anch activations
+        else:  # same anch activations
             anch_tensor = anch_tensors
             N, C, H, W = anch_tensor.size()
 
@@ -51,8 +111,10 @@ class LocalTripletLoss(nn.Module):
                 anch_map_flattened = att_maps[0].view(N, -1)
                 pos_map_flattened = att_maps[1].view(N, -1)
                 neg_map_flattened = att_maps[2].view(N, -1)
-                pos_dist = (torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0] * (anch_map_flattened + pos_map_flattened)).sum(axis=1)
-                neg_dist = (torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0] * (anch_map_flattened + neg_map_flattened)).sum(axis=1)
+                pos_dist = (torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0] * (
+                            anch_map_flattened + pos_map_flattened)).sum(axis=1)
+                neg_dist = (torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0] * (
+                            anch_map_flattened + neg_map_flattened)).sum(axis=1)
             else:
                 pos_dist = torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
                 neg_dist = torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
@@ -95,6 +157,7 @@ class TripletLoss(nn.Module):
 
         return loss
 
+
 class BatchHard(nn.Module):
     # https://github.com/Yuol96/pytorch-triplet-loss/blob/master/model/triplet_loss.py
 
@@ -135,6 +198,7 @@ class BatchHard(nn.Module):
         else:
             return loss
 
+
 class BatchAllGeneralization(nn.Module):
     # https://github.com/Yuol96/pytorch-triplet-loss/blob/master/model/triplet_loss.py
 
@@ -143,9 +207,7 @@ class BatchAllGeneralization(nn.Module):
 
         self.margin = margin
 
-
     def forward(self, batch, labels):
-
         distances = utils.squared_pairwise_distances(batch, sqrt=True)
 
         gpu = labels.device.type == 'cuda'
@@ -157,10 +219,10 @@ class BatchAllGeneralization(nn.Module):
         mask_negative = utils.get_valid_negative_mask(labels, gpu)
         neg_loss = ((self.margin - (distances * mask_negative.float()))).exp().sum(dim=1).log()
 
-
         loss = F.relu(pos_loss + neg_loss).sum()
 
         return loss
+
 
 class MaxMarginLoss(nn.Module):
     def __init__(self, args, margin):

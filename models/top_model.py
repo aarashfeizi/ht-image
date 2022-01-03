@@ -1401,6 +1401,21 @@ class TopModel(nn.Module):
                     return pred, local_features, att_x1_local, att_x2_local
             else:
                 return pred, local_features
+        elif self.loss == 'linkpred':  # automatically no_final_network (no_final_network should be true)
+
+            pred = (x1_global * x2_global).sum(axis=1)
+
+            x1_global = F.normalize(x1_global, p=2, dim=1)
+            x2_global = F.normalize(x2_global, p=2, dim=1)
+            cos_sim = (x1_global * x2_global).sum(axis=1)
+
+            ret = (pred,
+                   cos_sim,
+                   x1_global,
+                   x2_global)
+
+            return ret
+
         elif self.att_type == 'spatial' and self.loss == 'trpl_local': # automatically no_final_network (no_final_network should be true)
             _, x1_att_map = self.glb_atn(x1_local[-1], None)
             _, x2_att_map = self.glb_atn(x2_local[-1], None)

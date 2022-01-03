@@ -5,12 +5,11 @@ import torch.nn
 from torch.utils.data import DataLoader
 
 import model_helper_functions
-from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, LocalTripletLoss
+from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, \
+    LocalTripletLoss, LinkPredictionLoss
 from models.top_model import *
 from my_datasets import *
 
-###
-# todo for next week
 
 # Average per class for metrics (k@n) ???
 from my_sampler import RandomIdentitySampler
@@ -138,19 +137,25 @@ def main():
     else:
         second_transform = None
 
-    train_set = Metric_Dataset_Train(args,
-                                     transform=data_transforms_train_1,
-                                     transform2=second_transform,
-                                     mode=args.train_folder_name,
-                                     save_pictures=False, overfit=True,
-                                     batchhard=[is_batchhard, args.bh_P, args.bh_K],
-                                     allow_same_chain_negative=True,
-                                     is_train=True)
+    if args.loss != 'linkpred':
+        train_set = Metric_Dataset_Train(args,
+                                         transform=data_transforms_train_1,
+                                         transform2=second_transform,
+                                         mode=args.train_folder_name,
+                                         save_pictures=False, overfit=True,
+                                         batchhard=[is_batchhard, args.bh_P, args.bh_K],
+                                         allow_same_chain_negative=True,
+                                         is_train=True)
+    else:
+        train_set = BaseDataSet(img_source=os.path.join(args.dataset_path, args.dataset_folder, 'train_small.txt'),
+                                transforms=data_transforms_train_1)
 
-    train_sampler = RandomIdentitySampler(train_set,
-                                          batch_size=args.batch_size,
-                                          num_instances=5,
-                                          max_iters=args.epochs * (train_set.__len__() // args.batch_size))
+        print(f'Max iters: {args.epochs * (train_set.__len__() // args.batch_size)}')
+        train_sampler = RandomIdentitySampler(train_set,
+                                              batch_size=args.batch_size,
+                                              num_instances=args.bh_K,
+                                              max_iters=args.epochs * (train_set.__len__() // args.batch_size))
+
 
     logger.info('*' * 10)
     val_set_known_metric = None
@@ -314,8 +319,13 @@ def main():
     else:
         bs = args.batch_size
 
-    train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
-                              pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker)
+    if args.loss != 'linkpred':
+        train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
+                                  pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker)
+    else:
+        train_loader = DataLoader(train_set, shuffle=False, num_workers=workers, batch_sampler=train_sampler,
+                                  pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker)
+
 
     # train_loader_fewshot = DataLoader(train_set_fewshot, batch_size=args.way, shuffle=False, num_workers=workers,
     #                                   pin_memory=pin_memory, drop_last=args.drop_last)
@@ -387,6 +397,9 @@ def main():
     if args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = None
+    elif args.loss == 'linkpred':
+        loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        loss_fn = LinkPredictionLoss(args, k=args.link_prediction_k)
     elif args.loss == 'contrv':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = ContrastiveLoss(args, args.margin, l=args.reg_lambda)

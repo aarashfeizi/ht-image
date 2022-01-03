@@ -39,7 +39,7 @@ MERGE_METHODS = ['sim', 'diff', 'diff-sim', 'diff-sim-con',
                  'channel-attention']
 
 LOSS_METHODS = ['bce', 'trpl', 'maxmargin', 'batchhard', 'batchallgen', 'contrv', 'stopgrad', 'trpl_local',
-                'contrv_mlp']
+                'contrv_mlp', 'linkpred']
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -286,6 +286,7 @@ def get_args():
     parser.add_argument('-mg', '--margin', default=0.0, type=float, help="margin for triplet loss")
     parser.add_argument('-lss', '--loss', default='bce',
                         choices=LOSS_METHODS)
+    parser.add_argument('-link_prediction_k', '--link_prediction_k', default=0, type=int)
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
@@ -316,8 +317,10 @@ def get_args():
     parser.add_argument('-dl', '--drop_last', default=False, action='store_true')
     parser.add_argument('-cam', '--cam', default=False, action='store_true')
     parser.add_argument('-dat', '--draw_all_thresh', default=32, type=int, help="threshold for drawing all heatmaps")
-    parser.add_argument('-p', '--bh_P', default=18, type=int, help="number of classes for batchhard")
-    parser.add_argument('-k', '--bh_K', default=4, type=int, help="number of imgs per class for batchhard")
+    parser.add_argument('-p', '--bh_P', default=18, type=int,
+                        help="number of classes per batch (for losses like batchard, linkpred, ...)")
+    parser.add_argument('-k', '--bh_K', default=4, type=int,
+                        help="number of imgs per class in each batch (for losses like batchard, linkpred, ...)")
     parser.add_argument('-m', '--aug_mask', default=False, action='store_true')
     parser.add_argument('-cm', '--colored_mask', default=False, action='store_true')
     parser.add_argument('-fs', '--from_scratch', default=False, action='store_true')
@@ -2512,13 +2515,15 @@ def get_logname(args):
                          'dot-product': 'dp',
                          'dot-product-add': 'dpa',
                          'my_dist': 'MD',
-                         'infer_wo_att': 'IwoA'}
+                         'infer_wo_att': 'IwoA',
+                         'link_prediction_k': 'lpk'}
 
     important_args = ['dataset_name',
                       'batch_size',
                       'lr_att',
                       'lr_new',
                       'lr_resnet',
+                      'link_prediction_k',
                       # 'early_stopping',
                       'feat_extractor',
                       'normalize',
@@ -2587,7 +2592,8 @@ def get_logname(args):
                              'dim_reduction',
                              'same_pic_prob',
                              'exact_pic_and_aug',
-                             'random_erase']
+                             'random_erase',
+                             'link_prediction_k']
 
     if args.loss != 'bce' and args.loss != 'stopgrad':
         if args.loss == 'contrv':
@@ -2678,6 +2684,10 @@ def get_logname(args):
 
     if args.loss == 'batchhard' or args.loss == 'contrv':
         name += f'-p_{args.bh_P}-k_{args.bh_K}'
+
+    if args.loss == 'linkpred':
+        name += f'-bhk_{args.bh_K}'
+
 
     if args.pretrained_model != '' and len(args.pretrained_model) < 10:  # for running baselines and feature extractors
         name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'
