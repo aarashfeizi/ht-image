@@ -3884,7 +3884,7 @@ class ModelMethods:
 
         for batch_id, (imgs, lbls) in enumerate(train_loader, 1):
 
-            imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
+            # imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
             start = time.time()
             # self.logger.info('input: ', img1.size())
 
