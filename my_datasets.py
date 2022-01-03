@@ -1604,7 +1604,7 @@ class BaseDataSet(Dataset):
         self.label_list = list()
         self.path_list = list()
         self._load_data()
-        self.label_index_dict = self._build_label_index_dict()
+        self.datas = self._build_label_index_dict()
 
     def __len__(self):
         return len(self.label_list)
