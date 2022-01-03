@@ -1689,12 +1689,12 @@ class ModelMethods:
                     test_bce_loss += class_loss.item()
 
                 else:
-                    ret = net.forward(anch, pos, feats=True, get_att_diffs=True)
+                    pos_ret = net.forward(anch, pos, feats=True, get_att_diffs=True)
                     if args.loss == 'linkpred':
                         pos_att_diffs = []
-                        pos_pred, pos_dist, anch_feat, pos_feat = ret
+                        pos_pred, pos_dist, anch_feat, pos_feat = pos_ret
                     else:
-                        pos_pred, pos_dist, anch_feat, pos_feat, pos_att_diffs = ret
+                        pos_pred, pos_dist, anch_feat, pos_feat, pos_att_diffs = pos_ret
                     class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze(axis=1))
 
                     pred_label_auc.extend(pos_pred.data.cpu().numpy())
@@ -1705,7 +1705,12 @@ class ModelMethods:
 
                     # self.logger.info(anch.shape)
                     # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
-                    neg_pred, neg_dist, neganch_feat, neg_feat, neg_att_diffs = net.forward(anch, neg, feats=True, get_att_diffs=True)
+                    neg_ret = net.forward(anch, neg, feats=True, get_att_diffs=True)
+                    if args.loss == 'linkpred':
+                        neg_att_diffs = []
+                        neg_pred, neg_dist, neganch_feat, neg_feat = neg_ret
+                    else:
+                        neg_pred, neg_dist, neganch_feat, neg_feat, neg_att_diffs = neg_ret
 
                     all_neg_predictions.extend(neg_pred.data.cpu().numpy())
                     all_neg_att_diffs.extend(neg_att_diffs)
