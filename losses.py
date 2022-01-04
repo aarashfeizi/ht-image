@@ -144,6 +144,9 @@ class LinkPredictionLoss(nn.Module):
 
         k = min(self.k, sorted_euc_distances.shape[1])
 
+        if k == 0:
+            k = sorted_euc_distances.shape[1] # if k=0, consider the whole batch
+
         neighbor_indices_ = sorted_indices[:, :k]
         neighbor_distances_ = sorted_euc_distances[:, :k]
 
@@ -152,9 +155,11 @@ class LinkPredictionLoss(nn.Module):
         true_labels = (neighbor_labels_ == labels.repeat_interleave(k).view(-1, k))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
 
-        loss1 = torch.sum(true_labels * torch.exp(-neighbor_distances_), -1)
-        loss2 = torch.sum((1 - true_labels) * torch.exp(-neighbor_distances_), -1)
-        loss = -torch.log(loss1 / loss2)
+        # loss1 = torch.sum(true_labels * torch.exp(-neighbor_distances_), -1)
+        # loss2 = torch.sum((1 - true_labels) * torch.exp(-neighbor_distances_), -1)
+        # loss = -torch.log(loss1 / loss2)
+
+        loss = torch.sum(-true_labels * F.log_softmax(-neighbor_distances_, dim=-1), dim=-1)
 
         loss = loss.mean()
 
