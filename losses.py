@@ -71,7 +71,7 @@ class LinkPredictionLoss(nn.Module):
         else:
             return self.forward_bce(batch, labels)
 
-    def forward_emb(self, batch, labels):
+    def forward_bce(self, batch, labels):
         # dot_product = torch.matmul(batch, batch.T)  # between -inf and +inf
         # min_value = dot_product.min().item() - 1
         # dot_product = dot_product.fill_diagonal_(min_value)
@@ -131,7 +131,7 @@ class LinkPredictionLoss(nn.Module):
         # else:
         #     loss = (hardest_positive_dist - hardest_negative_dist + self.margin).clamp(min=0)
 
-    def forward_bce(self, batch, labels):
+    def forward_emb(self, batch, labels):
         euc_distances = utils.pairwise_distance(batch, diag_to_max=True)  # between 0 and inf
 
         euc_distances_sorted, sorted_indices = euc_distances.sort()
