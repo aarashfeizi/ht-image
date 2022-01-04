@@ -134,6 +134,7 @@ class LinkPredictionLoss(nn.Module):
         #     loss = (hardest_positive_dist - hardest_negative_dist + self.margin).clamp(min=0)
 
     def forward_emb(self, batch, labels):
+
         euc_distances = utils.pairwise_distance(batch, diag_to_max=True)  # between 0 and inf
 
         euc_distances_sorted, sorted_indices = euc_distances.sort()

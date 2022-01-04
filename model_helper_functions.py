@@ -3891,12 +3891,6 @@ class ModelMethods:
         # pos_all_merged_vectors = None
         # neg_all_merged_vectors = None
 
-        labels = torch.Tensor([[i for _ in range(args.bh_K)] for i in range(args.bh_P)]).flatten()
-        if args.cuda:
-            labels = Variable(labels.cuda())
-        else:
-            labels = Variable(labels)
-
         for batch_id, (imgs, lbls) in enumerate(train_loader, 1):
 
             # imgs = imgs.reshape(-1, imgs.shape[2], imgs.shape[3], imgs.shape[4])
@@ -3909,13 +3903,15 @@ class ModelMethods:
             zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
 
             if args.cuda:
-                imgs, one_labels, zero_labels = Variable(imgs.cuda()), \
+                imgs, one_labels, zero_labels, lbls = Variable(imgs.cuda()), \
                                                 Variable(one_labels.cuda()), \
-                                                Variable(zero_labels.cuda())
+                                                Variable(zero_labels.cuda()), \
+                                                Variable(lbls.cuda())
             else:
-                imgs, one_labels, zero_labels = Variable(imgs), \
+                imgs, one_labels, zero_labels, lbls = Variable(imgs), \
                                                 Variable(one_labels), \
-                                                Variable(zero_labels)
+                                                Variable(zero_labels), \
+                                                Variable(lbls)
 
             # if not drew_graph:
             #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
@@ -3930,7 +3926,7 @@ class ModelMethods:
 
             imgs_f = imgs_f.view(imgs_f.size()[0], -1)
 
-            loss = loss_fn(imgs_f, labels[:imgs_f.shape[0]])
+            loss = loss_fn(imgs_f, lbls)
 
             train_loss += loss.item()
 
