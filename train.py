@@ -151,7 +151,7 @@ def main():
         train_set = BaseDataSet(img_source=os.path.join(args.dataset_path, args.dataset_folder, 'train_small.txt'),
                                 transforms=data_transforms_train_1)
         if args.overfit_num > 0:
-            max_iters = ((args.overfit_num * args.bh_k) // args.batch_size)
+            max_iters = ((args.overfit_num * args.bh_K) // args.batch_size)
         else:
             max_iters = (train_set.__len__() // args.batch_size)
 
