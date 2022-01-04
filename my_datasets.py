@@ -1626,7 +1626,7 @@ class BaseDataSet(Dataset):
     def _build_label_index_dict(self):
         index_dict = defaultdict(list)
         for i, label in enumerate(self.label_list):
-            index_dict[label].append(i)
+            index_dict[int(label)].append(i)
         return index_dict
 
     def __getitem__(self, index):
