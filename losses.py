@@ -7,23 +7,23 @@ import utils
 
 # todo between local features, use the nearest/farthest distances among them (between two image tensors) as distances of two tensors?'
 
+def binarize_and_smooth_labels(T, nb_classes, smoothing_const=0):
+    import sklearn.preprocessing
+    T = T.cpu().numpy()
+    T = sklearn.preprocessing.label_binarize(
+        T, classes=range(0, nb_classes)
+    )
+    T = T * (1 - smoothing_const)
+    T[T == 0] = smoothing_const / (nb_classes - 1)
+    T = torch.FloatTensor(T).cuda()
+
+    return T
+
 class ProxyNCA_classic(torch.nn.Module):
     def __init__(self, nb_classes, sz_embed, scale, **kwargs):
         torch.nn.Module.__init__(self)
         self.proxies = torch.nn.Parameter(torch.randn(nb_classes, sz_embed) / 8)
         self.scale = scale
-
-    def binarize_and_smooth_labels(self, T, nb_classes, smoothing_const=0):
-        import sklearn.preprocessing
-        T = T.cpu().numpy()
-        T = sklearn.preprocessing.label_binarize(
-            T, classes=range(0, nb_classes)
-        )
-        T = T * (1 - smoothing_const)
-        T[T == 0] = smoothing_const / (nb_classes - 1)
-        T = torch.FloatTensor(T).cuda()
-
-        return T
 
     def forward(self, X, T):
         P = self.proxies
@@ -41,7 +41,7 @@ class ProxyNCA_classic(torch.nn.Module):
             squared=True
         )[:X.size()[0], X.size()[0]:]
 
-        T = self.binarize_and_smooth_labels(
+        T = binarize_and_smooth_labels(
             T=T, nb_classes=len(P), smoothing_const=0
         )
         loss1 = torch.sum(T * torch.exp(-D), -1)
@@ -63,8 +63,15 @@ class LinkPredictionLoss(nn.Module):
         # self.bce_with_logit = torch.nn.BCEWithLogitsLoss()
         self.bce = torch.nn.BCELoss()
         self.metric = loss_metric
+        self.emb = args.emb
 
     def forward(self, batch, labels):
+        if self.emb:
+            return self.forward_emb(batch, labels)
+        else:
+            return self.forward_bce(batch, labels)
+
+    def forward_emb(self, batch, labels):
         # dot_product = torch.matmul(batch, batch.T)  # between -inf and +inf
         # min_value = dot_product.min().item() - 1
         # dot_product = dot_product.fill_diagonal_(min_value)
@@ -74,7 +81,7 @@ class LinkPredictionLoss(nn.Module):
         if self.metric == 'euclidean':
             euc_distances = utils.pairwise_distance(batch, diag_to_max=True) # between 0 and inf
 
-            preds = 2 * F.sigmoid(-euc_distances / self.temperature) # between 0 and 1
+            preds = 2 * F.sigmoid(-euc_distances / self.temperature) # between 0 and 1 (map inf to 0, and 0 to 1)
 
             sorted_indices = euc_distances.argsort()[:, :-1]
 
@@ -123,6 +130,29 @@ class LinkPredictionLoss(nn.Module):
         #     loss = F.softplus(hardest_positive_dist - hardest_negative_dist)
         # else:
         #     loss = (hardest_positive_dist - hardest_negative_dist + self.margin).clamp(min=0)
+
+    def forward_bce(self, batch, labels):
+        euc_distances = utils.pairwise_distance(batch, diag_to_max=True)  # between 0 and inf
+
+        euc_distances_sorted, sorted_indices = euc_distances.sort()
+
+        sorted_indices = sorted_indices[:, :-1]
+        sorted_euc_distances = euc_distances_sorted[:, :-1]
+
+        neighbor_indices_ = sorted_indices[:, :self.k]
+        neighbor_distances_ = sorted_euc_distances[:, :self.k]
+
+        neighbor_labels_ = labels[neighbor_indices_]
+
+        true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
+        true_labels = true_labels.type(torch.float32)
+
+        loss1 = torch.sum(true_labels * torch.exp(-neighbor_distances_), -1)
+        loss2 = torch.sum((1-true_labels) * torch.exp(-neighbor_distances_), -1)
+        loss = -torch.log(loss1/loss2)
+
+        return loss
+
 
 
 class LocalTripletLoss(nn.Module):
