@@ -1621,12 +1621,12 @@ class BaseDataSet(Dataset):
             for line in f:
                 _path, _label = re.split(r",| ", line.strip())
                 self.path_list.append(_path)
-                self.label_list.append(_label)
+                self.label_list.append(int(_label))
 
     def _build_label_index_dict(self):
         index_dict = defaultdict(list)
         for i, label in enumerate(self.label_list):
-            index_dict[int(label)].append(i)
+            index_dict[label].append(i)
         return index_dict
 
     def __getitem__(self, index):
@@ -1637,4 +1637,5 @@ class BaseDataSet(Dataset):
         img = Image.open(img_path).convert('RGB')
         if self.transforms is not None:
             img = self.transforms(img)
+
         return img, torch.tensor(label, dtype=torch.float32)
