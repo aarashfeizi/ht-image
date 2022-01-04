@@ -19,6 +19,7 @@ def binarize_and_smooth_labels(T, nb_classes, smoothing_const=0):
 
     return T
 
+
 class ProxyNCA_classic(torch.nn.Module):
     def __init__(self, nb_classes, sz_embed, scale, **kwargs):
         torch.nn.Module.__init__(self)
@@ -50,6 +51,7 @@ class ProxyNCA_classic(torch.nn.Module):
         loss = loss.mean()
         return loss
 
+
 class LinkPredictionLoss(nn.Module):
     """
         Choose k nearest neighbors and calculate a BCE-Cross-Entropy loss
@@ -79,9 +81,9 @@ class LinkPredictionLoss(nn.Module):
         # preds = F.sigmoid(dot_product) # between 0 and 1
 
         if self.metric == 'euclidean':
-            euc_distances = utils.pairwise_distance(batch, diag_to_max=True) # between 0 and inf
+            euc_distances = utils.pairwise_distance(batch, diag_to_max=True)  # between 0 and inf
 
-            preds = 2 * F.sigmoid(-euc_distances / self.temperature) # between 0 and 1 (map inf to 0, and 0 to 1)
+            preds = 2 * F.sigmoid(-euc_distances / self.temperature)  # between 0 and 1 (map inf to 0, and 0 to 1)
 
             sorted_indices = euc_distances.argsort()[:, :-1]
 
@@ -91,7 +93,7 @@ class LinkPredictionLoss(nn.Module):
             min_value = cosine_sim.min().item() - 1
             cosine_sim = cosine_sim.fill_diagonal_(min_value)
 
-            preds = (cosine_sim + 1) / 2 # between 0 and 1
+            preds = (cosine_sim + 1) / 2  # between 0 and 1
 
             sorted_indices = (-cosine_sim).argsort()[:, :-1]
 
@@ -136,23 +138,27 @@ class LinkPredictionLoss(nn.Module):
 
         euc_distances_sorted, sorted_indices = euc_distances.sort()
 
+
         sorted_indices = sorted_indices[:, :-1]
         sorted_euc_distances = euc_distances_sorted[:, :-1]
 
-        neighbor_indices_ = sorted_indices[:, :self.k]
-        neighbor_distances_ = sorted_euc_distances[:, :self.k]
+        k = min(self.k, sorted_euc_distances.shape[1])
+
+        neighbor_indices_ = sorted_indices[:, :k]
+        neighbor_distances_ = sorted_euc_distances[:, :k]
 
         neighbor_labels_ = labels[neighbor_indices_]
 
-        true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
+        true_labels = (neighbor_labels_ == labels.repeat_interleave(k).view(-1, k))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
 
         loss1 = torch.sum(true_labels * torch.exp(-neighbor_distances_), -1)
-        loss2 = torch.sum((1-true_labels) * torch.exp(-neighbor_distances_), -1)
-        loss = -torch.log(loss1/loss2)
+        loss2 = torch.sum((1 - true_labels) * torch.exp(-neighbor_distances_), -1)
+        loss = -torch.log(loss1 / loss2)
+
+        loss = loss.mean()
 
         return loss
-
 
 
 class LocalTripletLoss(nn.Module):
@@ -201,9 +207,9 @@ class LocalTripletLoss(nn.Module):
                 pos_map_flattened = att_maps[1].view(N, -1)
                 neg_map_flattened = att_maps[2].view(N, -1)
                 pos_dist = (torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0] * (
-                            anch_map_flattened + pos_map_flattened)).sum(axis=1)
+                        anch_map_flattened + pos_map_flattened)).sum(axis=1)
                 neg_dist = (torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0] * (
-                            anch_map_flattened + neg_map_flattened)).sum(axis=1)
+                        anch_map_flattened + neg_map_flattened)).sum(axis=1)
             else:
                 pos_dist = torch.cdist(anch_tensor_locals, pos_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
                 neg_dist = torch.cdist(anch_tensor_locals, neg_tensor_locals, p=2).min(axis=2)[0].sum(axis=1)
