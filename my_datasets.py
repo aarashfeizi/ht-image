@@ -1637,4 +1637,4 @@ class BaseDataSet(Dataset):
         img = Image.open(img_path).convert('RGB')
         if self.transforms is not None:
             img = self.transforms(img)
-        return img, label
+        return img, torch.tensor(label, dtype=torch.float32)
