@@ -80,7 +80,10 @@ class LinkPredictionLoss(nn.Module):
         for i in range(bs):
             x_idx = i // self.bh_K * self.bh_K
             y_idx = x_idx + i % self.bh_K
-            l[y_idx, x_idx] = 1
+            if i % self.bh_K == 0:
+                l[y_idx, x_idx] = 0
+            else:
+                l[y_idx, x_idx] = 1
 
         return l
 
