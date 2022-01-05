@@ -1307,10 +1307,12 @@ class ModelMethods:
                         self.writer.add_scalar('Train/Contrastive_Loss', train_other_loss / len(train_loader), epoch)
                     elif (loss_fn is not None) and args.loss == 'linkpred':
                         self.writer.add_scalar('Train/Linkpred_Loss', train_other_loss / len(train_loader), epoch)
+                    elif (loss_fn is not None) and args.loss == 'pnpp':
+                        self.writer.add_scalar('Train/ProxyPCA++', train_other_loss / len(train_loader), epoch)
                     elif (loss_fn is not None) and args.loss != 'stopgrad' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/Triplet_Loss', train_other_loss / len(train_loader), epoch)
 
-                    if args.loss != 'linkpred' and args.loss != 'contrv' and args.loss != 'batchallgen':
+                    if args.loss != 'linkpred' and args.loss != 'pnpp' and args.loss != 'contrv' and args.loss != 'batchallgen':
                         self.writer.add_scalar('Train/BCE_Loss', train_bce_loss / len(train_loader), epoch)
                         self.writer.add_scalar('Train/Acc', metric_ACC.get_acc(), epoch)
                     # self.writer.add_hparams(self.important_hparams, {'Train_2/Acc': metric_ACC.get_acc()}, epoch)
