@@ -374,7 +374,7 @@ def get_args():
 
     parser.add_argument('-bnbc', '--bn_before_classifier', default=False, action='store_true')
     parser.add_argument('-leaky', '--leaky_relu', default=False, action='store_true')
-    parser.add_argument('-draw_top_k_results', '--draw_top_k_results', default=5, type=int)
+    parser.add_argument('-draw_top_k_results', '--draw_top_k_results', default=0, type=int)
 
     parser.add_argument('-att', '--attention', default=False, action='store_true')
     parser.add_argument('-infer_wo_att', '--infer_wo_att', default=False, action='store_true')
