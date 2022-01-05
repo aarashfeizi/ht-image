@@ -1403,14 +1403,17 @@ class TopModel(nn.Module):
                 return pred, local_features
         elif self.loss == 'linkpred':  # automatically no_final_network (no_final_network should be true)
 
-            x1_global = x1_global.view((x1_global.size()[0], -1))
-            x2_global = x2_global.view((x2_global.size()[0], -1))
-
-            pred = (x1_global * x2_global).sum(axis=1)
+            # x1_global = x1_global.view((x1_global.size()[0], -1))
+            # x2_global = x2_global.view((x2_global.size()[0], -1))
+            #
+            # pred = (x1_global * x2_global).sum(axis=1)
 
             x1_global = F.normalize(x1_global, p=2, dim=1)
             x2_global = F.normalize(x2_global, p=2, dim=1)
             cos_sim = (x1_global * x2_global).sum(axis=1)
+
+            pred = (cos_sim + 1) / 2
+            pred = torch.clamp(pred, max=1.0, min=0.0)
 
             ret = (pred,
                    cos_sim,
