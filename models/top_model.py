@@ -1506,6 +1506,7 @@ class TopModel(nn.Module):
                     cos_sim = (x1_global * x2_global).sum(axis=1)
 
                     pred = (cos_sim + 1) / 2
+                    pred = torch.clamp(pred, max=1.0, min=0.0)
 
                     ret = (pred, cos_sim, x1_global, x2_global)
                 else:
