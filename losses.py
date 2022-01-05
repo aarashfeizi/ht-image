@@ -80,6 +80,7 @@ class LinkPredictionLoss(nn.Module):
 
         # preds = F.sigmoid(dot_product) # between 0 and 1
 
+
         if self.metric == 'euclidean':
             euc_distances = utils.pairwise_distance(batch, diag_to_max=True)  # between 0 and inf
 
@@ -87,7 +88,7 @@ class LinkPredictionLoss(nn.Module):
 
             sorted_indices = euc_distances.argsort()[:, :-1]
 
-        else:
+        else: # 'cosine'
             batch = F.normalize(batch, p=2)
             cosine_sim = torch.matmul(batch, batch.T)  # between -1 and 1
             min_value = cosine_sim.min().item() - 1
@@ -97,12 +98,17 @@ class LinkPredictionLoss(nn.Module):
 
             sorted_indices = (-cosine_sim).argsort()[:, :-1]
 
-        neighbor_indices_ = sorted_indices[:, :self.k]
-        indices = torch.tensor([[j for _ in range(self.k)] for j in range(len(labels))])
+        k = min(self.k, sorted_indices.shape[1])
+
+        if k == 0:
+            k = sorted_indices.shape[1]  # if k=0, consider the whole batch
+
+        neighbor_indices_ = sorted_indices[:, :k]
+        indices = torch.tensor([[j for _ in range(k)] for j in range(len(labels))])
         neighbor_preds_ = preds[indices, neighbor_indices_]
         neighbor_labels_ = labels[neighbor_indices_]
 
-        true_labels = (neighbor_labels_ == labels.repeat_interleave(self.k).view(-1, self.k))  # boolean tensor
+        true_labels = (neighbor_labels_ == labels.repeat_interleave(k).view(-1, k))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
 
         # loss = self.bce_with_logit(neighbor_preds_, true_labels)
