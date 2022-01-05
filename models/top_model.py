@@ -1401,7 +1401,7 @@ class TopModel(nn.Module):
                     return pred, local_features, att_x1_local, att_x2_local
             else:
                 return pred, local_features
-        elif self.loss == 'linkpred':  # automatically no_final_network (no_final_network should be true)
+        elif self.loss == 'linkpred' or self.loss == 'pnpp':  # automatically no_final_network (no_final_network should be true)
 
             # x1_global = x1_global.view((x1_global.size()[0], -1))
             # x2_global = x2_global.view((x2_global.size()[0], -1))
