@@ -98,7 +98,7 @@ class LinkPredictionLoss(nn.Module):
         true_labels = (labels.repeat(bs).view(-1, bs) == labels.repeat_interleave(bs).view(-1, bs))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
         negative_labels = 1 - true_labels
-        positive_labels = torch.eye(12, dtype=torch.float32)
+        positive_labels = torch.eye(bs, dtype=torch.float32)
 
         loss1 = torch.sum(positive_labels * torch.exp(-distances), -1) # anch w/ pos similarity
         loss2 = torch.sum(negative_labels * torch.exp(-distances), -1) # anch w/ neg similarity
