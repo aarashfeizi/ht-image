@@ -65,13 +65,78 @@ class LinkPredictionLoss(nn.Module):
         # self.bce_with_logit = torch.nn.BCEWithLogitsLoss()
         self.bce = torch.nn.BCELoss()
         self.metric = loss_metric
-        self.emb = args.emb
+        self.mode = args.loss_mode
 
     def forward(self, batch, labels):
-        if self.emb:
+        if self.mode == 'emb':
             return self.forward_emb(batch, labels)
-        else:
+        elif self.mode == 'mbl': # multi-binary loss
+            return self.forward_multi_bce(batch, labels)
+        else: # 'bce'
             return self.forward_bce(batch, labels)
+
+    def forward_multi_bce(self, batch, labels):
+
+        if self.metric == 'euclidean':
+            euc_distances = utils.pairwise_distance(batch, diag_to_max=False)  # between 0 and inf
+
+            distances = euc_distances
+
+            # preds = 2 * F.sigmoid(-euc_distances / self.temperature)  # between 0 and 1 (map inf to 0, and 0 to 1)
+
+            # sorted_indices = euc_distances.argsort()[:, :-1]
+
+        else: # 'cosine'
+            batch = F.normalize(batch, p=2)
+            cosine_sim = torch.matmul(batch, batch.T)  # between -1 and 1
+            # min_value = cosine_sim.min().item() - 1
+            # cosine_sim = cosine_sim.fill_diagonal_(min_value)
+            distances = -cosine_sim
+
+        bs = batch.shape[1]
+
+        true_labels = (labels.repeat(bs).view(-1, bs) == labels.repeat_interleave(bs).view(-1, bs))  # boolean tensor
+        true_labels = true_labels.type(torch.float32)
+        negative_labels = 1 - true_labels
+        positive_labels = torch.eye(12, dtype=torch.float32)
+
+        loss1 = torch.sum(positive_labels * torch.exp(-distances), -1) # anch w/ pos similarity
+        loss2 = torch.sum(negative_labels * torch.exp(-distances), -1) # anch w/ neg similarity
+        preds = torch.sigmoid(loss1 / loss2)
+
+
+        loss = -torch.log(loss1 / loss2)
+        # loss = self.bce_with_logit(loss1 / loss2, )
+
+        loss = loss.mean()
+
+        # loss = self.bce_with_logit(neighbor_preds_, true_labels)
+        # loss = self.bce(neighbor_preds_, true_labels)
+
+        return loss
+
+        # gpu = labels.device.type == 'cuda'
+        #
+        # mask_positive = utils.get_valid_positive_mask(labels, gpu)
+        # pos_loss = ((1 - dot_product) * mask_positive.float()).sum(dim=1)
+        # # positive_dist_idx = (cosine_sim * mask_positive.float())
+        #
+        # mask_negative = utils.get_valid_negative_mask(labels, gpu)
+        # neg_loss = (F.relu(dot_product - self.margin) * mask_negative.float()).sum(dim=1)
+        #
+        # if self.l != 0:
+        #     distances = utils.squared_pairwise_distances(batch)
+        #     # import pdb
+        #     # pdb.set_trace()
+        #     idxs = distances.argsort()[:, 1]
+        #     reg_loss = -1 * distances.gather(1, idxs.view(-1, 1)).mean()
+        # else:
+        #     reg_loss = None
+
+        # if self.soft:
+        #     loss = F.softplus(hardest_positive_dist - hardest_negative_dist)
+        # else:
+        #     loss = (hardest_positive_dist - hardest_negative_dist + self.margin).clamp(min=0)
 
     def forward_bce(self, batch, labels):
         # dot_product = torch.matmul(batch, batch.T)  # between -inf and +inf
