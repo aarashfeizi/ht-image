@@ -1635,8 +1635,8 @@ class ModelMethods:
         with tqdm(total=len(data_loader), desc=f'{prompt_text_tb}') as t:
             for _, (anch, pos, neg) in enumerate(data_loader, 1):
 
-                one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float).reshape(-1, 1)
-                zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float).reshape(-1, 1)
+                one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=torch.float32).reshape(-1, 1)
+                zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=torch.float32).reshape(-1, 1)
 
                 if args.cuda:
                     anch, pos, neg, one_labels, zero_labels = anch.cuda(), pos.cuda(), neg.cuda(), one_labels.cuda(), zero_labels.cuda()
