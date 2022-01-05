@@ -3193,8 +3193,8 @@ class ModelMethods:
 
             debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
 
-            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=float)
-            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=float)
+            one_labels = torch.tensor([1 for _ in range(anch.shape[0])], dtype=torch.float32)
+            zero_labels = torch.tensor([0 for _ in range(anch.shape[0])], dtype=torch.float32)
 
             if args.cuda:
                 anch, pos, neg, one_labels, zero_labels = Variable(anch.cuda()), \
