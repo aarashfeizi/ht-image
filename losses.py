@@ -21,10 +21,12 @@ def binarize_and_smooth_labels(T, nb_classes, smoothing_const=0):
 
 
 class ProxyNCA_prob(torch.nn.Module):
-    def __init__(self, args, nb_classes, scale=3, **kwargs):
+    def __init__(self, args, nb_classes, scale=3, gpu=True, **kwargs):
         torch.nn.Module.__init__(self)
         sz_embed = args.dim_reduction
         self.proxies = torch.nn.Parameter(torch.randn(nb_classes, sz_embed) / 8)
+        if gpu:
+            self.proxies = self.proxies.cuda()
         self.scale = scale
 
     def forward(self, X, T):
