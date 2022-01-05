@@ -76,7 +76,7 @@ class LinkPredictionLoss(nn.Module):
             return self.forward_bce(batch, labels)
 
     def forward_multi_bce(self, batch, labels):
-
+        gpu = labels.device.type == 'cuda'
         if self.metric == 'euclidean':
             euc_distances = utils.pairwise_distance(batch, diag_to_max=False)  # between 0 and inf
 
@@ -99,6 +99,9 @@ class LinkPredictionLoss(nn.Module):
         true_labels = true_labels.type(torch.float32)
         negative_labels = 1 - true_labels
         positive_labels = torch.eye(bs, dtype=torch.float32)
+
+        if gpu:
+            positive_labels = positive_labels.cuda()
 
         loss1 = torch.sum(positive_labels * torch.exp(-distances), -1) # anch w/ pos similarity
         loss2 = torch.sum(negative_labels * torch.exp(-distances), -1) # anch w/ neg similarity
