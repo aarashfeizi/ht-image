@@ -400,7 +400,10 @@ def main():
                 test_db_loaders.append(test_db_loader)
 
 
-    if args.loss == 'bce':
+    if args.loss == 'bce' and args.no_final_network:
+        loss_fn_bce = torch.nn.BCELoss(reduction='mean')
+        loss_fn = None
+    elif args.loss == 'bce':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = None
     elif args.loss == 'pnpp':

@@ -3899,19 +3899,15 @@ class ModelMethods:
 
             debug_grad = self.draw_grad and (batch_id == 1 or batch_id == len(train_loader))
 
-            one_labels = torch.tensor([1 for _ in range(imgs.shape[0])], dtype=float)
-            zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
+            # one_labels = torch.tensor([1 for _ in range(imgs.shape[0])], dtype=float)
+            # zero_labels = torch.tensor([0 for _ in range(imgs.shape[0])], dtype=float)
 
             if args.cuda:
-                imgs, one_labels, zero_labels, lbls = Variable(imgs.cuda()), \
-                                                Variable(one_labels.cuda()), \
-                                                Variable(zero_labels.cuda()), \
-                                                Variable(lbls.cuda())
+                imgs, lbls = Variable(imgs.cuda()), \
+                                Variable(lbls.cuda())
             else:
-                imgs, one_labels, zero_labels, lbls = Variable(imgs), \
-                                                Variable(one_labels), \
-                                                Variable(zero_labels), \
-                                                Variable(lbls)
+                imgs, lbls = Variable(imgs), \
+                                Variable(lbls)
 
             # if not drew_graph:
             #     self.writer.add_graph(net, (imgs.detach(), imgs.detach()), verbose=True)
