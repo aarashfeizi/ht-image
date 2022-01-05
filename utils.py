@@ -2692,6 +2692,8 @@ def get_logname(args):
     if args.loss == 'linkpred':
         name += f'-bhk_{args.bh_K}-{args.loss_metric}-{args.loss_mode}-temp{args.temperature}'
 
+    if args.loss == 'pnpp':
+        name += f'-bhk_{args.bh_K}'
 
     if args.pretrained_model != '' and len(args.pretrained_model) < 10:  # for running baselines and feature extractors
         name = f'{args.feat_extractor}_{args.pretrained_model}_{args.extra_name}'

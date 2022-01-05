@@ -138,7 +138,7 @@ def main():
     else:
         second_transform = None
 
-    if args.loss != 'linkpred':
+    if args.loss != 'linkpred' and args.loss != 'pnpp':
         train_set = Metric_Dataset_Train(args,
                                          transform=data_transforms_train_1,
                                          transform2=second_transform,
@@ -320,12 +320,12 @@ def main():
         workers = args.workers
         pin_memory = args.pin_memory
 
-    if args.loss == 'pnpp' or args.loss == 'batchhard' or args.loss == 'contrv' or args.loss == 'batchallgen':
+    if args.loss == 'batchhard' or args.loss == 'contrv' or args.loss == 'batchallgen':
         bs = args.bh_P
     else:
         bs = args.batch_size
 
-    if args.loss != 'linkpred' or args.loss == 'pnpp':
+    if args.loss != 'linkpred' and args.loss != 'pnpp':
         train_loader = DataLoader(train_set, batch_size=bs, shuffle=False, num_workers=workers,
                                   pin_memory=pin_memory, drop_last=args.drop_last, worker_init_fn=utils.seed_worker)
     else:

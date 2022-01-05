@@ -1699,7 +1699,7 @@ class ModelMethods:
 
                 else:
                     pos_ret = net.forward(anch, pos, feats=True, get_att_diffs=True)
-                    if args.loss == 'linkpred':
+                    if args.loss == 'linkpred' or args.loss == 'pnpp':
                         pos_att_diffs = []
                         pos_pred, pos_dist, anch_feat, pos_feat = pos_ret
                     else:
@@ -1715,7 +1715,7 @@ class ModelMethods:
                     # self.logger.info(anch.shape)
                     # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
                     neg_ret = net.forward(anch, neg, feats=True, get_att_diffs=True)
-                    if args.loss == 'linkpred':
+                    if args.loss == 'linkpred' or args.loss == 'pnpp':
                         neg_att_diffs = []
                         neg_pred, neg_dist, neganch_feat, neg_feat = neg_ret
                     else:
@@ -1729,7 +1729,7 @@ class ModelMethods:
                     class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
                     metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze(axis=1), sigmoid=False)
 
-                    if loss_fn is not None and (args.loss != 'linkpred'):
+                    if loss_fn is not None and (args.loss != 'linkpred' and args.loss != 'pnpp'):
                         if args.loss == 'trpl_local':
                             ext_batch_loss = loss_fn([anch_feat, neganch_feat], pos_feat, neg_feat)
                         elif args.loss == 'contrv_mlp':
@@ -1741,7 +1741,7 @@ class ModelMethods:
 
                     # class_loss /= (self.no_negative + 1)
 
-                    if loss_fn is not None and (args.loss != 'linkpred'):
+                    if loss_fn is not None and (args.loss != 'linkpred' and args.loss != 'pnpp'):
                         # ext_loss /= self.no_negative
                         test_triplet_loss += ext_loss.item()
                         if args.loss == 'contrv_mlp':
@@ -1767,7 +1767,7 @@ class ModelMethods:
         # self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_loss / len(data_loader), epoch)
         self.logger.error(f'{prompt_text_tb}/Loss:  {test_loss / len(data_loader)}, epoch: {epoch}')
         self.writer.add_scalar(f'{prompt_text_tb}/Loss', test_loss / len(data_loader), epoch)
-        if loss_fn is not None and (args.loss != 'linkpred'):
+        if loss_fn is not None and (args.loss != 'linkpred' and args.loss != 'pnpp'):
             self.logger.error(f'{prompt_text_tb}/Triplet_Loss: {test_triplet_loss / len(data_loader)}, epoch: {epoch}')
             self.writer.add_scalar(f'{prompt_text_tb}/Triplet_Loss', test_triplet_loss / len(data_loader), epoch)
         self.logger.error(f'{prompt_text_tb}/BCE_Loss: {test_bce_loss / len(data_loader)}, epoch: {epoch}')
