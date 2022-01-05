@@ -9,8 +9,11 @@ class Metric_Accuracy:
         self.rights = 0
         self.wrongs = 0
 
-    def update_acc(self, output, label):
-        pred = (torch.sigmoid(output) >= 0.5)
+    def update_acc(self, output, label, sigmoid=True):
+        if sigmoid:
+            pred = (torch.sigmoid(output) >= 0.5)
+        else:
+            pred = (output >= 0.5)
         # print(output.size())
         # print(label.size())
         # print('output: ', output)

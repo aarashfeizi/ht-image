@@ -1704,7 +1704,7 @@ class ModelMethods:
                     true_label_auc.extend(one_labels.data.cpu().numpy())
                     all_pos_att_diffs.extend(pos_att_diffs)
                     all_pos_predictions.extend(pos_pred.data.cpu().numpy())
-                    metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze(axis=1), sigmoid=False)
 
                     # self.logger.info(anch.shape)
                     # self.logger.info(neg[:, neg_iter, :, :, :].squeeze(dim=1).shape)
@@ -1721,7 +1721,7 @@ class ModelMethods:
                     true_label_auc.extend(zero_labels.data.cpu().numpy())
 
                     class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
-                    metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze(axis=1))
+                    metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze(axis=1), sigmoid=False)
 
                     if loss_fn is not None and (args.loss != 'linkpred'):
                         if args.loss == 'trpl_local':
@@ -3235,7 +3235,7 @@ class ModelMethods:
             # if args.verbose:
             #     self.logger.info(f'norm pos: {pos_dist}')
             class_loss = bce_loss(pos_pred.squeeze(), one_labels.squeeze())
-            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze())  # zero dist means similar
+            metric_ACC.update_acc(pos_pred.squeeze(), one_labels.squeeze(), sigmoid=False)  # zero dist means similar
 
             forward_start = time.time()
             neg_pred, neg_dist, _, neg_feat = net.forward(anch, neg, feats=True)
@@ -3254,7 +3254,7 @@ class ModelMethods:
             # if args.verbose:
             #     self.logger.info(f'norm neg {neg_iter}: {neg_dist}')
 
-            metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze())  # 1 dist means different
+            metric_ACC.update_acc(neg_pred.squeeze(), zero_labels.squeeze(), sigmoid=False)  # 1 dist means different
 
             class_loss += bce_loss(neg_pred.squeeze(), zero_labels.squeeze())
 
