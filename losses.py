@@ -66,6 +66,7 @@ class LinkPredictionLoss(nn.Module):
         self.bce = torch.nn.BCELoss()
         self.metric = loss_metric
         self.mode = args.loss_mode
+        self.bh_K = args.bh_K
 
     def forward(self, batch, labels):
         if self.mode == 'emb':
@@ -74,6 +75,15 @@ class LinkPredictionLoss(nn.Module):
             return self.forward_multi_bce(batch, labels)
         else: # 'bce'
             return self.forward_bce(batch, labels)
+
+    def __get_positive_labels(self, bs):
+        l = torch.zeros((bs, bs), dtype=torch.float32)
+        for i in range(bs):
+            x_idx = i // self.bh_K * self.bh_K
+            y_idx = x_idx + i % self.bh_K
+            l[y_idx, x_idx] = 1
+
+        return l
 
     def forward_multi_bce(self, batch, labels):
         gpu = labels.device.type == 'cuda'
@@ -98,7 +108,7 @@ class LinkPredictionLoss(nn.Module):
         true_labels = (labels.repeat(bs).view(-1, bs) == labels.repeat_interleave(bs).view(-1, bs))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
         negative_labels = 1 - true_labels
-        positive_labels = torch.eye(bs, dtype=torch.float32)
+        positive_labels = self.__get_positive_labels(bs=bs)
 
         if gpu:
             positive_labels = positive_labels.cuda()
