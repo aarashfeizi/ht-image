@@ -93,7 +93,7 @@ class LinkPredictionLoss(nn.Module):
             # cosine_sim = cosine_sim.fill_diagonal_(min_value)
             distances = -cosine_sim
 
-        bs = batch.shape[1]
+        bs = batch.shape[0]
 
         true_labels = (labels.repeat(bs).view(-1, bs) == labels.repeat_interleave(bs).view(-1, bs))  # boolean tensor
         true_labels = true_labels.type(torch.float32)
