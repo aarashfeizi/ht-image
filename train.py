@@ -472,6 +472,8 @@ def main():
         logger.info(f'Let\'s use {torch.cuda.device_count()} GPUs!')
         utils.print_gpu_stuff(args.cuda, 'before model to gpu')
         net = net.cuda()
+        if args.loss == 'pnpp':
+            loss_fn = loss_fn.cuda()
         utils.print_gpu_stuff(args.cuda, 'after model to gpu')
 
     logger.info('Training Top')
