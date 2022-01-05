@@ -290,7 +290,7 @@ def get_args():
     parser.add_argument('-temperature', '--temperature', default=1.0, type=float)
     parser.add_argument('-loss_metric', '--loss_metric', default='euclidean', choices=['cosine', 'euclidean'])
     parser.add_argument('-soft', '--softmargin', default=False, action='store_true')
-    parser.add_argument('-loss_mode', '--loss_mode', default='emb', choices=['emb', 'bce', 'mbl']) # crappy temp argument
+    parser.add_argument('-loss_mode', '--loss_mode', default='bce', choices=['emb', 'bce', 'mbl']) # crappy temp argument
     parser.add_argument('-mm', '--merge_method', default='sim', choices=MERGE_METHODS)
     parser.add_argument('-metric', '--metric', default='cosine', choices=['cosine', 'euclidean'])
     parser.add_argument('-bco', '--bcecoefficient', default=1.0, type=float, help="BCE loss weight")
