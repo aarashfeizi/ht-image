@@ -1111,6 +1111,12 @@ class ModelMethods:
                                       'weight_decay': args.weight_decay,
                                       'new': True}]
 
+            if args.loss == 'pnpp':
+                learnable_params += [{'params': loss_fn.parameters(),
+                                      'lr': 2e4,
+                                      'new': True}]
+
+
         # net.ft_net.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         opt = torch.optim.Adam(learnable_params, lr=args.lr_new, weight_decay=args.weight_decay)
 
@@ -1224,7 +1230,7 @@ class ModelMethods:
                                                                                 metric_ACC,
                                                                                 loss_fn, train_loader, epoch,
                                                                                 grad_save_path, drew_graph)
-                elif args.loss == 'linkpred':
+                elif args.loss == 'linkpred' or args.loss == 'pnpp':
                     t, (train_loss, train_other_loss), (
                         _, _) = self.train_metriclearning_one_epoch_link_prediction(args, t, net, opt, bce_loss,
                                                                                 metric_ACC,
@@ -3941,6 +3947,7 @@ class ModelMethods:
             # if loss_fn is not None:
             t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',
                           linkpred=f'{train_linkpred_loss / batch_id:.4f}',
+                          thisis=f'{args.loss}'
                           )
             # else:
             #     t.set_postfix(loss=f'{train_loss / (batch_id) :.4f}',

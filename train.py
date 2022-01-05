@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 import model_helper_functions
 from losses import TripletLoss, MaxMarginLoss, BatchHard, StopGradientLoss, ContrastiveLoss, BatchAllGeneralization, \
-    LocalTripletLoss, LinkPredictionLoss, ProxyNCA_classic
+    LocalTripletLoss, LinkPredictionLoss, ProxyNCA_prob
 from models.top_model import *
 from my_datasets import *
 
@@ -408,7 +408,7 @@ def main():
         loss_fn = None
     elif args.loss == 'pnpp':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
-        loss_fn = ProxyNCA_classic(args, k=args.link_prediction_k)
+        loss_fn = ProxyNCA_prob(args, nb_classes=2468)
     elif args.loss == 'linkpred':
         loss_fn_bce = torch.nn.BCEWithLogitsLoss(reduction='mean')
         loss_fn = LinkPredictionLoss(args,

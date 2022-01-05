@@ -20,9 +20,10 @@ def binarize_and_smooth_labels(T, nb_classes, smoothing_const=0):
     return T
 
 
-class ProxyNCA_classic(torch.nn.Module):
-    def __init__(self, nb_classes, sz_embed, scale, **kwargs):
+class ProxyNCA_prob(torch.nn.Module):
+    def __init__(self, args, nb_classes, scale=3, **kwargs):
         torch.nn.Module.__init__(self)
+        sz_embed = args.dim_reduction
         self.proxies = torch.nn.Parameter(torch.randn(nb_classes, sz_embed) / 8)
         self.scale = scale
 
@@ -45,9 +46,7 @@ class ProxyNCA_classic(torch.nn.Module):
         T = binarize_and_smooth_labels(
             T=T, nb_classes=len(P), smoothing_const=0
         )
-        loss1 = torch.sum(T * torch.exp(-D), -1)
-        loss2 = torch.sum((1 - T) * torch.exp(-D), -1)
-        loss = -torch.log(loss1 / loss2)
+        loss = torch.sum(- T * F.log_softmax(-D, -1), -1)
         loss = loss.mean()
         return loss
 
