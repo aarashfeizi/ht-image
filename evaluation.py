@@ -255,7 +255,11 @@ def proxyncapp_load_model_resnet50(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
+
     net = pnpp.get_model(args.sz_embedding)
+
+    if args.trained_with_mltp_gpu:
+        net = torch.nn.DataParallel(net)
 
     net.load_state_dict(checkpoint)
 
@@ -318,6 +322,8 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-cuda', '--cuda', default=False, action='store_true')
+    parser.add_argument('-trained_with_mltp_gpu', '--trained_with_mltp_gpu', default=False, action='store_true')
+
     parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
 
 
