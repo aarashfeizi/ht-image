@@ -82,8 +82,12 @@ def evaluate_roc(X, Y, n=0):
 
     pred_matrix = (cosine_similarity(X) + 1) / 2
 
+
+
     assert np.max(pred_matrix) <= (1 + 1e-5)
     assert np.min(pred_matrix) >= (0 - 1e-5)
+
+    pred_matrix = np.clip(pred_matrix, a_min=0, a_max=1)
 
     labels, counts = np.unique(Y, return_counts=True)
     labels = labels[counts > 1]
@@ -360,7 +364,7 @@ def main():
 
     parser.add_argument('-emb', '--sz_embedding', default=512, type=int)
     parser.add_argument('-b', '--sz_batch', default=32, type=int)
-    parser.add_argument('-w', '--nb_workers', default=4, type=int)
+    parser.add_argument('-w', '--nb_workers', default=10, type=int)
 
     parser.add_argument('-d', '--dataset', default=None, choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
@@ -432,9 +436,9 @@ def main():
             eval_ldrs.append(torch.utils.data.DataLoader(
                 dtset,
                 batch_size=args.sz_batch,
-                shuffle=True,
+                shuffle=False,
                 num_workers=args.nb_workers,
-                drop_last=True,
+                drop_last=False,
                 pin_memory=True
             ))
 
