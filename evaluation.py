@@ -422,7 +422,7 @@ def main():
                     is_train=False, std=DATASET_STDS.get(args.dataset),
                     mean=DATASET_MEANS.get(args.dataset)
                 ))]
-
+        net = None
         if args.baseline == 'proxy-anchor':
             net = proxyanchor_load_model_resnet50(args.checkpoint, args)
         elif args.baseline == 'supcontrastive':
@@ -438,6 +438,9 @@ def main():
             net = proxyncapp_load_model_resnet50(args.checkpoint, args)
         elif args.baseline == 'htv2':
             net = htv2_load_model_resnet50(args.checkpoint, args)
+
+        assert net is not None
+        net.eval()
         eval_ldrs = []
         for dtset in eval_datasets:
             eval_ldrs.append(torch.utils.data.DataLoader(
@@ -450,8 +453,9 @@ def main():
             ))
 
         for ldr in eval_ldrs:
-            features, labels = get_features_and_labels(args, net, ldr)
-            all_data.append((features, labels))
+            with torch.no_grad():
+                features, labels = get_features_and_labels(args, net, ldr)
+                all_data.append((features, labels))
     else:  # X and Y should be provided
         for idx, (x, y) in enumerate(zip(args.X, args.Y)):
             if x.endswith('.pkl'):
