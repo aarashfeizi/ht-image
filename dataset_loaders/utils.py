@@ -80,14 +80,19 @@ def make_transform(is_train = False, std=None, mean=None):
     else:
         resnet_std = std
 
-    resnet_transform = transforms.Compose([
-        transforms.RandomResizedCrop(resnet_sz_crop) if is_train else Identity(),
-        transforms.RandomHorizontalFlip() if is_train else Identity(),
-        transforms.Resize(resnet_sz_resize) if not is_train else Identity(),
-        transforms.CenterCrop(resnet_sz_crop) if not is_train else Identity(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=resnet_mean, std=resnet_std)
-    ])
+    transform_list = []
+
+    if is_train:
+        transform_list.append(transforms.RandomResizedCrop(resnet_sz_crop))
+        transform_list.append(transforms.RandomHorizontalFlip())
+    else:
+        transform_list.append(transforms.Resize(resnet_sz_resize))
+        transform_list.append(transforms.CenterCrop(resnet_sz_crop))
+
+    transform_list.append(transforms.ToTensor())
+    transform_list.append(transforms.Normalize(mean=resnet_mean, std=resnet_std))
+
+    resnet_transform = transforms.Compose(transform_list)
 
     # inception_sz_resize = 256
     # inception_sz_crop = 224
