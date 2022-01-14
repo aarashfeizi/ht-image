@@ -275,7 +275,7 @@ def htv2_load_model_resnet50(save_path, args):
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
-    net = htv2.get_top_module(args.sz_embedding)
+    net = htv2.get_top_module(args)
 
     if args.trained_with_mltp_gpu:
         net = torch.nn.DataParallel(net)
