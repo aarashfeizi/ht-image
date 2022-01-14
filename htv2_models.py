@@ -68,6 +68,10 @@ class ResNet(tResNet):
                                   self.layer3,
                                   self.layer4)
 
+        for module in filter(lambda m: type(m) == nn.BatchNorm2d, self.modules()):
+            module.eval()
+            module.train = lambda _: None
+
     def activations_hook(self, grad):
         self.gradients = grad.clone()
 
