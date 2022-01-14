@@ -86,7 +86,7 @@ def make_transform(is_train = False, std=None, mean=None):
         transform_list.append(transforms.RandomResizedCrop(resnet_sz_crop))
         transform_list.append(transforms.RandomHorizontalFlip())
     else:
-        transform_list.append(transforms.Resize(resnet_sz_resize))
+        transform_list.append(transforms.Resize((resnet_sz_resize, resnet_sz_resize)))
         transform_list.append(transforms.CenterCrop(resnet_sz_crop))
 
     transform_list.append(transforms.ToTensor())
