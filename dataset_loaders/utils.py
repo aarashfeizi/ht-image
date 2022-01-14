@@ -64,14 +64,22 @@ class ScaleIntensities():
         return tensor
 
 
-def make_transform(is_train = False):
+def make_transform(is_train = False, std=None, mean=None):
     # Resolution Resize List : 256, 292, 361, 512
     # Resolution Crop List: 224, 256, 324, 448
     
     resnet_sz_resize = 256
-    resnet_sz_crop = 224 
-    resnet_mean = [0.485, 0.456, 0.406]
-    resnet_std = [0.229, 0.224, 0.225]
+    resnet_sz_crop = 224
+    if mean is None:
+        resnet_mean = [0.485, 0.456, 0.406]
+    else:
+        resnet_mean = mean
+
+    if std is None:
+        resnet_std = [0.229, 0.224, 0.225]
+    else:
+        resnet_std = std
+
     resnet_transform = transforms.Compose([
         transforms.RandomResizedCrop(resnet_sz_crop) if is_train else Identity(),
         transforms.RandomHorizontalFlip() if is_train else Identity(),

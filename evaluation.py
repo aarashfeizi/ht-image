@@ -15,11 +15,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 
 import dataset_loaders
+import htv2_models as htv2
+import pnpp_models as pnpp
 import proxy_anchor_models as pa
 import softtriple_models as st
 import sup_contrastive_models as sc
-import pnpp_models as pnpp
-import htv2_models as htv2
 
 # on hlr:
 # python evaluation.py -chk ../SupContrast/save/SupCon/hotels_models/SupCon_hotels_resnet50_lr_0.01_decay_0.0001_bsz_32_temp_0.1_trial_0_cosine/last.pth -name SupCon_hotels_resnet50_lr_0.01_decay_0.0001_bsz_32_temp_0.1_trial_0_cosine/ --kset 1 2 4 8 10 100 1000 --model_type resnet50 -d hotels -dr ../../datasets/ --baseline supcontrastive --gpu_ids 6
@@ -34,9 +34,15 @@ DATASET_SIZES = {'cars': {'test': 8131},
                             'val3_small': 2207,
                             'val4_small': 2348}}
 
+DATASET_MEANS = {'hotels': [0.5805, 0.5247, 0.4683],
+                 'cub': None}
+
+DATASET_STDS = {'hotels': [0.2508, 0.2580, 0.2701],
+                'cub': None}
+
+
 # softtriplet loss code
 def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matrix=None, ):
-
     if X.dtype != np.float32:
         print(f'X type as not np.float32! was {X.dtype}')
         X = X.astype(np.float32)
@@ -75,14 +81,12 @@ def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matri
         recallK[i] = pos / num
     return recallK
 
-def evaluate_roc(X, Y, n=0):
 
+def evaluate_roc(X, Y, n=0):
     if n == 0:
         n = X.shape[0]
 
     pred_matrix = (cosine_similarity(X) + 1) / 2
-
-
 
     assert np.max(pred_matrix) <= (1 + 1e-5)
     assert np.min(pred_matrix) >= (0 - 1e-5)
@@ -120,6 +124,7 @@ def evaluate_roc(X, Y, n=0):
     roc_auc = roc_auc_score(true_labels, pred_values)
 
     return roc_auc
+
 
 def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
     assert reps.dtype == np.float32
@@ -176,6 +181,7 @@ def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" 
 
     return D, I, self_D
 
+
 def get_features_and_labels(args, model, loader):
     features = []
     labels = []
@@ -198,6 +204,7 @@ def get_features_and_labels(args, model, loader):
 
     return np.concatenate(features, axis=0), np.concatenate(labels, axis=0)
 
+
 def proxyanchor_load_model_resnet50(save_path, args):
     if args.cuda:
         checkpoint = torch.load(save_path, map_location=torch.device(0))
@@ -205,10 +212,9 @@ def proxyanchor_load_model_resnet50(save_path, args):
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
 
     net = pa.Resnet50(embedding_size=args.sz_embedding,
-                                      pretrained=True,
-                                      is_norm=1,
-                                      bn_freeze=1)
-
+                      pretrained=True,
+                      is_norm=1,
+                      bn_freeze=1)
 
     net.load_state_dict(checkpoint['model_state_dict'])
 
@@ -216,6 +222,7 @@ def proxyanchor_load_model_resnet50(save_path, args):
         net = net.cuda()
 
     return net
+
 
 def supcontrastive_load_model_resnet50(save_path, args):
     if args.cuda:
@@ -239,6 +246,7 @@ def supcontrastive_load_model_resnet50(save_path, args):
 
     return net
 
+
 def softtriple_load_model_resnet50(save_path, args):
     if args.cuda:
         checkpoint = torch.load(save_path, map_location=torch.device(0))
@@ -254,12 +262,12 @@ def softtriple_load_model_resnet50(save_path, args):
 
     return net
 
+
 def proxyncapp_load_model_resnet50(save_path, args):
     if args.cuda:
         checkpoint = torch.load(save_path, map_location=torch.device(0))
     else:
         checkpoint = torch.load(save_path, map_location=torch.device('cpu'))
-
 
     net = pnpp.get_model(args.sz_embedding)
 
@@ -272,6 +280,7 @@ def proxyncapp_load_model_resnet50(save_path, args):
         net = net.cuda()
 
     return net
+
 
 def htv2_load_model_resnet50(save_path, args):
     if args.cuda:
@@ -290,6 +299,7 @@ def htv2_load_model_resnet50(save_path, args):
         net = net.cuda()
 
     return net
+
 
 def softtriple_load_model_inception(save_path, args):
     if args.cuda:
@@ -334,11 +344,11 @@ def check(args, all_data):
     val_keys = DATASET_SIZES[args.dataset].keys()
     for provided_data, val_type in zip(all_data, val_keys):
         if provided_data[0].shape[0] != DATASET_SIZES[args.dataset][val_type]:
-            print(f'Val type {val_type} should be {DATASET_SIZES[args.dataset][val_type]} images, but is {provided_data[0].shape[0]}')
+            print(
+                f'Val type {val_type} should be {DATASET_SIZES[args.dataset][val_type]} images, but is {provided_data[0].shape[0]}')
             return False
     print(f'All sizes for {val_keys} were checked and are correct')
     return True
-
 
 
 def main():
@@ -348,7 +358,6 @@ def main():
     parser.add_argument('-trained_with_mltp_gpu', '--trained_with_mltp_gpu', default=False, action='store_true')
 
     parser.add_argument('-gpu', '--gpu_ids', default='', help="gpu ids used to train")  # before: default="0,1,2,3"
-
 
     parser.add_argument('-X', '--X', nargs='+', default=[],
                         help="Different features for datasets (order important)")
@@ -360,8 +369,6 @@ def main():
     # parser.add_argument('-Y_desc', '--Y_desc', nargs='+', default=[],
     #                     help="Different labels desc for datasets (order important)")  # for h5 or npz files
 
-
-
     parser.add_argument('-emb', '--sz_embedding', default=512, type=int)
     parser.add_argument('-b', '--sz_batch', default=32, type=int)
     parser.add_argument('-w', '--nb_workers', default=10, type=int)
@@ -372,7 +379,6 @@ def main():
     parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
 
     parser.add_argument('--pca_to_dim', action='store_true')
-
 
     parser.add_argument('-chk', '--checkpoint', default=None, help='Path to checkpoint')
     parser.add_argument('--kset', nargs='+', default=[1, 2, 4, 8, 16, 32, 100])
@@ -402,19 +408,20 @@ def main():
         if args.dataset == 'hotels':
             for i in range(1, 5):
                 eval_datasets.append(dataset_loaders.load(
-                name=args.dataset,
-                root=args.data_root,
-                transform=dataset_loaders.utils.make_transform(
-                    is_train=False,
-                    ),
-                valset=i))
+                    name=args.dataset,
+                    root=args.data_root,
+                    transform=dataset_loaders.utils.make_transform(
+                        is_train=False, std=DATASET_STDS.get(args.dataset),
+                        mean=DATASET_MEANS.get(args.dataset)),
+                    valset=i))
         else:
             eval_datasets = [dataset_loaders.load(
                 name=args.dataset,
                 root=args.data_root,
                 transform=dataset_loaders.utils.make_transform(
-                    is_train=False,
-                    ))]
+                    is_train=False, std=DATASET_STDS.get(args.dataset),
+                    mean=DATASET_MEANS.get(args.dataset)
+                ))]
 
         if args.baseline == 'proxy-anchor':
             net = proxyanchor_load_model_resnet50(args.checkpoint, args)
@@ -442,11 +449,10 @@ def main():
                 pin_memory=True
             ))
 
-
         for ldr in eval_ldrs:
             features, labels = get_features_and_labels(args, net, ldr)
             all_data.append((features, labels))
-    else: # X and Y should be provided
+    else:  # X and Y should be provided
         for idx, (x, y) in enumerate(zip(args.X, args.Y)):
             if x.endswith('.pkl'):
                 with open(x, 'rb') as f:
@@ -462,7 +468,7 @@ def main():
             if y.endswith('.pkl'):
                 with open(y, 'rb') as f:
                     labels = pickle.load(f)
-            elif y.endswith('.npz'): # tood
+            elif y.endswith('.npz'):  # tood
                 labels = np.load(y)
             elif y.endswith('.h5'):
                 with h5py.File(y, 'r') as hf:
@@ -506,6 +512,7 @@ def main():
 
     with open(os.path.join(args.eval_log_path, args.name + ".txt"), 'w') as f:
         f.write(results)
+
 
 if __name__ == '__main__':
     main()
