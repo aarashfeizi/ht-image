@@ -66,7 +66,7 @@ def evaluate_recall_at_k(X, Y, Kset, gpu=False, k=5, metric='cosine', dist_matri
     else:
         if not X.flags['C_CONTIGUOUS']:
             X = np.ascontiguousarray(X)
-        distances, indices, self_distance = get_faiss_knn(X, k=int(kmax), gpu=gpu, metric=metric)
+        distances, indices, self_distance = get_faiss_knn(X, k=1500, gpu=gpu, metric=metric)
 
     print(f'**** Evaluation, calculating dist rank DONE. Took {time.time() - start}s')
 
@@ -126,7 +126,7 @@ def evaluate_roc(X, Y, n=0):
     return roc_auc
 
 
-def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
+def get_faiss_knn(reps, k=1500, gpu=False, metric='cosine'):  # method "cosine" or "euclidean"
     assert reps.dtype == np.float32
 
     print(f'get_faiss_knn metric is: {metric}')
@@ -158,26 +158,36 @@ def get_faiss_knn(reps, k=1000, gpu=False, metric='cosine'):  # method "cosine" 
         index_flat.add(reps)  # add vectors to the index
 
     assert (index_flat.ntotal == reps.shape[0])
+    valid = False
+    D, I, self_D = None, None, None
+    while not valid:
+        print(f'get_faiss_knn metric is: {metric} for top {k}')
 
-    D, I = index_flat.search(reps, k)
+        D, I = index_flat.search(reps, k)
 
-    D_notself = []
-    I_notself = []
+        D_notself = []
+        I_notself = []
 
-    self_distance = []
+        self_distance = []
+        max_dist = np.array(D.max(), dtype=np.float32)
+        for i, (i_row, d_row) in enumerate(zip(I, D)):
+            if len(np.where(i_row == i)[0]) > 0:  # own index in returned indices
+                self_distance.append(d_row[np.where(i_row == i)])
+                I_notself.append(np.delete(i_row, np.where(i_row == i)))
+                D_notself.append(np.delete(d_row, np.where(i_row == i)))
+            else:
+                self_distance.append(max_dist)
+                I_notself.append(np.delete(i_row, len(i_row) - 1))
+                D_notself.append(np.delete(d_row, len(i_row) - 1))
 
-    start = time.time()
-    for i, (i_row, d_row) in enumerate(zip(I, D)):
-        self_distance.append(d_row[np.where(i_row == i)])
-        I_notself.append(np.delete(i_row, np.where(i_row == i)))
-        D_notself.append(np.delete(d_row, np.where(i_row == i)))
-    end = time.time()
-
-    self_D = np.array(self_distance)
-    D = np.array(D_notself)
-    I = np.array(I_notself)
-
-    print(f'D and I cleaning time: {end - start}')
+        self_D = np.array(self_distance, dtype=np.float32)
+        D = np.array(D_notself, dtype=np.int32)
+        I = np.array(I_notself, dtype=np.int32)
+        if len(self_D) == D.shape[0]:
+            valid = True
+        else:  # self was not found for all examples
+            print(f'self was not found for all examples, going from k={k} to k={k * 2}')
+            k *= 2
 
     return D, I, self_D
 
@@ -375,6 +385,7 @@ def main():
 
     parser.add_argument('-d', '--dataset', default=None, choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
+    parser.add_argument('-num_of_dataset', '--num_of_dataset', type=int, default=4, help="number of hotels val_datasets to go through")
     parser.add_argument('--baseline', default='proxy-anchor', choices=BASELINE_MODELS)
     parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
 
@@ -406,7 +417,7 @@ def main():
 
         eval_datasets = []
         if args.dataset == 'hotels':
-            for i in range(1, 5):
+            for i in range(1, args.num_of_dataset + 1):
                 eval_datasets.append(dataset_loaders.load(
                     name=args.dataset,
                     root=args.data_root,
