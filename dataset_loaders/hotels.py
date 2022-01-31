@@ -4,10 +4,15 @@ from .base import *
 from tqdm import tqdm
 
 class Hotels(BaseDataset):
-    def __init__(self, root, mode, transform=None, valset=1):
+    def __init__(self, root, mode, transform=None, valset=1, small=False):
         self.mode = mode
         self.root = root + '/hotels50k/'
-        self.config_file = pd.read_csv(root + f'/hotels50k/v5_splits/val{valset}_small.csv')
+        if small:
+            val_str = root + f'/hotels50k/v5_splits/val{valset}_small.csv'
+        else:
+            val_str = root + f'/hotels50k/v5_splits/val{valset}.csv'
+        self.small = small
+        self.config_file = pd.read_csv(val_str)
         self.transform = transform
         print('getting classes')
         self.classes = np.unique(self.config_file.label)

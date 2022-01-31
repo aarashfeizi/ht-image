@@ -1,21 +1,22 @@
+from . import utils
+from .SOP import SOP
+from .base import BaseDataset
 from .cars import Cars
 from .cub import CUBirds
-from .SOP import SOP
 from .hotels import Hotels
-from .import utils
-from .base import BaseDataset
-
 
 _type = {
     'cars': Cars,
     'cub': CUBirds,
     'SOP': SOP,
-    'hotels': Hotels
+    'hotels': Hotels,
+    'hotels_small': Hotels,
+
 }
 
-def load(name, root, transform = None, valset=1):
-    if name != 'hotels':
-        return _type[name](root = root, mode = 'eval', transform = transform)
-    else:
-        return _type[name](root = root, mode = 'eval', transform = transform, valset = valset)
 
+def load(name, root, transform=None, valset=1, small=False):
+    if 'hotels' not in name:
+        return _type[name](root=root, mode='eval', transform=transform)
+    else:
+        return _type[name](root=root, mode='eval', transform=transform, valset=valset, small=small)

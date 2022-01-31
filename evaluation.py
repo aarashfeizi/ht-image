@@ -24,20 +24,27 @@ import sup_contrastive_models as sc
 # on hlr:
 # python evaluation.py -chk ../SupContrast/save/SupCon/hotels_models/SupCon_hotels_resnet50_lr_0.01_decay_0.0001_bsz_32_temp_0.1_trial_0_cosine/last.pth -name SupCon_hotels_resnet50_lr_0.01_decay_0.0001_bsz_32_temp_0.1_trial_0_cosine/ --kset 1 2 4 8 10 100 1000 --model_type resnet50 -d hotels -dr ../../datasets/ --baseline supcontrastive --gpu_ids 6
 
-dataset_choices = ['cars', 'cub', 'hotels']
+dataset_choices = ['cars', 'cub', 'hotels', 'hotels_small']
 BASELINE_MODELS = ['ours', 'softtriple', 'proxy-anchor', 'supcontrastive', 'proxyncapp', 'htv2', 'resnet50']
 
 DATASET_SIZES = {'cars': {'test': 8131},
                  'cub': {'test': 5924},
-                 'hotels': {'val1_small': 3060,
-                            'val2_small': 2397,
-                            'val3_small': 2207,
-                            'val4_small': 2348}}
+                 'hotels_small': {'val1_small': 3060,
+                                  'val2_small': 2397,
+                                  'val3_small': 2207,
+                                  'val4_small': 2348},
+                 'hotels': {'val1': 22121,
+                            'val2': 16095,
+                            'val3': 15970,
+                            'val4': 17981}
+                 }
 
 DATASET_MEANS = {'hotels': [0.5805, 0.5247, 0.4683],
+                 'hotels_small': [0.5805, 0.5247, 0.4683],
                  'cub': None}
 
 DATASET_STDS = {'hotels': [0.2508, 0.2580, 0.2701],
+                'hotels_small': [0.2508, 0.2580, 0.2701],
                 'cub': None}
 
 
@@ -385,7 +392,8 @@ def main():
 
     parser.add_argument('-d', '--dataset', default=None, choices=dataset_choices)
     parser.add_argument('-dr', '--data_root', default='../hotels')
-    parser.add_argument('-num_of_dataset', '--num_of_dataset', type=int, default=4, help="number of hotels val_datasets to go through")
+    parser.add_argument('-num_of_dataset', '--num_of_dataset', type=int, default=4,
+                        help="number of hotels val_datasets to go through")
     parser.add_argument('--baseline', default='proxy-anchor', choices=BASELINE_MODELS)
     parser.add_argument('--model_type', default='resnet50', choices=['bninception', 'resnet50'])
 
@@ -416,7 +424,7 @@ def main():
             os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
 
         eval_datasets = []
-        if args.dataset == 'hotels':
+        if 'hotels' in args.dataset:
             for i in range(1, args.num_of_dataset + 1):
                 eval_datasets.append(dataset_loaders.load(
                     name=args.dataset,
@@ -424,7 +432,8 @@ def main():
                     transform=dataset_loaders.utils.make_transform(
                         is_train=False, std=DATASET_STDS.get(args.dataset),
                         mean=DATASET_MEANS.get(args.dataset)),
-                    valset=i))
+                    valset=i,
+                    small=('small' in args.dataset)))
         else:
             eval_datasets = [dataset_loaders.load(
                 name=args.dataset,
